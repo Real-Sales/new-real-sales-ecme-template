@@ -75,7 +75,7 @@ const CompanyCard = ({
             onClick={onClick}
         >
             {/* Header image */}
-            <div className="relative h-24 rounded-2xl bg-slate-100 dark:bg-gray-900 overflow-hidden">
+            <div className="relative h-23 rounded-2xl bg-slate-100 dark:bg-gray-900 overflow-hidden">
                 <div className="absolute inset-0 bg-gradient-to-br from-slate-100 via-blue-50 to-slate-200 dark:from-gray-800 dark:via-gray-900 dark:to-gray-800" />
                 <svg
                     className="absolute bottom-0 left-0 w-full h-16"
@@ -125,7 +125,7 @@ const CompanyCard = ({
                     />
                 </div>
             </div>
-            <div className="absolute top-17 left-1/2 -translate-x-1/2 z-10 h-17 w-17 rounded-full border-2 border-gray-200/60 dark:border-primary bg-gray-800 text-primary flex items-center justify-center shadow-sm">
+            <div className="absolute top-16 left-1/2 -translate-x-1/2 z-10 h-17 w-17 rounded-full border-2 border-gray-200/60 dark:border-primary bg-gray-800 text-primary flex items-center justify-center shadow-sm">
                 <HiOfficeBuilding className="text-4xl" />
             </div>
 
