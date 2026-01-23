@@ -175,14 +175,14 @@ const CompanyCard = ({
                             size="sm"
                             variant="default"
                             icon={<HiPencil />}
-                            className="hover:text-primary rounded-full"
+                            className="hover:text-primary"
                             onClick={(e) => e.stopPropagation()}
                         />
                         <Button
                             size="sm"
                             variant="default"
                             icon={<HiTrash className="text-red-500" />}
-                            className="hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full"
+                            className="hover:bg-red-50 dark:hover:bg-red-900/20"
                             onClick={(e) => e.stopPropagation()}
                         />
                     </div>
