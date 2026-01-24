@@ -45,6 +45,12 @@ const salesRoute: Routes = [
         authority: [],
     },
     {
+        key: 'salesManager.scenarioLibrary',
+        path: '/scenario-library',
+        component: lazy(() => import('@/views/sales/ScenarioList')),
+        authority: [],
+    },
+    {
         key: 'companyGroup.company',
         path: '/company',
         component: lazy(() => import('@/views/sales/company/CompanyList')),

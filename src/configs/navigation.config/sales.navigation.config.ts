@@ -75,6 +75,16 @@ const salesNavigationConfig: NavigationTree[] = [
                 authority: [],
                 subMenu: [],
             },
+            {
+                key: 'salesManager.scenarioLibrary',
+                path: '/scenario-library',
+                title: 'Scenario Library',
+                translateKey: '',
+                icon: 'scenarioLibrary',
+                type: NAV_ITEM_TYPE_ITEM,
+                authority: [],
+                subMenu: [],
+            },
         ],
     },
     {
