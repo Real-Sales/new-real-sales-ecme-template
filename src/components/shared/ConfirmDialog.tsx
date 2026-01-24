@@ -62,11 +62,11 @@ const StatusIcon = ({ status }: { status: StatusType }) => {
         case 'danger':
             return (
                 <Avatar
-                    className="text-red-600 bg-red-100 dark:text-red-100"
+                    className="text-red-600 bg-red-100 dark:bg-red-500/20 dark:text-red-500"
                     shape="circle"
                 >
                     <span className="text-2xl">
-                        <HiOutlineExclamation />
+                        <HiOutlineExclamationCircle />
                     </span>
                 </Avatar>
             )
