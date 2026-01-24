@@ -1,124 +1,20 @@
-import {
-    NAV_ITEM_TYPE_TITLE,
-    NAV_ITEM_TYPE_ITEM,
-    NAV_ITEM_TYPE_COLLAPSE,
-} from '@/constants/navigation.constant'
-
+import dashboardsNavigationConfig from './dashboards.navigation.config'
+import uiComponentNavigationConfig from './ui-components.navigation.config'
+import conceptsNavigationConfig from './concepts.navigation.config'
+import authNavigationConfig from './auth.navigation.config'
+import othersNavigationConfig from './others.navigation.config'
+import guideNavigationConfig from './guide.navigation.config'
+import salesNavigationConfig from './sales.navigation.config'
 import type { NavigationTree } from '@/@types/navigation'
 
 const navigationConfig: NavigationTree[] = [
-    {
-        key: 'salesManager',
-        path: '',
-        title: 'Sales Manager',
-        translateKey: '',
-        icon: '',
-        type: NAV_ITEM_TYPE_TITLE,
-        authority: [],
-        subMenu: [
-            {
-                key: 'salesManager.overview',
-                path: '/overview',
-                title: 'Overview',
-                translateKey: '',
-                icon: 'overview',
-                type: NAV_ITEM_TYPE_ITEM,
-                authority: [],
-                subMenu: [],
-            },
-            {
-                key: 'salesManager.subscription',
-                path: '/subscription',
-                title: 'Subscription',
-                translateKey: '',
-                icon: 'subscription',
-                type: NAV_ITEM_TYPE_ITEM,
-                authority: [],
-                subMenu: [],
-            },
-            {
-                key: 'salesManager.sessions',
-                path: '/sessions',
-                title: 'Sessions',
-                translateKey: '',
-                icon: 'sessions',
-                type: NAV_ITEM_TYPE_ITEM,
-                authority: [],
-                subMenu: [],
-            },
-            {
-                key: 'salesManager.performance',
-                path: '/performance',
-                title: 'Performance',
-                translateKey: '',
-                icon: 'performance',
-                type: NAV_ITEM_TYPE_ITEM,
-                authority: [],
-                subMenu: [],
-            },
-            {
-                key: 'salesManager.modes',
-                path: '/modes-used',
-                title: 'Modes Used',
-                translateKey: '',
-                icon: 'modes',
-                type: NAV_ITEM_TYPE_ITEM,
-                authority: [],
-                subMenu: [],
-            },
-            {
-                key: 'salesManager.personas',
-                path: '/personas-used',
-                title: 'Personas Used',
-                translateKey: '',
-                icon: 'personas',
-                type: NAV_ITEM_TYPE_ITEM,
-                authority: [],
-                subMenu: [],
-            },
-        ],
-    },
-    {
-        key: 'companyGroup',
-        path: '',
-        title: '',
-        translateKey: '',
-        icon: '',
-        type: NAV_ITEM_TYPE_TITLE,
-        authority: [],
-        subMenu: [
-            {
-                key: 'companyGroup.company',
-                path: '/company',
-                title: 'Company',
-                translateKey: '',
-                icon: 'company',
-                type: NAV_ITEM_TYPE_ITEM,
-                authority: [],
-                subMenu: [],
-            },
-            {
-                key: 'companyGroup.teams',
-                path: '/teams',
-                title: 'Teams',
-                translateKey: '',
-                icon: 'teams',
-                type: NAV_ITEM_TYPE_ITEM,
-                authority: [],
-                subMenu: [],
-            },
-            {
-                key: 'companyGroup.feedback',
-                path: '/feedback',
-                title: 'My Feedback',
-                translateKey: '',
-                icon: 'feedback',
-                type: NAV_ITEM_TYPE_ITEM,
-                authority: [],
-                subMenu: [],
-            },
-        ],
-    },
+    ...salesNavigationConfig,
+    ...dashboardsNavigationConfig,
+    ...conceptsNavigationConfig,
+    ...uiComponentNavigationConfig,
+    ...authNavigationConfig,
+    ...othersNavigationConfig,
+    ...guideNavigationConfig,
 ]
 
 export default navigationConfig

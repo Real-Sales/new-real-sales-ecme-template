@@ -19,7 +19,8 @@ type AllRoutesProps = ViewsProps
 const { authenticatedEntryPath } = appConfig
 
 const AllRoutes = (props: AllRoutesProps) => {
-    const { user } = useAuth()
+    const { user, authenticated } = useAuth()
+    const { unAuthenticatedEntryPath } = appConfig
 
     return (
         <Routes>
@@ -48,9 +49,13 @@ const AllRoutes = (props: AllRoutesProps) => {
                         }
                     />
                 ))}
-                <Route path="*" element={<Navigate replace to="/" />} />
+                <Route path="*" element={<Navigate replace to={authenticated ? authenticatedEntryPath : unAuthenticatedEntryPath} />} />
             </Route>
             <Route path="/" element={<PublicRoute />}>
+                <Route
+                    path="/"
+                    element={<Navigate replace to={unAuthenticatedEntryPath} />}
+                />
                 {publicRoutes.map((route) => (
                     <Route
                         key={route.path}

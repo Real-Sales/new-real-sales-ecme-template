@@ -4,7 +4,7 @@ import SignInForm from './components/SignInForm'
 import OauthSignIn from './components/OauthSignIn'
 import ActionLink from '@/components/shared/ActionLink'
 import useTimeOutMessage from '@/utils/hooks/useTimeOutMessage'
-import { useAppSelector } from '@/store'
+import { useThemeStore } from '@/store/themeStore'
 
 type SignInProps = {
     signUpUrl?: string
@@ -19,7 +19,7 @@ export const SignInBase = ({
 }: SignInProps) => {
     const [message, setMessage] = useTimeOutMessage()
 
-    const mode = useAppSelector((state) => state.theme.mode)
+    const mode = useThemeStore((state) => state.mode)
 
     return (
         <>

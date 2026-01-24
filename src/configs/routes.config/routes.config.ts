@@ -1,82 +1,21 @@
-import { lazy } from 'react'
+import dashboardsRoute from './dashboardsRoute'
+import conceptsRoute from './conceptsRoute'
+import uiComponentsRoute from './uiComponentsRoute'
 import authRoute from './authRoute'
-import othersRoute from './othersRoute'
+import authDemoRoute from './authDemoRoute'
+import guideRoute from './guideRoute'
+import othersRoute, { landingRoute } from './othersRoute'
+import salesRoute from './salesRoute'
 import type { Routes } from '@/@types/routes'
 
-export const publicRoutes: Routes = [...authRoute]
+export const publicRoutes: Routes = [...authRoute, ...landingRoute]
 
 export const protectedRoutes: Routes = [
-    {
-        key: 'home',
-        path: '/home',
-        component: lazy(() => import('@/views/Home')),
-        authority: [],
-    },
-    {
-        key: 'salesManager.overview',
-        path: '/overview',
-        component: lazy(() => import('@/views/sales/Overview')),
-        authority: [],
-    },
-    {
-        key: 'salesManager.subscription',
-        path: '/subscription',
-        component: lazy(() => import('@/views/sales/Subscription')),
-        authority: [],
-    },
-    {
-        key: 'salesManager.sessions',
-        path: '/sessions',
-        component: lazy(() => import('@/views/sales/Sessions')),
-        authority: [],
-    },
-    {
-        key: 'salesManager.performance',
-        path: '/performance',
-        component: lazy(() => import('@/views/sales/Performance')),
-        authority: [],
-    },
-    {
-        key: 'salesManager.modes',
-        path: '/modes-used',
-        component: lazy(() => import('@/views/sales/ModesUsed')),
-        authority: [],
-    },
-    {
-        key: 'salesManager.personas',
-        path: '/personas-used',
-        component: lazy(() => import('@/views/sales/PersonasUsed')),
-        authority: [],
-    },
-    {
-        key: 'companyGroup.company',
-        path: '/company',
-        component: lazy(() => import('@/views/sales/company/CompanyList')),
-        authority: [],
-    },
-    {
-        key: 'companyGroup.companyDetail',
-        path: '/company/:id',
-        component: lazy(() => import('@/views/sales/company/CompanyDetail')),
-        authority: [],
-    },
-    {
-        key: 'companyGroup.teams',
-        path: '/teams',
-        component: lazy(() => import('@/views/sales/teams/TeamList')),
-        authority: [],
-    },
-    {
-        key: 'companyGroup.teamDetail',
-        path: '/teams/:id',
-        component: lazy(() => import('@/views/sales/teams/TeamDetail')),
-        authority: [],
-    },
-    {
-        key: 'companyGroup.feedback',
-        path: '/feedback',
-        component: lazy(() => import('@/views/sales/MyFeedback')),
-        authority: [],
-    },
+    ...salesRoute,
+    ...dashboardsRoute,
+    ...conceptsRoute,
+    ...uiComponentsRoute,
+    ...authDemoRoute,
+    ...guideRoute,
     ...othersRoute,
 ]
