@@ -54,7 +54,7 @@ const About = () => {
                         >
                             <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6 text-gray-900 dark:text-white">
                                 Sales Training That{' '}
-                                <span className="bg-gradient-to-r from-primary to-[#ff6a55] bg-clip-text text-transparent">
+                                <span className="bg-gradient-to-r from-indigo-600 via-[#be598a] to-[#ff6a55] bg-clip-text text-transparent">
                                     Feels Like the Real Deal
                                 </span>
                             </h1>
@@ -65,7 +65,7 @@ const About = () => {
                                 <Button
                                     variant="solid"
                                     size="lg"
-                                    className="bg-primary hover:bg-primary-dark text-white"
+                                    className="bg-primary hover:bg-primary-deep text-white"
                                     onClick={handleStartSession}
                                 >
                                     Start a Session
@@ -86,13 +86,13 @@ const About = () => {
                             transition={{ duration: 0.6, delay: 0.2 }}
                             className="relative"
                         >
-                            <div className="bg-gradient-to-br from-primary/10 to-[#ff6a55]/10 rounded-3xl p-8 h-96 flex items-center justify-center">
+                            <div className="bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-700 rounded-3xl p-8 h-96 flex items-center justify-center">
                                 <div className="space-y-4 w-full">
                                     <div className="flex gap-2 justify-center">
                                         {[1, 2, 3, 4, 5].map((i) => (
                                             <motion.div
                                                 key={i}
-                                                className="w-2 h-16 bg-primary rounded-full"
+                                                className="w-2 h-16 bg-gradient-to-b from-gray-400 to-gray-600 dark:from-gray-500 dark:to-gray-700 rounded-full"
                                                 animate={{
                                                     height: [32, 64, 32],
                                                 }}
@@ -111,7 +111,7 @@ const About = () => {
                                                 initial={{ opacity: 0, y: 20 }}
                                                 animate={{ opacity: 1, y: 0 }}
                                                 transition={{ delay: 0.5 + idx * 0.1 }}
-                                                className="text-sm font-semibold text-primary bg-white dark:bg-gray-800 px-3 py-1 rounded-full shadow-sm"
+                                                className="text-sm font-semibold text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 px-3 py-1 rounded-full shadow-sm"
                                             >
                                                 {word}
                                             </motion.span>
@@ -217,7 +217,13 @@ const About = () => {
                                         transition={{ duration: 0.5, delay: idx * 0.1 }}
                                         className="flex gap-4"
                                     >
-                                        <div className="flex-shrink-0 w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center text-primary">
+                                        <div className={`flex-shrink-0 w-12 h-12 rounded-xl flex items-center justify-center ${
+                                            idx === 0 
+                                                ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400'
+                                                : idx === 1
+                                                ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400'
+                                                : 'bg-pink-100 dark:bg-pink-900/30 text-pink-600 dark:text-pink-400'
+                                        }`}>
                                             {point.icon}
                                         </div>
                                         <div>
@@ -251,7 +257,13 @@ const About = () => {
                                             className="bg-white dark:bg-gray-900 rounded-xl p-6 shadow-lg"
                                         >
                                             <div className="flex items-center gap-4">
-                                                <div className="w-12 h-12 bg-primary rounded-full flex items-center justify-center text-white font-bold">
+                                                <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold ${
+                                                    idx === 0 
+                                                        ? 'bg-gradient-to-br from-emerald-500 to-teal-600'
+                                                        : idx === 1
+                                                        ? 'bg-gradient-to-br from-blue-500 to-indigo-600'
+                                                        : 'bg-gradient-to-br from-violet-500 to-purple-600'
+                                                }`}>
                                                     {idx + 1}
                                                 </div>
                                                 <span className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -311,8 +323,21 @@ const About = () => {
                                     transition={{ duration: 0.5, delay: idx * 0.2 }}
                                     className="relative"
                                 >
-                                    <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 border border-gray-200 dark:border-gray-700">
-                                        <div className="text-6xl font-bold text-primary mb-4">
+                                    <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 border border-gray-200 dark:border-gray-700 relative overflow-hidden group">
+                                        <div className={`absolute top-0 left-0 w-full h-1 ${
+                                            idx === 0 
+                                                ? 'bg-gradient-to-r from-emerald-500 to-teal-500'
+                                                : idx === 1
+                                                ? 'bg-gradient-to-r from-blue-500 to-indigo-500'
+                                                : 'bg-gradient-to-r from-violet-500 to-purple-500'
+                                        }`}></div>
+                                        <div className={`text-6xl font-bold mb-4 bg-gradient-to-br bg-clip-text text-transparent ${
+                                            idx === 0 
+                                                ? 'from-emerald-600 to-teal-600 dark:from-emerald-400 dark:to-teal-400'
+                                                : idx === 1
+                                                ? 'from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400'
+                                                : 'from-violet-600 to-purple-600 dark:from-violet-400 dark:to-purple-400'
+                                        }`}>
                                             {item.step}
                                         </div>
                                         <h3 className="text-2xl font-bold mb-4 text-gray-900 dark:text-white">
@@ -376,16 +401,29 @@ const About = () => {
                                 viewport={{ once: true }}
                                 transition={{ duration: 0.5, delay: idx * 0.1 }}
                                 whileHover={{ y: -8, scale: 1.02 }}
-                                className="bg-white dark:bg-gray-800 rounded-2xl p-8 border border-gray-200 dark:border-gray-700 shadow-lg hover:shadow-xl transition-shadow group"
+                                className="bg-white dark:bg-gray-800 rounded-2xl p-8 border border-gray-200 dark:border-gray-700 shadow-lg hover:shadow-xl transition-shadow group relative overflow-hidden"
                             >
-                                <div className="text-primary mb-4">{persona.icon}</div>
-                                <h3 className="text-2xl font-bold mb-2 text-gray-900 dark:text-white">
+                                        <div className={`absolute top-0 right-0 w-32 h-32 rounded-full blur-3xl opacity-20 group-hover:opacity-30 transition-opacity ${
+                                            idx === 0 
+                                                ? 'bg-amber-400'
+                                                : idx === 1
+                                                ? 'bg-rose-400'
+                                                : 'bg-cyan-400'
+                                        }`}></div>
+                                        <div className={`mb-4 relative z-10 ${
+                                            idx === 0 
+                                                ? 'text-amber-600 dark:text-amber-400'
+                                                : idx === 1
+                                                ? 'text-rose-600 dark:text-rose-400'
+                                                : 'text-cyan-600 dark:text-cyan-400'
+                                        }`}>{persona.icon}</div>
+                                <h3 className="text-2xl font-bold mb-2 text-gray-900 dark:text-white relative z-10">
                                     {persona.title}
                                 </h3>
-                                <p className="text-gray-600 dark:text-gray-400 mb-2">
+                                <p className="text-gray-600 dark:text-gray-400 mb-2 relative z-10">
                                     {persona.description}
                                 </p>
-                                <p className="text-sm text-gray-500 dark:text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <p className="text-sm text-gray-500 dark:text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity relative z-10">
                                     {persona.hoverText}
                                 </p>
                             </motion.div>
@@ -437,10 +475,22 @@ const About = () => {
                                 transition={{ duration: 0.5, delay: idx * 0.1 }}
                                 className="text-center"
                             >
-                                <div className="text-primary mb-4 flex justify-center">
+                                <div className={`mb-4 flex justify-center ${
+                                    idx === 0 
+                                        ? 'text-emerald-600 dark:text-emerald-400'
+                                        : idx === 1
+                                        ? 'text-orange-600 dark:text-orange-400'
+                                        : 'text-blue-600 dark:text-blue-400'
+                                }`}>
                                     {stat.icon}
                                 </div>
-                                <div className="text-5xl md:text-6xl font-bold text-primary mb-2">
+                                <div className={`text-5xl md:text-6xl font-bold mb-2 bg-gradient-to-br bg-clip-text text-transparent ${
+                                    idx === 0 
+                                        ? 'from-emerald-600 to-teal-600 dark:from-emerald-400 dark:to-teal-400'
+                                        : idx === 1
+                                        ? 'from-orange-600 to-amber-600 dark:from-orange-400 dark:to-amber-400'
+                                        : 'from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400'
+                                }`}>
                                     {stat.metric}
                                 </div>
                                 <p className="text-xl text-gray-600 dark:text-gray-400">

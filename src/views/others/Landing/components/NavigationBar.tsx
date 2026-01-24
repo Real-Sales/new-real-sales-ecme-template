@@ -29,7 +29,7 @@ const navMenu = [
     {
         title: 'FAQs',
         value: 'faqs',
-        to: 'faqs'
+        href: '/faqs'
     }
 ]
 
@@ -111,7 +111,7 @@ const Navigation = ({ toggleMode, mode }: NavigationProps) => {
                             <Button
                                 size="sm"
                                 variant="solid"
-                                className="bg-primary hover:bg-primary-dark text-white mx-5"
+                                className="bg-primary hover:bg-primary-deep text-white mx-5"
                                 onClick={onDrawerClose}
                             >
                                 Book a Demo
@@ -184,7 +184,7 @@ const Navigation = ({ toggleMode, mode }: NavigationProps) => {
                     <Button
                         size="sm"
                         variant="solid"
-                        className="bg-primary hover:bg-primary-dark text-white"
+                        className="bg-primary hover:bg-primary-deep text-white"
                     >
                         Book a Demo
                     </Button>

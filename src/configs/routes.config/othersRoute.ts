@@ -46,6 +46,20 @@ export const landingRoute: Routes = [
             pageBackgroundType: 'plain',
         },
     },
+    {
+        key: 'faqs',
+        path: `/faqs`,
+        component: lazy(
+            () => import('@/views/others/Landing/FAQs'),
+        ),
+        authority: [],
+        meta: {
+            layout: 'blank',
+            footer: false,
+            pageContainerType: 'gutterless',
+            pageBackgroundType: 'plain',
+        },
+    },
 ]
 
 export default othersRoute

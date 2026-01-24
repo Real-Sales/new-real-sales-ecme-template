@@ -12,8 +12,8 @@ const Layout = ({ children }: CommonProps) => {
     const location = useLocation()
     const { authenticated } = useAuth()
 
-    // Check if current route is landing or about page - always use PreLoginLayout (no sidebar/header)
-    const isLandingPage = location.pathname === '/landing' || location.pathname === '/about'
+    // Check if current route is landing, about, or faqs page - always use PreLoginLayout (no sidebar/header)
+    const isLandingPage = location.pathname === '/landing' || location.pathname === '/about' || location.pathname === '/faqs'
 
     return (
         <Suspense
