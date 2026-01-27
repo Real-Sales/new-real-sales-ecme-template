@@ -13,7 +13,7 @@ import {
     PiUsersDuotone,
     PiBuildingsDuotone,
     PiThumbsUpDuotone,
-    PiFlaskDuotone,
+    PiBooksDuotone,
 } from 'react-icons/pi'
 import type { JSX } from 'react'
 
@@ -27,7 +27,7 @@ const navigationIcon: NavigationIcons = {
     performance: <PiChartBarDuotone />,
     modes: <PiTargetDuotone />,
     personas: <PiUsersDuotone />,
-    scenarioLibrary: <PiFlaskDuotone />,
+    scenarioLibrary: <PiBooksDuotone />,
     company: <PiBuildingsDuotone />,
     teams: <PiUsersDuotone />, // Reusing users icon for teams as well
     feedback: <PiThumbsUpDuotone />,

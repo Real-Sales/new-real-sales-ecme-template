@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { mock } from '../MockAdapter'
 import { notificationListData, searchQueryPoolData } from '../data/commonData'
 import wildCardSearch from '@/utils/wildCardSearch'
@@ -8,7 +9,7 @@ mock.onGet(`/api/notification/list`).reply(() => {
 
 mock.onGet(`/api/notification/count`).reply(() => {
     const unreadNotification = notificationListData.filter(
-        (notification) => !notification.readed,
+        (notification) => !(notification as any).readed,
     )
     return [200, { count: unreadNotification.length }]
 })

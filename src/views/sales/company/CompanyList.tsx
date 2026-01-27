@@ -125,7 +125,7 @@ const CompanyCard = ({
                     />
                 </div>
             </div>
-            <div className="absolute top-16 left-1/2 -translate-x-1/2 z-10 h-17 w-17 rounded-full border-2 border-gray-200/60 dark:border-primary bg-gray-800 text-primary flex items-center justify-center shadow-sm">
+            <div className="absolute top-16 left-1/2 -translate-x-1/2 z-10 h-17 w-17 rounded-full border-2 border-gray-300 dark:border-gray-600 bg-gray-800 text-primary flex items-center justify-center shadow-sm">
                 <HiOfficeBuilding className="text-4xl" />
             </div>
 

@@ -1,10 +1,15 @@
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Card, Button, Drawer, Progress } from '@/components/ui'
+import { Card, Button, Dialog, Progress } from '@/components/ui'
 import Container from '@/components/shared/Container'
-import SalesRepForm, { type SalesRepFormSchema } from '../company/SalesRepForm'
 import PerformanceChart from './PerformanceChart'
-import { HiArrowLeft, HiPlus, HiUser, HiTrash } from 'react-icons/hi'
+import AddTeamMemberContent from './components/AddTeamMemberContent'
+import TeamMembersTable from './components/TeamMembersTable'
+import MemberDetailDrawer from './components/MemberDetailDrawer'
+import TeamScenariosSection from './components/TeamScenariosSection'
+import { allSalesReps } from './mockTeamData'
+import { HiArrowLeft } from 'react-icons/hi'
+import { TbUserPlus, TbChartLine, TbUsers } from 'react-icons/tb'
 
 type TeamMember = {
     id: string
@@ -12,65 +17,24 @@ type TeamMember = {
     email: string
     score: number
     sessions: number
+    img?: string
+}
+
+type Member = {
+    id: string
+    name: string
+    email: string
+    img?: string
 }
 
 const TeamDetail = () => {
     const navigate = useNavigate()
     const { id } = useParams<{ id: string }>()
-    const [isDrawerOpen, setIsDrawerOpen] = useState(false)
-    const formRef = useRef<HTMLFormElement>(null)
-
-    const handleBack = () => {
-        navigate('/teams')
-    }
-
-    const openDrawer = () => {
-        setIsDrawerOpen(true)
-    }
-
-    const onDrawerClose = () => {
-        setIsDrawerOpen(false)
-    }
-
-    const handleSubmitClick = () => {
-        if (formRef.current) {
-            formRef.current.dispatchEvent(
-                new Event('submit', { cancelable: true, bubbles: true })
-            )
-        }
-    }
-
-    const onMemberSubmit = (values: SalesRepFormSchema) => {
-        console.log('Team member form submitted:', values)
-        // Add your API call here
-        window.alert(JSON.stringify(values, null, 2))
-        onDrawerClose()
-    }
-
-    const DrawerFooter = (
-        <div className="flex justify-between items-center w-full gap-3 px-2">
-            <Button size="sm" className="flex-1" onClick={onDrawerClose}>
-                Cancel
-            </Button>
-            <Button
-                size="sm"
-                variant="solid"
-                className="flex-1 bg-primary hover:bg-primary-deep text-neutral border-none"
-                onClick={handleSubmitClick}
-            >
-                Create
-            </Button>
-        </div>
-    )
-
-    const DrawerTitle = (
-        <div>
-            <h4 className="mb-2 text-lg font-bold">Add Team Member</h4>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-                Fill in the details to add a new team member
-            </p>
-        </div>
-    )
+    const [dialogOpen, setDialogOpen] = useState(false)
+    const [memberDrawerOpen, setMemberDrawerOpen] = useState(false)
+    const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null)
+    const [currentPage, setCurrentPage] = useState(1)
+    const [pageSize, setPageSize] = useState(10)
 
     // Mock data - replace with actual data fetching based on team id
     const teamName = 
@@ -78,16 +42,79 @@ const TeamDetail = () => {
         id === 'full-sales-team' ? 'Full Sales Team' :
         id === 'bd-team' ? 'BD Team' : 'Team'
     
-    const teamMembers: TeamMember[] = [
-        { id: '1', name: 'Clara Ca', email: 'sarah1@gmail.com', score: 75.5, sessions: 18 },
-        { id: '2', name: 'Christian Cn', email: 'mike1@gmail.com', score: 69.0, sessions: 15 },
-        { id: '3', name: 'Ruben Rn', email: 'john1@gmail.com', score: 61.1, sessions: 15 },
-        { id: '4', name: 'Mika Ma', email: 'linda1@gmail.com', score: 55.1, sessions: 15 },
-        { id: '5', name: 'Ryan McFarlin', email: 'ryan.mcfarlin@gogomedia.com', score: 18.6, sessions: 8 },
-    ]
+    const [teamMembers, setTeamMembers] = useState<TeamMember[]>([
+        { id: '1', name: 'Clara Ca', email: 'sarah1@gmail.com', score: 75.5, sessions: 18, img: '/img/avatars/thumb-1.jpg' },
+        { id: '2', name: 'Christian Cn', email: 'mike1@gmail.com', score: 69.0, sessions: 15, img: '/img/avatars/thumb-2.jpg' },
+        { id: '3', name: 'Ruben Rn', email: 'john1@gmail.com', score: 61.1, sessions: 15, img: '/img/avatars/thumb-3.jpg' },
+        { id: '4', name: 'Mika Ma', email: 'linda1@gmail.com', score: 55.1, sessions: 15, img: '/img/avatars/thumb-4.jpg' },
+        { id: '5', name: 'Ryan McFarlin', email: 'ryan.mcfarlin@gogomedia.com', score: 18.6, sessions: 8, img: '/img/avatars/thumb-5.jpg' },
+    ])
 
     // Fixed team performance score for progress bar
     const teamAvgScore = 54.7
+
+    // Pagination handlers
+    const handlePaginationChange = (page: number) => {
+        setCurrentPage(page)
+    }
+
+    const handleSelectChange = (value: number) => {
+        setPageSize(value)
+        setCurrentPage(1)
+    }
+
+    // Calculate paginated data
+    const startIndex = (currentPage - 1) * pageSize
+    const endIndex = startIndex + pageSize
+    const paginatedMembers = teamMembers.slice(startIndex, endIndex)
+
+    const handleBack = () => {
+        navigate('/teams')
+    }
+
+    const openDialog = () => {
+        setDialogOpen(true)
+    }
+
+    const onDialogClose = () => {
+        setDialogOpen(false)
+    }
+
+    const handleUpdateTeamMembers = (members: Member[]) => {
+        // Update team members with the new list
+        // For now, we'll just update the basic member info
+        // In a real app, you'd fetch the full member details including score and sessions
+        const updatedMembers = members.map((member) => {
+            const existing = teamMembers.find((tm) => tm.id === member.id)
+            if (existing) {
+                return existing
+            }
+            // New member - add with default values
+            return {
+                id: member.id,
+                name: member.name,
+                email: member.email,
+                score: 0,
+                sessions: 0,
+                img: member.img,
+            }
+        })
+        setTeamMembers(updatedMembers)
+    }
+
+    const handleRemoveMember = (memberId: string) => {
+        setTeamMembers((prev) => prev.filter((member) => member.id !== memberId))
+    }
+
+    const handleRowClick = (member: TeamMember) => {
+        setSelectedMember(member)
+        setMemberDrawerOpen(true)
+    }
+
+    const handleMemberDrawerClose = () => {
+        setMemberDrawerOpen(false)
+        setSelectedMember(null)
+    }
 
     return (
         <div className="min-h-full">
@@ -112,9 +139,9 @@ const TeamDetail = () => {
                     <Button
                         variant="solid"
                         size="md"
-                        icon={<HiPlus />}
+                        icon={<TbUserPlus />}
                         className="bg-primary hover:bg-primary-deep text-neutral border-none whitespace-nowrap"
-                        onClick={openDrawer}
+                        onClick={openDialog}
                     >
                         Add Team Members
                     </Button>
@@ -150,97 +177,55 @@ const TeamDetail = () => {
                 </div>
 
                 {/* Team Members Section */}
-                <div className="mb-6">
-                    <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                       
-                        Team Members ({teamMembers.length})
-                    </h2>
-
-                    <div className="space-y-3">
-                        {teamMembers.map((member) => (
-                            <Card
-                                key={member.id}
-                                className="hover:shadow-lg transition-all duration-200 border border-gray-100 dark:border-gray-700/50"
-                            >
-                                <div className="flex items-center gap-6">
-                                    {/* User Icon */}
-                                    <div className="bg-primary/10 rounded-full p-3 text-primary flex-shrink-0">
-                                        <HiUser className="text-xl" />
-                                    </div>
-                                    
-                                    {/* Name and Email */}
-                                    <div className="flex-1 min-w-0">
-                                        <h3 className="text-base font-bold text-gray-900 dark:text-white truncate">
-                                            {member.name}
-                                        </h3>
-                                        <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
-                                            {member.email}
-                                        </p>
-                                    </div>
-
-                                    {/* Score Metrics */}
-                                    <div className="flex items-center gap-6 px-4 py-2 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
-                                        <div className="flex text-right flex-col items-center">
-                                            <div className="text-xl font-bold text-primary leading-none mb-1.5">
-                                                {member.score}
-                                            </div>
-                                            <div className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                                                Overall Score
-                                            </div>
-                                        </div>
-                                        <div className="h-12 w-px bg-gray-200 dark:bg-gray-700" />
-                                        <div className="flex text-right flex-col items-center">
-                                            <div className="text-xl font-bold text-primary leading-none mb-1.5">
-                                                {member.sessions}
-                                            </div>
-                                            <div className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                                                Sessions
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Action Buttons */}
-                                    <div className="flex items-center gap-2 flex-shrink-0">
-                                        <Button
-                                            size="sm"
-                                            variant="default"
-                                            icon={<HiPlus />}
-                                            className="hover:text-primary"
-                                        />
-                                        <Button
-                                            size="sm"
-                                            variant="default"
-                                            icon={<HiTrash className="text-red-500" />}
-                                            className="hover:bg-red-50 dark:hover:bg-red-900/20"
-                                        />
-                                    </div>
-                                </div>
-                            </Card>
-                        ))}
+                <Card>
+                    <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                                <TbUsers className="text-xl text-gray-700 dark:text-gray-300" />
+                            </div>
+                            <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                                Team Members ({teamMembers.length})
+                            </h2>
+                        </div>
                     </div>
-                </div>
+                    <TeamMembersTable 
+                        members={paginatedMembers}
+                        onRemoveMember={handleRemoveMember}
+                        onRowClick={handleRowClick}
+                        pagingData={{
+                            total: teamMembers.length,
+                            pageIndex: currentPage,
+                            pageSize: pageSize,
+                        }}
+                        onPaginationChange={handlePaginationChange}
+                        onSelectChange={handleSelectChange}
+                    />
+                </Card>
+
+                {/* Scenarios Section */}
+                <TeamScenariosSection teamMembers={teamMembers} />
             </Container>
 
-            {/* Add Team Member Drawer */}
-            <Drawer
-                title={DrawerTitle}
-                isOpen={isDrawerOpen}
-                footer={DrawerFooter}
-                headerClass="!items-start !bg-gray-100 dark:!bg-gray-900"
-                footerClass="!bg-gray-100 dark:!bg-gray-800 !p-3"
-                bodyClass="!p-4 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
-                onClose={onDrawerClose}
-                onRequestClose={onDrawerClose}
+            {/* Add Team Member Dialog */}
+            <Dialog
+                isOpen={dialogOpen}
+                onClose={onDialogClose}
+                onRequestClose={onDialogClose}
             >
-                <div className="px-2">
-                    <form ref={formRef}>
-                        <SalesRepForm
-                            onSubmit={onMemberSubmit}
-                            onCancel={onDrawerClose}
-                        />
-                    </form>
-                </div>
-            </Drawer>
+                <AddTeamMemberContent
+                    allMembers={allSalesReps}
+                    teamMembers={teamMembers}
+                    onUpdateTeamMembers={handleUpdateTeamMembers}
+                    onClose={onDialogClose}
+                />
+            </Dialog>
+
+            {/* Member Detail Drawer */}
+            <MemberDetailDrawer
+                isOpen={memberDrawerOpen}
+                onClose={handleMemberDrawerClose}
+                member={selectedMember}
+            />
         </div>
     )
 }

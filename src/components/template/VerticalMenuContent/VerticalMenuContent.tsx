@@ -15,6 +15,7 @@ import { Direction } from '@/@types/theme'
 import type { NavigationTree } from '@/@types/navigation'
 import type { TraslationFn } from '@/@types/common'
 import UpgradeCard from '../UpgradeCard'
+import PlatformFeedback from '../PlatformFeedback'
 
 export interface VerticalMenuContentProps {
     collapsed?: boolean
@@ -141,6 +142,7 @@ const VerticalMenuContent = (props: VerticalMenuContentProps) => {
     return (
         <>
             {!collapsed && <UpgradeCard />}
+            {!collapsed && <PlatformFeedback />}
             <Menu
                 className="px-4 pb-4"
                 sideCollapsed={collapsed}

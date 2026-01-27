@@ -145,7 +145,7 @@ const TeamCard = ({
                 )}
             </div>
 
-            <div className="absolute top-16 left-1/2 -translate-x-1/2 z-10 h-17 w-17 rounded-full border-2 border-gray-200/60 dark:border-primary bg-gray-800 text-primary flex items-center justify-center shadow-sm">
+            <div className="absolute top-16 left-1/2 -translate-x-1/2 z-10 h-17 w-17 rounded-full border-2 border-gray-300 dark:border-gray-600 bg-gray-800 text-primary flex items-center justify-center shadow-sm">
                 <HiUserGroup className="text-4xl" />
             </div>
 
@@ -161,7 +161,7 @@ const TeamCard = ({
                 </div>
 
                 {/* Metrics */}
-                <div className="flex justify-between items-center mb-4 py-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
+                <div className="flex justify-between items-center mb-4 py-3 bg-gray-50 dark:bg-gray-800/50 -mx-5 px-5">
                     <div className="text-center flex-1">
                         <div className="text-lg font-bold text-gray-900 dark:text-white">{members}</div>
                         <div className="text-[10px] text-gray-500 dark:text-gray-400">Members</div>

@@ -3,6 +3,7 @@ import Card from '@/components/ui/Card'
 import Select from '@/components/ui/Select'
 import Chart from '@/components/shared/Chart'
 import { useAppSelector } from '@/store'
+import { TbChartLine } from 'react-icons/tb'
 import { teamPerformanceData, type SkillType } from './teamPerformanceData'
 
 const PerformanceChart = () => {
@@ -66,9 +67,14 @@ const PerformanceChart = () => {
         <Card>
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-                <h4 className="text-xl font-bold text-gray-900 dark:text-white">
-                    Team Performance Growth
-                </h4>
+                <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                        <TbChartLine className="text-xl text-gray-700 dark:text-gray-300" />
+                    </div>
+                    <h4 className="text-xl font-bold text-gray-900 dark:text-white">
+                        Team Performance Growth
+                    </h4>
+                </div>
                 <div className="flex items-center gap-3">
                     <span className="text-sm text-gray-600 dark:text-gray-400">
                         Show by:

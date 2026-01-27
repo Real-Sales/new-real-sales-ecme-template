@@ -186,7 +186,7 @@ const ScenarioList = () => {
                 className="flex-1 bg-primary hover:bg-primary-deep text-neutral border-none"
                 onClick={handleSubmitClick}
             >
-                Create Scenario
+                {isEditMode ? 'Edit' : 'Create'}
             </Button>
         </div>
     )
