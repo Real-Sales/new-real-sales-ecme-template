@@ -51,6 +51,12 @@ const salesRoute: Routes = [
         authority: [],
     },
     {
+        key: 'salesManager.audioVisualizer',
+        path: '/audio-visualizer',
+        component: lazy(() => import('@/views/sales/AudioVisualizer')),
+        authority: [],
+    },
+    {
         key: 'companyGroup.company',
         path: '/company',
         component: lazy(() => import('@/views/sales/company/CompanyList')),

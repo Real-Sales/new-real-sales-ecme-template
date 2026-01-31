@@ -85,6 +85,16 @@ const salesNavigationConfig: NavigationTree[] = [
                 authority: [],
                 subMenu: [],
             },
+            {
+                key: 'salesManager.audioVisualizer',
+                path: '/audio-visualizer',
+                title: 'Audio Visualizer',
+                translateKey: '',
+                icon: 'audioVisualizer',
+                type: NAV_ITEM_TYPE_ITEM,
+                authority: [],
+                subMenu: [],
+            },
         ],
     },
     {
