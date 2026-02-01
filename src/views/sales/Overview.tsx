@@ -1,5 +1,9 @@
+import { useState } from 'react'
 import { Card, Badge, Button } from '@/components/ui'
 import Container from '@/components/shared/Container'
+import SessionSetupPanel from '@/components/shared/SessionSetupPanel'
+import type { ConversationMode, AIPersona } from '@/components/shared/SessionSetupPanel'
+import { useNavigate } from 'react-router-dom'
 import {
     HiTrendingUp,
     HiUsers,
@@ -51,6 +55,24 @@ const MetricCard = ({
 }
 
 const Overview = () => {
+    const [isSetupOpen, setIsSetupOpen] = useState(false)
+    const navigate = useNavigate()
+
+    const handleNavigateToPersonas = (
+        mode: ConversationMode,
+        scenarios?: string[],
+        files?: File[]
+    ) => {
+        // Navigate to persona selection page with session data
+        navigate('/persona-selection', {
+            state: {
+                mode,
+                scenarios,
+                files,
+            },
+        })
+    }
+
     const metrics = [
         {
             icon: <HiTrendingUp />,
@@ -147,6 +169,7 @@ const Overview = () => {
                             className="bg-gray-800 hover:bg-gray-700 text-white border-none whitespace-nowrap"
                             icon={<HiArrowRight />}
                             iconAlignment="end"
+                            onClick={() => setIsSetupOpen(true)}
                         >
                             Get Started Now
                         </Button>
@@ -253,6 +276,13 @@ const Overview = () => {
                     </p>
                 </div>
             </Container>
+
+            {/* Session Setup Panel */}
+            <SessionSetupPanel
+                isOpen={isSetupOpen}
+                onClose={() => setIsSetupOpen(false)}
+                onNavigateToPersonas={handleNavigateToPersonas}
+            />
         </div>
     )
 }

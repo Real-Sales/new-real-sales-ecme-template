@@ -3,10 +3,13 @@ import NavigationBar from './components/NavigationBar'
 import LandingFooter from './components/LandingFooter'
 import Container from './components/LandingContainer'
 import { Button } from '@/components/ui'
+import SessionSetupPanel from '@/components/shared/SessionSetupPanel'
+import type { ConversationMode, AIPersona } from '@/components/shared/SessionSetupPanel'
 import { motion } from 'framer-motion'
 import useDarkMode from '@/utils/hooks/useDarkMode'
 import { MODE_DARK, MODE_LIGHT } from '@/constants/theme.constant'
 import { useNavigate } from 'react-router-dom'
+import { useAppSelector } from '@/store'
 import {
     HiX,
     HiLightBulb,
@@ -24,13 +27,38 @@ const About = () => {
     const [isDark, setMode] = useDarkMode()
     const mode = isDark ? MODE_DARK : MODE_LIGHT
     const navigate = useNavigate()
+    const [isSetupOpen, setIsSetupOpen] = useState(false)
+    
+    // Check if user is authenticated
+    const signedIn = useAppSelector((state) => state.auth.session.signedIn)
 
     const toggleMode = () => {
         setMode(mode === MODE_LIGHT ? MODE_DARK : MODE_LIGHT)
     }
 
     const handleStartSession = () => {
-        navigate('/sign-in')
+        // Check if user is authenticated
+        if (!signedIn) {
+            // Redirect to sign in with return URL
+            navigate('/sign-in?redirect=/audio-visualizer')
+            return
+        }
+        setIsSetupOpen(true)
+    }
+
+    const handleNavigateToPersonas = (
+        mode: ConversationMode,
+        scenarios?: string[],
+        files?: File[]
+    ) => {
+        // Navigate to persona selection page with session data
+        navigate('/persona-selection', {
+            state: {
+                mode,
+                scenarios,
+                files,
+            },
+        })
     }
 
     const handleBookDemo = () => {
@@ -405,14 +433,14 @@ const About = () => {
                             >
                                         <div className={`absolute top-0 right-0 w-32 h-32 rounded-full blur-3xl opacity-20 group-hover:opacity-30 transition-opacity ${
                                             idx === 0 
-                                                ? 'bg-amber-400'
+                                                ? 'bg-blue-400'
                                                 : idx === 1
                                                 ? 'bg-rose-400'
                                                 : 'bg-cyan-400'
                                         }`}></div>
                                         <div className={`mb-4 relative z-10 ${
                                             idx === 0 
-                                                ? 'text-amber-600 dark:text-amber-400'
+                                                ? 'text-blue-600 dark:text-blue-400'
                                                 : idx === 1
                                                 ? 'text-rose-600 dark:text-rose-400'
                                                 : 'text-cyan-600 dark:text-cyan-400'
@@ -479,7 +507,7 @@ const About = () => {
                                     idx === 0 
                                         ? 'text-emerald-600 dark:text-emerald-400'
                                         : idx === 1
-                                        ? 'text-orange-600 dark:text-orange-400'
+                                        ? 'text-blue-600 dark:text-blue-400'
                                         : 'text-blue-600 dark:text-blue-400'
                                 }`}>
                                     {stat.icon}
@@ -488,7 +516,7 @@ const About = () => {
                                     idx === 0 
                                         ? 'from-emerald-600 to-teal-600 dark:from-emerald-400 dark:to-teal-400'
                                         : idx === 1
-                                        ? 'from-orange-600 to-amber-600 dark:from-orange-400 dark:to-amber-400'
+                                        ? 'from-blue-600 to-blue-700 dark:from-blue-400 dark:to-blue-500'
                                         : 'from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400'
                                 }`}>
                                     {stat.metric}
@@ -562,6 +590,13 @@ const About = () => {
             </section>
 
             <LandingFooter mode={mode} />
+
+            {/* Session Setup Panel */}
+            <SessionSetupPanel
+                isOpen={isSetupOpen}
+                onClose={() => setIsSetupOpen(false)}
+                onNavigateToPersonas={handleNavigateToPersonas}
+            />
         </main>
     )
 }

@@ -18,7 +18,7 @@ export type ThemeConfig = {
  * we recommend to use the configuration that generated from demo.
  */
 export const themeConfig: ThemeConfig = {
-    themeSchema: 'yellow',
+    themeSchema: 'default',
     direction: THEME_ENUM.DIR_LTR,
     mode: THEME_ENUM.MODE_DARK,
     panelExpand: false,

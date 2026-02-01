@@ -3,6 +3,9 @@ import { motion, useMotionValue, useSpring, useTransform, AnimatePresence } from
 import { MODE_DARK, MODE_LIGHT } from '@/constants/theme.constant'
 import { useNavigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
+import { useAppSelector } from '@/store'
+import SessionSetupPanel from '@/components/shared/SessionSetupPanel'
+import type { ConversationMode, AIPersona } from '@/components/shared/SessionSetupPanel'
 import { HiPlay } from 'react-icons/hi'
 import type { Mode } from '@/@types/theme'
 import Container from './LandingContainer'
@@ -19,6 +22,10 @@ const RealSalesHero = ({ mode }: { mode: Mode }) => {
     const navigate = useNavigate()
     const [showVideo, setShowVideo] = useState(false)
     const [currentObjection, setCurrentObjection] = useState(0)
+    const [isSetupOpen, setIsSetupOpen] = useState(false)
+    
+    // Check if user is authenticated
+    const signedIn = useAppSelector((state) => state.auth.session.signedIn)
 
     const mouseX = useMotionValue(0)
     const mouseY = useMotionValue(0)
@@ -39,7 +46,28 @@ const RealSalesHero = ({ mode }: { mode: Mode }) => {
     }
 
     const handleEnterSimulator = () => {
-        navigate('/sign-in')
+        // Check if user is authenticated
+        if (!signedIn) {
+            // Redirect to sign in with return URL
+            navigate('/sign-in?redirect=/audio-visualizer')
+            return
+        }
+        setIsSetupOpen(true)
+    }
+
+    const handleNavigateToPersonas = (
+        mode: ConversationMode,
+        scenarios?: string[],
+        files?: File[]
+    ) => {
+        // Navigate to persona selection page with session data
+        navigate('/persona-selection', {
+            state: {
+                mode,
+                scenarios,
+                files,
+            },
+        })
     }
 
     const handleSeeInAction = () => {
@@ -217,6 +245,13 @@ const RealSalesHero = ({ mode }: { mode: Mode }) => {
                     </motion.div>
                 </div>
             </Container>
+
+            {/* Session Setup Panel */}
+            <SessionSetupPanel
+                isOpen={isSetupOpen}
+                onClose={() => setIsSetupOpen(false)}
+                onNavigateToPersonas={handleNavigateToPersonas}
+            />
         </section>
     )
 }

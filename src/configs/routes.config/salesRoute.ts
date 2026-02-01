@@ -51,10 +51,22 @@ const salesRoute: Routes = [
         authority: [],
     },
     {
+        key: 'salesManager.personaSelection',
+        path: '/persona-selection',
+        component: lazy(() => import('@/views/sales/PersonaSelection')),
+        authority: [],
+        meta: {
+            layout: 'blank',
+        },
+    },
+    {
         key: 'salesManager.audioVisualizer',
         path: '/audio-visualizer',
         component: lazy(() => import('@/views/sales/AudioVisualizer')),
         authority: [],
+        meta: {
+            layout: 'blank',
+        },
     },
     {
         key: 'companyGroup.company',

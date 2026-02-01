@@ -13,7 +13,7 @@ const UpgradeCard = () => {
                 <Button
                     block
                     size="sm"
-                    className="bg-black hover:bg-gray-900 text-yellow-400 border-none flex justify-between items-center px-2.5 py-1.5 h-auto rounded-md"
+                    className="bg-black hover:bg-gray-900 text-blue-400 border-none flex justify-between items-center px-2.5 py-1.5 h-auto rounded-md"
                 >
                     <span className="text-xs font-semibold">upgrade your plan</span>
                     <HiArrowRight className="text-sm" />
