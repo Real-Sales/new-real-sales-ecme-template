@@ -21,27 +21,9 @@ const salesRoute: Routes = [
         authority: [],
     },
     {
-        key: 'salesManager.sessions',
-        path: '/sessions',
-        component: lazy(() => import('@/views/sales/Sessions')),
-        authority: [],
-    },
-    {
         key: 'salesManager.performance',
         path: '/performance',
         component: lazy(() => import('@/views/sales/Performance')),
-        authority: [],
-    },
-    {
-        key: 'salesManager.modes',
-        path: '/modes-used',
-        component: lazy(() => import('@/views/sales/ModesUsed')),
-        authority: [],
-    },
-    {
-        key: 'salesManager.personas',
-        path: '/personas-used',
-        component: lazy(() => import('@/views/sales/PersonasUsed')),
         authority: [],
     },
     {

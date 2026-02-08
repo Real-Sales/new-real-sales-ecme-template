@@ -40,7 +40,7 @@ const _UserDropdown = () => {
             placement="bottom-end"
         >
             <Dropdown.Item variant="header">
-                <div className="py-2 px-3 flex items-center gap-3">
+                <div className="py-1.5 px-2 flex items-center gap-3">
                     <Avatar {...avatarProps} />
                     <div>
                         <div className="font-bold text-gray-900 dark:text-gray-100">

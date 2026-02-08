@@ -10,34 +10,7 @@ import { HiMicrophone, HiStop, HiPaperAirplane, HiPaperClip, HiPlus, HiLightBulb
 
 // --- 1. CONFIGURATION: "Kilo Herz 2" ---
 const CONFIG = [
-  {
-    "enabled": true,
-    "name": "Kilo Blue Outer",
-    "sphereRadius": 1.55,
-    "innerSphereRadius": 0.24,
-    "rotationSpeed": 0.001,
-    "rotationSpeedMin": 0.002,
-    "rotationSpeedMax": 0.013,
-    "rotationSmoothness": 0.83,
-    "particleCount": 8000,
-    "particleSize": 0.005,
-    "particleLifetime": 10,
-    "minFrequency": 20,
-    "maxFrequency": 80,
-    "minFrequencyBeat": 20,
-    "maxFrequencyBeat": 80,
-    "noiseScale": 6.4,
-    "dynamicNoiseScale": true,
-    "minNoiseScale": 2.1,
-    "maxNoiseScale": 8.9,
-    "noiseStep": 0.2,
-    "noiseSpeed": 0.05,
-    "turbulenceStrength": 0.0005,
-    "colorStart": "#360ff2", // Blue
-    "colorEnd": "#481ce8",   // Purple-Blue
-    "beatStrength": 0.002,
-    "gainMultiplier": 1
-  },
+
   {
     "enabled": true,
     "name": "Kilo Orange Core",
@@ -503,12 +476,13 @@ export default function KiloHerzVisualizer() {
   const [currentHintIndex, setCurrentHintIndex] = useState(0);
   const [viewedHints, setViewedHints] = useState<number[]>([]);
   const [showHints, setShowHints] = useState(false);
+  const [sessionStarted, setSessionStarted] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Timer countdown
+  // Timer countdown - starts when session is started
   useEffect(() => {
-    if (!isReady || !isMicActive) return;
+    if (!sessionStarted) return;
     
     const timer = setInterval(() => {
       setTimeLeft(prev => {
@@ -521,7 +495,7 @@ export default function KiloHerzVisualizer() {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [isReady, isMicActive]);
+  }, [sessionStarted]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -574,9 +548,16 @@ export default function KiloHerzVisualizer() {
   const endSession = () => {
     setMessages([]);
     setIsMicActive(false);
+    setSessionStarted(false);
     setTimeLeft(1800); // Reset timer
     setViewedHints([]); // Reset hints
     setCurrentHintIndex(0);
+  };
+
+  const handleStartSession = async () => {
+    await startAudio();
+    setIsMicActive(true);
+    setSessionStarted(true);
   };
 
   const handleAddFiles = () => {
@@ -657,193 +638,90 @@ export default function KiloHerzVisualizer() {
       </Canvas>
         </div>
 
-        {/* Overlay hint when not ready */}
-        {!isReady && (
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-            <div className="text-center">
-              <p className="text-gray-500 text-lg mb-2">Audio Visualizer</p>
-              <p className="text-gray-600 text-sm">Click the microphone button below to activate</p>
-            </div>
+        {/* Top Right: Time Left */}
+        <div className="absolute top-6 right-6 z-[100] pointer-events-none">
+          <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-black/50 backdrop-blur-md border border-white/10">
+            <div className={`w-1.5 h-1.5 rounded-full ${sessionStarted ? 'bg-green-400 animate-pulse' : 'bg-gray-500'}`} />
+            <span className="text-sm font-bold text-white font-mono">{formatTime(timeLeft)}</span>
           </div>
-        )}
-
-        {/* Mic Control Overlay - Bottom Center with unique animation */}
-        <div className="absolute bottom-12 left-1/2 -translate-x-1/2 z-[100] pointer-events-auto">
-          <motion.button
-            animate={{
-              scale: [1, 1.05, 1],
-              boxShadow: [
-                '0 10px 40px rgba(42, 133, 255, 0.3)',
-                '0 15px 60px rgba(42, 133, 255, 0.5)',
-                '0 10px 40px rgba(42, 133, 255, 0.3)',
-              ],
-            }}
-            transition={{
-              duration: 2,
-              repeat: Infinity,
-              ease: "easeInOut"
-            }}
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={toggleMic}
-            title={!isReady ? "Click to activate audio" : isMicActive ? "Stop listening" : "Start listening"}
-            className={`
-              group relative w-20 h-20 rounded-full
-              transition-all duration-300
-              pointer-events-auto
-              flex items-center justify-center
-              ${!isReady
-                ? 'bg-gradient-to-br from-blue-500 via-blue-600 to-blue-600 shadow-2xl shadow-blue-500/50'
-                : isMicActive 
-                  ? 'bg-gradient-to-br from-red-500 to-red-600 shadow-2xl shadow-red-500/60' 
-                  : 'bg-gradient-to-br from-blue-500 via-blue-600 to-blue-600 shadow-2xl shadow-blue-500/50'
-              }
-            `}
-          >
-            {isMicActive && isReady ? (
-              <HiStop className="w-9 h-9 text-white" />
-            ) : (
-              <HiMicrophone className="w-9 h-9 text-white" />
-            )}
-            
-            {/* Continuous pulse ring */}
-            <motion.span 
-              className="absolute inset-0 rounded-full border-2 border-blue-400"
-              animate={{
-                scale: [1, 1.5, 1],
-                opacity: [0.8, 0, 0.8],
-              }}
-              transition={{
-                duration: 2,
-                repeat: Infinity,
-                ease: "easeOut"
-              }}
-            />
-            
-            {/* Active listening pulse */}
-            {isMicActive && isReady && (
-              <>
-                <span className="absolute inset-0 rounded-full bg-red-500 animate-ping opacity-30"></span>
-                <motion.span 
-                  className="absolute inset-0 rounded-full bg-red-400"
-                  animate={{
-                    scale: [1, 1.8],
-                    opacity: [0.5, 0],
-                  }}
-                  transition={{
-                    duration: 1.5,
-                    repeat: Infinity,
-                    ease: "easeOut"
-                  }}
-                />
-              </>
-            )}
-          </motion.button>
         </div>
 
-        {/* End Session Button - Bottom Right - Red */}
-        <div className="absolute bottom-12 right-8 z-[100] pointer-events-auto">
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={endSession}
-            className="
-              px-6 py-3 rounded-xl
-              bg-gradient-to-br from-red-500 to-red-600
-              border border-red-400/30
-              text-white text-sm font-semibold
-              hover:from-red-600 hover:to-red-700
-              transition-all duration-200
-              shadow-xl shadow-red-500/30
-              hover:shadow-2xl hover:shadow-red-500/50
-              pointer-events-auto
-            "
-          >
-            End Session
-          </motion.button>
-        </div>
+
+
+        {/* Bottom Status Indicator */}
+        <AnimatePresence>
+          {sessionStarted && isMicActive && (
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 20 }}
+              className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[100] pointer-events-none"
+            >
+              <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-black/50 backdrop-blur-md border border-white/10">
+                <div className="w-2 h-2 rounded-full bg-red-400 animate-pulse" />
+                <span className="text-xs text-gray-300 font-medium">Listening</span>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* RIGHT: Chat Interface - 35% */}
       <div className="w-[35%] h-full flex flex-col bg-gray-950">
-        {/* Header: Persona Detail with Avatar and Session Info */}
+        {/* Header: Persona Detail - Compact Row */}
         <div className="
-          flex-shrink-0 px-6 py-6 border-b border-gray-800/50
-          bg-gradient-to-br from-gray-900/80 to-gray-900/60
-          backdrop-blur-xl
+          flex-shrink-0 px-5 py-4 border-b border-gray-800/50
+          bg-gray-900/60 backdrop-blur-xl
         ">
-          <div className="flex items-start justify-between gap-4">
-            {/* Left: Avatar and User Info */}
-            <div className="flex flex-col items-center">
-              {userAvatar ? (
-                <img
-                  src={userAvatar}
-                  alt={userName}
+          <div className="flex items-center gap-3">
+            {/* Avatar */}
+            {userAvatar ? (
+              <img
+                src={userAvatar}
+                alt={userName}
+                className="w-11 h-11 rounded-full border border-blue-500/30 object-cover flex-shrink-0"
+              />
+            ) : (
+              <div className="
+                w-11 h-11 rounded-full flex-shrink-0
+                bg-gradient-to-br from-blue-500/20 to-blue-600/20
+                border border-blue-500/30
+                flex items-center justify-center
+              ">
+                <span className="text-sm font-bold text-blue-400">
+                  {userName.split(' ').map(n => n[0]).join('')}
+                </span>
+              </div>
+            )}
+
+            {/* Name & Mode */}
+            <div className="flex-1 min-w-0">
+              <h3 className="text-sm font-semibold text-white truncate">{userName}</h3>
+              <p className="text-xs text-gray-400">{personaMode} · {userRole}</p>
+            </div>
+
+            {/* End Session - Top Right */}
+            <AnimatePresence>
+              {sessionStarted && (
+                <motion.button
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={endSession}
                   className="
-                    w-20 h-20 rounded-full mb-3
-                    border-2 border-blue-500/40
-                    shadow-lg shadow-blue-500/20
-                    object-cover
+                    px-3.5 py-1.5 rounded-lg flex-shrink-0
+                    bg-red-500/10 border border-red-500/25
+                    text-red-400 text-xs font-medium
+                    hover:bg-red-500/20 hover:border-red-500/40
+                    transition-all duration-200
                   "
-                />
-              ) : (
-                <div className="
-                  w-20 h-20 rounded-full mb-3
-                  bg-gradient-to-br from-blue-500/20 to-blue-600/20
-                  border-2 border-blue-500/40
-                  flex items-center justify-center
-                  shadow-lg shadow-blue-500/20
-                ">
-                  <span className="text-2xl font-bold text-blue-400">
-                    {userName.split(' ').map(n => n[0]).join('')}
-                  </span>
-                </div>
+                >
+                  End Session
+                </motion.button>
               )}
-              <h3 className="text-sm font-semibold text-white text-center">
-                {userName}
-              </h3>
-              <p className="text-xs text-gray-400 text-center">
-                {userRole}
-              </p>
-            </div>
-
-            {/* Right: Session Info and Actions */}
-            <div className="flex-1 flex flex-col gap-3">
-              {/* Session Mode */}
-              <div>
-                <p className="text-xs text-gray-500 mb-1">Session Mode:</p>
-                <p className="text-base font-semibold text-blue-400">
-                  {personaMode}
-                </p>
-              </div>
-
-              {/* Time Left */}
-              <div>
-                <p className="text-xs text-gray-500 mb-1">Time left:</p>
-                <p className="text-lg font-bold text-white font-mono">
-                  {formatTime(timeLeft)}
-                </p>
-              </div>
-
-              {/* Add Scenario/Files Button */}
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={handleAddFiles}
-                className="
-                  flex items-center gap-2 px-4 py-2.5 rounded-xl
-                  bg-gray-800/50 border border-gray-700/50
-                  text-gray-300 text-xs font-medium
-                  hover:bg-gray-700/50 hover:border-gray-600
-                  transition-all duration-200
-                  shadow-md
-                "
-              >
-                <HiPlus className="w-4 h-4" />
-                <span>Add scenario or files</span>
-                <HiPaperClip className="w-4 h-4 ml-auto" />
-              </motion.button>
-            </div>
+            </AnimatePresence>
           </div>
         </div>
 
@@ -1025,83 +903,149 @@ export default function KiloHerzVisualizer() {
           )}
         </AnimatePresence>
 
-        {/* Input Field - Bottom */}
-        <div className="
-          flex-shrink-0 px-6 py-4 border-t border-gray-800/50
-          bg-gray-900/60 backdrop-blur-2xl
-        ">
-          {/* Hints Button */}
-          <div className="mb-3">
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => {
-                setShowHints(!showHints);
-                // When opening hints, start from first unviewed or reset to beginning
-                if (!showHints) {
-                  const firstUnviewed = hints.findIndex(h => !viewedHints.includes(h.id));
-                  setCurrentHintIndex(firstUnviewed >= 0 ? firstUnviewed : 0);
-                }
-              }}
-              className="
-                flex items-center gap-2 px-4 py-2 rounded-xl w-full
-                bg-blue-500/10 border border-blue-500/30 text-blue-400 
-                hover:bg-blue-500/20 hover:border-blue-500/50
-                transition-all duration-200
-              "
-            >
-              <HiLightBulb className="w-4 h-4" />
-              <span className="text-sm font-medium">
-                {showHints ? 'Hide Hints' : `${hints.length - viewedHints.length} Hints to View`}
-              </span>
-              <span className="ml-auto w-5 h-5 rounded-full bg-blue-500 text-white text-xs font-bold flex items-center justify-center">
-                {hints.length - viewedHints.length}
-              </span>
-            </motion.button>
-          </div>
+        {/* Bottom Section - Start Session or Chat Input */}
+        <div className="flex-shrink-0 px-4 py-3 bg-gray-900/60 backdrop-blur-2xl">
+          <AnimatePresence mode="wait">
+            {!sessionStarted ? (
+              /* Start Session Button */
+              <motion.div
+                key="start-session"
+                initial={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 20, scale: 0.95 }}
+                transition={{ duration: 0.3, ease: "easeInOut" }}
+              >
+                <motion.button
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
+                  onClick={handleStartSession}
+                  className="
+                    w-full py-3.5 rounded-full
+                    bg-gradient-to-r from-blue-500 to-blue-600
+                    text-white text-sm font-semibold
+                    shadow-lg shadow-blue-500/25
+                    hover:shadow-xl hover:shadow-blue-500/35
+                    transition-all duration-300
+                  "
+                >
+                  Start Session
+                </motion.button>
+              </motion.div>
+            ) : (
+              /* Chat Input Bar */
+              <motion.div
+                key="chat-input"
+                initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{ duration: 0.4, ease: "easeOut" }}
+                className="
+                  flex items-center gap-2
+                  bg-gray-800/80 backdrop-blur-xl
+                  border border-gray-700/50
+                  rounded-full
+                  px-4 py-2
+                  focus-within:border-blue-500/50
+                  transition-all duration-300
+                "
+              >
+                {/* Attachment */}
+                <button className="text-gray-400 hover:text-white transition-colors flex-shrink-0">
+                  <HiPaperClip className="w-5 h-5" />
+                </button>
 
-          <div className="relative">
-            <input
-              ref={inputRef}
-              type="text"
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-              placeholder="Type text msg here"
-              disabled={isGenerating}
-              className="
-                w-full px-5 py-3 pr-12 rounded-xl
-                bg-gray-900/80 backdrop-blur-xl
-                border-2 border-gray-700/50
-                text-white text-sm
-                placeholder:text-gray-500
-                focus:border-blue-500/60 focus:shadow-xl focus:shadow-blue-500/20 focus:ring-4 focus:ring-blue-500/10
-                focus:outline-none
-                transition-all duration-300
-                disabled:opacity-50 disabled:cursor-not-allowed
-              "
-            />
+                {/* Input */}
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                  placeholder="Type a message..."
+                  disabled={isGenerating}
+                  className="
+                    flex-1 bg-transparent text-white text-sm
+                    placeholder:text-gray-500
+                    focus:outline-none
+                    disabled:opacity-50 disabled:cursor-not-allowed
+                  "
+                />
 
-            {/* Send Button */}
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={handleSendMessage}
-              disabled={!inputValue.trim() || isGenerating}
-              className={`
-                absolute right-2 top-1/2 -translate-y-1/2
-                w-9 h-9 rounded-lg
-                flex items-center justify-center
-                transition-all duration-200
-                ${inputValue.trim() && !isGenerating
-                  ? 'bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/30' 
-                  : 'bg-gray-800/50 text-gray-600 cursor-not-allowed'
-                }
-              `}
-            >
-              <HiPaperAirplane className="w-4 h-4" />
-            </motion.button>
-          </div>
+                {/* Hints Button */}
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => {
+                    setShowHints(!showHints);
+                    if (!showHints) {
+                      const firstUnviewed = hints.findIndex(h => !viewedHints.includes(h.id));
+                      setCurrentHintIndex(firstUnviewed >= 0 ? firstUnviewed : 0);
+                    }
+                  }}
+                  className="
+                    flex items-center gap-1.5 px-3 py-1 rounded-full flex-shrink-0
+                    bg-blue-500/10 border border-blue-500/30 text-blue-400
+                    hover:bg-blue-500/20 hover:border-blue-500/50
+                    transition-all duration-200
+                  "
+                >
+                  <HiLightBulb className="w-3.5 h-3.5" />
+                  <span className="text-xs font-medium">
+                    {hints.length - viewedHints.length}
+                  </span>
+                </motion.button>
+
+                {/* Send / Mic Button */}
+                {inputValue.trim() ? (
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={handleSendMessage}
+                    disabled={isGenerating}
+                    className="
+                      w-9 h-9 rounded-full flex-shrink-0
+                      bg-gradient-to-br from-blue-500 to-blue-600
+                      text-white shadow-lg shadow-blue-500/20
+                      flex items-center justify-center
+                      transition-all duration-200
+                    "
+                  >
+                    <HiPaperAirplane className="w-4 h-4" />
+                  </motion.button>
+                ) : (
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => {
+                      if (isMicActive) {
+                        setIsMicActive(false);
+                      } else {
+                        startAudio();
+                        setIsMicActive(true);
+                      }
+                    }}
+                    className={`
+                      w-9 h-9 rounded-full flex-shrink-0
+                      flex items-center justify-center
+                      transition-all duration-200
+                      ${isMicActive
+                        ? 'bg-red-500 text-white shadow-lg shadow-red-500/30'
+                        : 'bg-white/10 text-white border border-gray-600 hover:bg-white/20'
+                      }
+                    `}
+                  >
+                    {isMicActive ? (
+                      <HiStop className="w-4 h-4" />
+                    ) : (
+                      <div className="flex gap-[2px] items-end h-4">
+                        {[3, 5, 7, 5, 3].map((h, i) => (
+                          <div key={i} className="w-[2px] bg-white rounded-full" style={{ height: `${h * 2}px` }} />
+                        ))}
+                      </div>
+                    )}
+                  </motion.button>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
         </div>
