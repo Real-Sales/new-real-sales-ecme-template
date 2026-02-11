@@ -26,16 +26,6 @@ const salesNavigationConfig: NavigationTree[] = [
                 subMenu: [],
             },
             {
-                key: 'salesManager.subscription',
-                path: '/subscription',
-                title: 'Subscription',
-                translateKey: '',
-                icon: 'subscription',
-                type: NAV_ITEM_TYPE_ITEM,
-                authority: [],
-                subMenu: [],
-            },
-            {
                 key: 'salesManager.performance',
                 path: '/performance',
                 title: 'Performance',

@@ -15,10 +15,15 @@ const salesRoute: Routes = [
         authority: [],
     },
     {
-        key: 'salesManager.subscription',
+        key: 'subscription',
         path: '/subscription',
-        component: lazy(() => import('@/views/sales/Subscription')),
+        component: lazy(() => import('@/views/profile/Subscription')),
         authority: [],
+        meta: {
+            header: {
+                title: 'Subscription',
+            },
+        },
     },
     {
         key: 'salesManager.performance',
@@ -79,6 +84,28 @@ const salesRoute: Routes = [
         path: '/feedback',
         component: lazy(() => import('@/views/sales/MyFeedback')),
         authority: [],
+    },
+    {
+        key: 'profile.settings',
+        path: '/profile/settings',
+        component: lazy(() => import('@/views/profile/Settings')),
+        authority: [],
+        meta: {
+            header: {
+                title: 'Settings',
+            },
+        },
+    },
+    {
+        key: 'profile.subscription',
+        path: '/profile/subscription',
+        component: lazy(() => import('@/views/profile/Subscription')),
+        authority: [],
+        meta: {
+            header: {
+                title: 'Subscription',
+            },
+        },
     },
 ]
 

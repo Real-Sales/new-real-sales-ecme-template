@@ -2,6 +2,7 @@ import { useEffect, useCallback } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useAppSelector, useAppDispatch } from '@/store/hook'
 import { setLayout, setPreviousLayout } from '@/store/slices/theme/themeSlice'
+import { setCurrentRouteKey } from '@/store/slices/routeKeySlice'
 import type { LayoutType } from '@/@types/theme'
 import type { ComponentType } from 'react'
 
@@ -18,6 +19,11 @@ const AppRoute = <T extends Record<string, unknown>>({
 }: AppRouteProps<T>) => {
     const location = useLocation()
     const dispatch = useAppDispatch()
+
+    // Update the current route key in the store so the sidebar can highlight the active item
+    useEffect(() => {
+        dispatch(setCurrentRouteKey(routeKey))
+    }, [dispatch, routeKey])
 
     // Selectors for theme layout
     const layout = useAppSelector((state) => state.theme.layout)
