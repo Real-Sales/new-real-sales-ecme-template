@@ -2,6 +2,9 @@ import { motion, useInView } from 'framer-motion'
 import { useRef, useEffect, useState } from 'react'
 import { Button } from '@/components/ui'
 import { useNavigate } from 'react-router-dom'
+import { useAppSelector } from '@/store'
+import SessionSetupPanel from '@/components/shared/SessionSetupPanel'
+import type { ConversationMode, AIPersona } from '@/components/shared/SessionSetupPanel'
 import Container from './LandingContainer'
 import type { Mode } from '@/@types/theme'
 
@@ -10,6 +13,10 @@ const FinalCTA = ({ mode }: { mode: Mode }) => {
     const ref = useRef(null)
     const isInView = useInView(ref, { once: true, margin: '-100px' })
     const [pulseGlow, setPulseGlow] = useState(false)
+    const [isSetupOpen, setIsSetupOpen] = useState(false)
+    
+    // Check if user is authenticated
+    const signedIn = useAppSelector((state) => state.auth.session.signedIn)
 
     useEffect(() => {
         if (isInView) {
@@ -18,7 +25,28 @@ const FinalCTA = ({ mode }: { mode: Mode }) => {
     }, [isInView])
 
     const handleStartPracticing = () => {
-        navigate('/sign-in')
+        // Check if user is authenticated
+        if (!signedIn) {
+            // Redirect to sign in with return URL
+            navigate('/sign-in?redirect=/audio-visualizer')
+            return
+        }
+        setIsSetupOpen(true)
+    }
+
+    const handleNavigateToPersonas = (
+        mode: ConversationMode,
+        scenarios?: string[],
+        files?: File[]
+    ) => {
+        // Navigate to persona selection page with session data
+        navigate('/persona-selection', {
+            state: {
+                mode,
+                scenarios,
+                files,
+            },
+        })
     }
 
     const handleBookWalkthrough = () => {
@@ -87,6 +115,13 @@ const FinalCTA = ({ mode }: { mode: Mode }) => {
                     </div>
                 </motion.div>
             </Container>
+
+            {/* Session Setup Panel */}
+            <SessionSetupPanel
+                isOpen={isSetupOpen}
+                onClose={() => setIsSetupOpen(false)}
+                onNavigateToPersonas={handleNavigateToPersonas}
+            />
         </section>
     )
 }

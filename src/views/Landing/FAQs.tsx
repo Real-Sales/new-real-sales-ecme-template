@@ -3,10 +3,13 @@ import NavigationBar from './components/NavigationBar'
 import LandingFooter from './components/LandingFooter'
 import Container from './components/LandingContainer'
 import { Button } from '@/components/ui'
+import SessionSetupPanel from '@/components/shared/SessionSetupPanel'
+import type { ConversationMode, AIPersona } from '@/components/shared/SessionSetupPanel'
 import { motion, AnimatePresence } from 'framer-motion'
 import useDarkMode from '@/utils/hooks/useDarkMode'
 import { MODE_DARK, MODE_LIGHT } from '@/constants/theme.constant'
 import { useNavigate } from 'react-router-dom'
+import { useAppSelector } from '@/store'
 import { HiChevronDown } from 'react-icons/hi'
 import { HiSparkles } from 'react-icons/hi2'
 import type { Mode } from '@/@types/theme'
@@ -100,6 +103,10 @@ const FAQs = () => {
     const mode = isDark ? MODE_DARK : MODE_LIGHT
     const navigate = useNavigate()
     const [openItems, setOpenItems] = useState<Set<number>>(new Set())
+    const [isSetupOpen, setIsSetupOpen] = useState(false)
+    
+    // Check if user is authenticated
+    const signedIn = useAppSelector((state) => state.auth.session.signedIn)
 
     const toggleMode = () => {
         setMode(mode === MODE_LIGHT ? MODE_DARK : MODE_LIGHT)
@@ -123,7 +130,28 @@ const FAQs = () => {
     }
 
     const handleStartSession = () => {
-        navigate('/sign-in')
+        // Check if user is authenticated
+        if (!signedIn) {
+            // Redirect to sign in with return URL
+            navigate('/sign-in?redirect=/audio-visualizer')
+            return
+        }
+        setIsSetupOpen(true)
+    }
+
+    const handleNavigateToPersonas = (
+        mode: ConversationMode,
+        scenarios?: string[],
+        files?: File[]
+    ) => {
+        // Navigate to persona selection page with session data
+        navigate('/persona-selection', {
+            state: {
+                mode,
+                scenarios,
+                files,
+            },
+        })
     }
 
     return (
@@ -360,6 +388,13 @@ const FAQs = () => {
             </section>
 
             <LandingFooter mode={mode} />
+
+            {/* Session Setup Panel */}
+            <SessionSetupPanel
+                isOpen={isSetupOpen}
+                onClose={() => setIsSetupOpen(false)}
+                onNavigateToPersonas={handleNavigateToPersonas}
+            />
         </main>
     )
 }

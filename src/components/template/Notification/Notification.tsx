@@ -1,22 +1,16 @@
-import { useEffect, useState, useRef } from 'react'
+import { useState, useRef } from 'react'
 import classNames from 'classnames'
 import withHeaderItem from '@/utils/hoc/withHeaderItem'
 import Dropdown from '@/components/ui/Dropdown'
 import ScrollBar from '@/components/ui/ScrollBar'
-import Spinner from '@/components/ui/Spinner'
 import Badge from '@/components/ui/Badge'
 import Button from '@/components/ui/Button'
 import Tooltip from '@/components/ui/Tooltip'
 import NotificationAvatar from './NotificationAvatar'
 import NotificationToggle from './NotificationToggle'
 import { HiOutlineMailOpen } from 'react-icons/hi'
-import {
-    apiGetNotificationList,
-    apiGetNotificationCount,
-} from '@/services/CommonService'
 import isLastChild from '@/utils/isLastChild'
 import useResponsive from '@/utils/hooks/useResponsive'
-import { useNavigate } from 'react-router-dom'
 
 import type { DropdownRef } from '@/components/ui/Dropdown'
 
@@ -33,42 +27,54 @@ type NotificationList = {
     readed: boolean
 }
 
+// Mock notification data
+const mockNotifications: NotificationList[] = [
+    {
+        id: '1',
+        target: 'Jeremiah Minsk',
+        description: 'mentioned your in comment.',
+        date: '2 minutes ago',
+        image: 'thumb-1.jpg',
+        type: 0,
+        location: '',
+        locationLabel: '',
+        status: '',
+        readed: false,
+    },
+    {
+        id: '2',
+        target: 'Max Alexander',
+        description: 'invited you to new project.',
+        date: '10 minutes ago',
+        image: 'thumb-2.jpg',
+        type: 0,
+        location: '',
+        locationLabel: '',
+        status: '',
+        readed: false,
+    },
+    {
+        id: '3',
+        target: '',
+        description: 'Please submit your daily report.',
+        date: '3 hours ago',
+        image: '',
+        type: 1,
+        location: '',
+        locationLabel: '',
+        status: '',
+        readed: false,
+    },
+]
+
 const notificationHeight = 'h-[280px]'
 
 const _Notification = ({ className }: { className?: string }) => {
-    const [notificationList, setNotificationList] = useState<
-        NotificationList[]
-    >([])
-    const [unreadNotification, setUnreadNotification] = useState(false)
-    const [noResult, setNoResult] = useState(false)
-    const [loading, setLoading] = useState(false)
+    const [notificationList, setNotificationList] =
+        useState<NotificationList[]>(mockNotifications)
+    const [unreadNotification, setUnreadNotification] = useState(true)
 
     const { larger } = useResponsive()
-
-    const navigate = useNavigate()
-
-    const getNotificationCount = async () => {
-        const resp = await apiGetNotificationCount()
-        if (resp.count > 0) {
-            setNoResult(false)
-            setUnreadNotification(true)
-        } else {
-            setNoResult(true)
-        }
-    }
-
-    useEffect(() => {
-        getNotificationCount()
-    }, [])
-
-    const onNotificationOpen = async () => {
-        if (notificationList.length === 0) {
-            setLoading(true)
-            const resp = await apiGetNotificationList()
-            setLoading(false)
-            setNotificationList(resp)
-        }
-    }
 
     const onMarkAllAsRead = () => {
         const list = notificationList.map((item: NotificationList) => {
@@ -99,7 +105,6 @@ const _Notification = ({ className }: { className?: string }) => {
     const notificationDropdownRef = useRef<DropdownRef>(null)
 
     const handleViewAllActivity = () => {
-        navigate('/concepts/account/activity-log')
         if (notificationDropdownRef.current) {
             notificationDropdownRef.current.handleDropdownClose()
         }
@@ -116,7 +121,6 @@ const _Notification = ({ className }: { className?: string }) => {
             }
             menuClass="min-w-[280px] md:min-w-[340px]"
             placement={larger.md ? 'bottom-end' : 'bottom'}
-            onOpen={onNotificationOpen}
         >
             <Dropdown.Item variant="header">
                 <div className="dark:border-gray-700 px-2 flex items-center justify-between mb-1">
@@ -172,34 +176,6 @@ const _Notification = ({ className }: { className?: string }) => {
                             )}
                         </div>
                     ))}
-                {loading && (
-                    <div
-                        className={classNames(
-                            'flex items-center justify-center',
-                            notificationHeight,
-                        )}
-                    >
-                        <Spinner size={40} />
-                    </div>
-                )}
-                {noResult && notificationList.length === 0 && (
-                    <div
-                        className={classNames(
-                            'flex items-center justify-center',
-                            notificationHeight,
-                        )}
-                    >
-                        <div className="text-center">
-                            <img
-                                className="mx-auto mb-2 max-w-[150px]"
-                                src="/img/others/no-notification.png"
-                                alt="no-notification"
-                            />
-                            <h6 className="font-semibold">No notifications!</h6>
-                            <p className="mt-1">Please Try again later</p>
-                        </div>
-                    </div>
-                )}
             </ScrollBar>
             <Dropdown.Item variant="header">
                 <div className="pt-4">

@@ -102,7 +102,7 @@ const TeamMembersTable = ({
                                 showInfo={false}
                                 customColorClass={classNames(
                                     'bg-red-500',
-                                    row.score >= 50 && 'bg-yellow-500',
+                                    row.score >= 50 && 'bg-blue-500',
                                     row.score >= 65 && 'bg-green-500',
                                 )}
                             />

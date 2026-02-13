@@ -1,40 +1,16 @@
-import React, { useRef, useMemo, useState, Suspense } from 'react';
+import React, { useRef, useMemo, useState, Suspense, useEffect } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, PerspectiveCamera } from '@react-three/drei';
 import { EffectComposer, Bloom } from '@react-three/postprocessing';
 import * as THREE from 'three';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useLocation } from 'react-router-dom';
+import { HiMicrophone, HiStop, HiPaperAirplane, HiPaperClip, HiPlus, HiLightBulb, HiSparkles } from 'react-icons/hi2';
 
 
 // --- 1. CONFIGURATION: "Kilo Herz 2" ---
 const CONFIG = [
-  {
-    "enabled": true,
-    "name": "Kilo Blue Outer",
-    "sphereRadius": 1.55,
-    "innerSphereRadius": 0.24,
-    "rotationSpeed": 0.001,
-    "rotationSpeedMin": 0.002,
-    "rotationSpeedMax": 0.013,
-    "rotationSmoothness": 0.83,
-    "particleCount": 8000,
-    "particleSize": 0.005,
-    "particleLifetime": 10,
-    "minFrequency": 20,
-    "maxFrequency": 80,
-    "minFrequencyBeat": 20,
-    "maxFrequencyBeat": 80,
-    "noiseScale": 6.4,
-    "dynamicNoiseScale": true,
-    "minNoiseScale": 2.1,
-    "maxNoiseScale": 8.9,
-    "noiseStep": 0.2,
-    "noiseSpeed": 0.05,
-    "turbulenceStrength": 0.0005,
-    "colorStart": "#360ff2", // Blue
-    "colorEnd": "#481ce8",   // Purple-Blue
-    "beatStrength": 0.002,
-    "gainMultiplier": 1
-  },
+
   {
     "enabled": true,
     "name": "Kilo Orange Core",
@@ -416,39 +392,229 @@ const VisualizerLayer = ({ config, analyzer }: { config: any, analyzer: any }) =
   );
 };
 
-// --- 5. Main Component ---
+// --- 5. Types for Chat Interface ---
+interface Message {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+  timestamp: Date
+}
+
+interface Hint {
+  id: number
+  category: 'what' | 'how'
+  title: string
+  suggestion: string
+}
+
+// Sample hints for the session
+const AVAILABLE_HINTS: Hint[] = [
+  {
+    id: 1,
+    category: 'what',
+    title: 'Opening Questions',
+    suggestion: 'Start with: "Can you walk me through your current sales process?" This helps establish context and builds rapport.'
+  },
+  {
+    id: 2,
+    category: 'how',
+    title: 'Active Listening',
+    suggestion: 'Pause after they speak, then say: "So if I understand correctly..." This shows engagement and ensures clarity.'
+  },
+  {
+    id: 3,
+    category: 'what',
+    title: 'Pain Point Discovery',
+    suggestion: 'Ask: "What challenges are you facing with your current solution?" Focus on their problems, not your product.'
+  },
+  {
+    id: 4,
+    category: 'how',
+    title: 'Tone & Pace',
+    suggestion: 'Speak 15% slower than usual. Use confident pauses. Mirror their energy level to build connection.'
+  },
+  {
+    id: 5,
+    category: 'what',
+    title: 'Value Proposition',
+    suggestion: 'Frame benefits as: "This means you\'ll be able to..." rather than "Our product has..." Focus on outcomes.'
+  }
+];
+
+// --- 6. Main Component with Chat Interface ---
 export default function KiloHerzVisualizer() {
+  const location = useLocation();
+  const sessionData = location.state as {
+    mode?: string
+    persona?: {
+      id: string
+      name: string
+      role: string
+      avatar?: string
+      company?: string
+      industry?: string
+    }
+    scenarios?: string[]
+    files?: File[]
+  };
+
   const { startAudio, getRangeVolume, isReady } = useAudioAnalyzer();
+  const [isMicActive, setIsMicActive] = useState(false);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [inputValue, setInputValue] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [personaMode] = useState(
+    sessionData?.mode 
+      ? sessionData.mode.charAt(0).toUpperCase() + sessionData.mode.slice(1)
+      : 'Discovering'
+  );
+  const [timeLeft, setTimeLeft] = useState(1800); // 30 minutes in seconds
+  const [userName] = useState(sessionData?.persona?.name || 'AI Persona');
+  const [userRole] = useState(sessionData?.persona?.role || 'Role');
+  const [userAvatar] = useState(sessionData?.persona?.avatar);
+  const [hints, setHints] = useState<Hint[]>(AVAILABLE_HINTS);
+  const [currentHintIndex, setCurrentHintIndex] = useState(0);
+  const [viewedHints, setViewedHints] = useState<number[]>([]);
+  const [showHints, setShowHints] = useState(false);
+  const [sessionStarted, setSessionStarted] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-    return (
+  // Timer countdown - starts when session is started
+  useEffect(() => {
+    if (!sessionStarted) return;
+    
+    const timer = setInterval(() => {
+      setTimeLeft(prev => {
+        if (prev <= 0) {
+          clearInterval(timer);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
 
-    <div style={{ width: '100vw', height: '100vh', background: '#000000' }}>
-      
-      {!isReady && (
-        <div style={{
-          position: 'absolute', inset: 0, zIndex: 10, display: 'flex', 
-          alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.9)'
-        }}>
-          <button 
-            onClick={startAudio}
-            style={{
-              padding: '1.2rem 3rem', fontSize: '1.1rem', color: '#ff32b7', 
-              background: 'transparent', border: '2px solid #ff32b7', 
-              cursor: 'pointer', fontFamily: 'monospace', letterSpacing: '4px',
-              textTransform: 'uppercase', boxShadow: '0 0 25px rgba(255, 50, 183, 0.4)'
-            }}
-          >
-            Activate: Kilo Herz 2
-                    </button>
+    return () => clearInterval(timer);
+  }, [sessionStarted]);
 
-        </div>
-      )}
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
 
-      <Canvas dpr={[1, 2]}>
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  const handleSendMessage = () => {
+    if (!inputValue.trim() || isGenerating) return;
+
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      role: 'user',
+      content: inputValue,
+      timestamp: new Date()
+    };
+
+    setMessages(prev => [...prev, userMessage]);
+    setInputValue('');
+    setIsGenerating(true);
+
+    // Simulate AI response
+    setTimeout(() => {
+      const aiMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: 'Based on your sales data, I\'ve identified three key opportunities for growth. **First**, your Q4 conversion rates show a 23% increase in the enterprise segment. **Second**, mobile traffic has doubled, suggesting we should optimize for mobile-first experiences.',
+        timestamp: new Date(),
+      };
+      setMessages(prev => [...prev, aiMessage]);
+      setIsGenerating(false);
+    }, 2000);
+  };
+
+  const toggleMic = async () => {
+    if (!isReady) {
+      await startAudio();
+    }
+    setIsMicActive(!isMicActive);
+  };
+
+  const endSession = () => {
+    setMessages([]);
+    setIsMicActive(false);
+    setSessionStarted(false);
+    setTimeLeft(1800); // Reset timer
+    setViewedHints([]); // Reset hints
+    setCurrentHintIndex(0);
+  };
+
+  const handleStartSession = async () => {
+    await startAudio();
+    setIsMicActive(true);
+    setSessionStarted(true);
+  };
+
+  const handleAddFiles = () => {
+    // Handle file upload or scenario selection
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.multiple = true;
+    input.accept = '.pdf,.doc,.docx,.txt,.json';
+    input.onchange = (e: any) => {
+      const files = Array.from(e.target.files);
+      console.log('Files selected:', files);
+      // Handle file upload logic here
+    };
+    input.click();
+  };
+
+  const handleNextHint = () => {
+    const currentHint = hints[currentHintIndex];
+    if (!viewedHints.includes(currentHint.id)) {
+      setViewedHints([...viewedHints, currentHint.id]);
+    }
+    
+    if (currentHintIndex < hints.length - 1) {
+      setCurrentHintIndex(currentHintIndex + 1);
+    } else {
+      // At the end, close hints
+      setShowHints(false);
+    }
+  };
+
+  const handlePreviousHint = () => {
+    if (currentHintIndex > 0) {
+      setCurrentHintIndex(currentHintIndex - 1);
+    }
+  };
+
+  const remainingHints = hints.length - viewedHints.length;
+  const currentHint = hints[currentHintIndex];
+
+  const formatContent = (content: string) => {
+    let formatted = content.replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold text-white">$1</strong>');
+    formatted = formatted.replace(/`(.*?)`/g, '<code class="px-2 py-0.5 rounded-lg bg-gray-800/80 text-blue-400 font-mono text-sm">$1</code>');
+    return formatted;
+  };
+
+  return (
+    <div className="flex h-screen w-screen bg-gray-950 overflow-hidden fixed inset-0">
+      {/* LEFT: Audio Visualizer - Increased to 65% */}
+      <div className="relative flex-shrink-0 w-[65%] h-full border-r border-gray-800/50 bg-black">
+        {/* Canvas Animation - Always visible */}
+        <div className="absolute inset-0" style={{ background: '#000000' }}>
+          <Canvas dpr={[1, 2]} style={{ width: '100%', height: '100%' }} gl={{ alpha: false, antialias: true }}>
         <PerspectiveCamera makeDefault position={[0, 0, 4.0]} />
+            <color attach="background" args={['#000000']} />
         
         <Suspense fallback={null}>
-          {isReady && CONFIG.map((layerConfig, index) => (
+              {CONFIG.map((layerConfig, index) => (
             layerConfig.enabled && (
               <VisualizerLayer 
                 key={index} 
@@ -460,9 +626,6 @@ export default function KiloHerzVisualizer() {
         </Suspense>
 
         <EffectComposer enableNormalPass={false}>
-          {/* Kilo Herz uses foggy, glowing aesthetic.
-             We use Bloom to simulate the 'fog' + 'additive blending' combo from the reference 
-          */}
           <Bloom 
             luminanceThreshold={0.3} 
             mipmapBlur 
@@ -473,6 +636,418 @@ export default function KiloHerzVisualizer() {
         
         <OrbitControls enableZoom={true} />
       </Canvas>
+        </div>
+
+        {/* Top Right: Time Left */}
+        <div className="absolute top-6 right-6 z-[100] pointer-events-none">
+          <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-black/50 backdrop-blur-md border border-white/10">
+            <div className={`w-1.5 h-1.5 rounded-full ${sessionStarted ? 'bg-green-400 animate-pulse' : 'bg-gray-500'}`} />
+            <span className="text-sm font-bold text-white font-mono">{formatTime(timeLeft)}</span>
+          </div>
+        </div>
+
+
+
+        {/* Bottom Status Indicator */}
+        <AnimatePresence>
+          {sessionStarted && isMicActive && (
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 20 }}
+              className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[100] pointer-events-none"
+            >
+              <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-black/50 backdrop-blur-md border border-white/10">
+                <div className="w-2 h-2 rounded-full bg-red-400 animate-pulse" />
+                <span className="text-xs text-gray-300 font-medium">Listening</span>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* RIGHT: Chat Interface - 35% */}
+      <div className="w-[35%] h-full flex flex-col bg-gray-950">
+        {/* Header: Persona Detail - Compact Row */}
+        <div className="
+          flex-shrink-0 px-5 py-4 border-b border-gray-800/50
+          bg-gray-900/60 backdrop-blur-xl
+        ">
+          <div className="flex items-center gap-3">
+            {/* Avatar */}
+            {userAvatar ? (
+              <img
+                src={userAvatar}
+                alt={userName}
+                className="w-11 h-11 rounded-full border border-blue-500/30 object-cover flex-shrink-0"
+              />
+            ) : (
+              <div className="
+                w-11 h-11 rounded-full flex-shrink-0
+                bg-gradient-to-br from-blue-500/20 to-blue-600/20
+                border border-blue-500/30
+                flex items-center justify-center
+              ">
+                <span className="text-sm font-bold text-blue-400">
+                  {userName.split(' ').map(n => n[0]).join('')}
+                </span>
+              </div>
+            )}
+
+            {/* Name & Mode */}
+            <div className="flex-1 min-w-0">
+              <h3 className="text-sm font-semibold text-white truncate">{userName}</h3>
+              <p className="text-xs text-gray-400">{personaMode} · {userRole}</p>
+            </div>
+
+            {/* End Session - Top Right */}
+            <AnimatePresence>
+              {sessionStarted && (
+                <motion.button
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={endSession}
+                  className="
+                    px-3.5 py-1.5 rounded-lg flex-shrink-0
+                    bg-red-500/10 border border-red-500/25
+                    text-red-400 text-xs font-medium
+                    hover:bg-red-500/20 hover:border-red-500/40
+                    transition-all duration-200
+                  "
+                >
+                  End Session
+                </motion.button>
+              )}
+            </AnimatePresence>
+          </div>
+        </div>
+
+        {/* Transcript Area - Middle Large Section */}
+        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4 min-h-0">
+          {messages.length === 0 ? (
+            <div className="h-full flex items-center justify-center">
+              <p className="text-gray-500 text-center text-sm">
+                Transcript will appear here<br />
+                <span className="text-xs text-gray-600">User's input + AI's response</span>
+              </p>
+            </div>
+          ) : (
+            <>
+              {messages.map((message) => (
+                <motion.div
+                  key={message.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                >
+                  <div
+                    className={`
+                      max-w-[90%] px-4 py-3 rounded-xl
+                      ${message.role === 'user'
+                        ? 'bg-gradient-to-br from-blue-500 via-blue-600 to-blue-600 text-white shadow-lg shadow-blue-500/30'
+                        : 'bg-gradient-to-br from-gray-900/90 to-gray-800/90 text-gray-200 border border-gray-700/50 shadow-md'
+                      }
+                    `}
+                  >
+                    <div 
+                      className="text-sm leading-relaxed"
+                      dangerouslySetInnerHTML={{ __html: formatContent(message.content) }}
+                    />
+                    <p className="text-xs opacity-50 mt-1.5">
+                      {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                  </div>
+                </motion.div>
+              ))}
+
+              {isGenerating && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="flex justify-start"
+                >
+                  <div className="px-4 py-3 rounded-xl bg-gray-900/90 border border-gray-700/50">
+                    <div className="flex gap-1.5">
+                      <motion.div
+                        animate={{ scale: [1, 1.3, 1] }}
+                        transition={{ repeat: Infinity, duration: 0.6, delay: 0 }}
+                        className="w-1.5 h-1.5 rounded-full bg-blue-500"
+                      />
+                      <motion.div
+                        animate={{ scale: [1, 1.3, 1] }}
+                        transition={{ repeat: Infinity, duration: 0.6, delay: 0.2 }}
+                        className="w-1.5 h-1.5 rounded-full bg-blue-500"
+                      />
+                      <motion.div
+                        animate={{ scale: [1, 1.3, 1] }}
+                        transition={{ repeat: Infinity, duration: 0.6, delay: 0.4 }}
+                        className="w-1.5 h-1.5 rounded-full bg-blue-500"
+                      />
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+
+              <div ref={messagesEndRef} />
+            </>
+          )}
+        </div>
+
+        {/* Hints Panel - Above Input - One Hint at a Time */}
+        <AnimatePresence>
+          {showHints && currentHint && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 20 }}
+              className="flex-shrink-0 px-6 py-4 border-t border-blue-500/30 bg-gradient-to-br from-blue-500/10 to-blue-600/5 backdrop-blur-xl"
+            >
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <HiLightBulb className="w-5 h-5 text-blue-400" />
+                  <h4 className="text-sm font-semibold text-white">
+                    Session Hint {currentHintIndex + 1}/{hints.length}
+                  </h4>
+                </div>
+                <button
+                  onClick={() => setShowHints(false)}
+                  className="text-xs text-gray-400 hover:text-gray-300 transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+
+              {/* Current Hint Display */}
+              <motion.div
+                key={currentHint.id}
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                className="p-4 rounded-xl bg-gray-900/50 border border-gray-700/50"
+              >
+                <div className="flex items-start gap-2 mb-3">
+                  <span className={`
+                    px-3 py-1 rounded-lg text-xs font-semibold flex-shrink-0
+                    ${currentHint.category === 'what' 
+                      ? 'bg-blue-500/20 text-blue-400 border border-blue-500/40' 
+                      : 'bg-purple-500/20 text-purple-400 border border-purple-500/40'
+                    }
+                  `}>
+                    {currentHint.category === 'what' ? '💬 What to Say' : '🎯 How to Say'}
+                  </span>
+                </div>
+                
+                <h5 className="text-base font-bold text-white mb-2">
+                  {currentHint.title}
+                </h5>
+                
+                <p className="text-sm text-gray-300 leading-relaxed">
+                  {currentHint.suggestion}
+                </p>
+              </motion.div>
+
+              {/* Navigation Buttons */}
+              <div className="flex items-center justify-between mt-4">
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={handlePreviousHint}
+                  disabled={currentHintIndex === 0}
+                  className={`
+                    px-4 py-2 rounded-lg text-sm font-medium
+                    transition-all duration-200
+                    ${currentHintIndex === 0
+                      ? 'bg-gray-800/30 text-gray-600 cursor-not-allowed'
+                      : 'bg-gray-800/50 text-gray-300 hover:bg-gray-700/50 border border-gray-700/50'
+                    }
+                  `}
+                >
+                  ← Previous
+                </motion.button>
+
+                <div className="flex gap-1.5">
+                  {hints.map((_, index) => (
+                    <div
+                      key={index}
+                      className={`
+                        w-2 h-2 rounded-full transition-all duration-300
+                        ${index === currentHintIndex
+                          ? 'bg-blue-400 w-6'
+                          : viewedHints.includes(hints[index].id)
+                            ? 'bg-blue-600/50'
+                            : 'bg-gray-600'
+                        }
+                      `}
+                    />
+                  ))}
+                </div>
+
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={handleNextHint}
+                  className="
+                    px-4 py-2 rounded-lg text-sm font-medium
+                    bg-blue-500/20 text-blue-400 border border-blue-500/40
+                    hover:bg-blue-500/30 hover:border-blue-500/60
+                    transition-all duration-200
+                  "
+                >
+                  {currentHintIndex === hints.length - 1 ? 'Done ✓' : 'Next →'}
+                </motion.button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Bottom Section - Start Session or Chat Input */}
+        <div className="flex-shrink-0 px-4 py-3 bg-gray-900/60 backdrop-blur-2xl">
+          <AnimatePresence mode="wait">
+            {!sessionStarted ? (
+              /* Start Session Button */
+              <motion.div
+                key="start-session"
+                initial={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 20, scale: 0.95 }}
+                transition={{ duration: 0.3, ease: "easeInOut" }}
+              >
+                <motion.button
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
+                  onClick={handleStartSession}
+                  className="
+                    w-full py-3.5 rounded-full
+                    bg-gradient-to-r from-blue-500 to-blue-600
+                    text-white text-sm font-semibold
+                    shadow-lg shadow-blue-500/25
+                    hover:shadow-xl hover:shadow-blue-500/35
+                    transition-all duration-300
+                  "
+                >
+                  Start Session
+                </motion.button>
+              </motion.div>
+            ) : (
+              /* Chat Input Bar */
+              <motion.div
+                key="chat-input"
+                initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{ duration: 0.4, ease: "easeOut" }}
+                className="
+                  flex items-center gap-2
+                  bg-gray-800/80 backdrop-blur-xl
+                  border border-gray-700/50
+                  rounded-full
+                  px-4 py-2
+                  focus-within:border-blue-500/50
+                  transition-all duration-300
+                "
+              >
+                {/* Attachment */}
+                <button className="text-gray-400 hover:text-white transition-colors flex-shrink-0">
+                  <HiPaperClip className="w-5 h-5" />
+                </button>
+
+                {/* Input */}
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                  placeholder="Type a message..."
+                  disabled={isGenerating}
+                  className="
+                    flex-1 bg-transparent text-white text-sm
+                    placeholder:text-gray-500
+                    focus:outline-none
+                    disabled:opacity-50 disabled:cursor-not-allowed
+                  "
+                />
+
+                {/* Hints Button */}
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => {
+                    setShowHints(!showHints);
+                    if (!showHints) {
+                      const firstUnviewed = hints.findIndex(h => !viewedHints.includes(h.id));
+                      setCurrentHintIndex(firstUnviewed >= 0 ? firstUnviewed : 0);
+                    }
+                  }}
+                  className="
+                    flex items-center gap-1.5 px-3 py-1 rounded-full flex-shrink-0
+                    bg-blue-500/10 border border-blue-500/30 text-blue-400
+                    hover:bg-blue-500/20 hover:border-blue-500/50
+                    transition-all duration-200
+                  "
+                >
+                  <HiLightBulb className="w-3.5 h-3.5" />
+                  <span className="text-xs font-medium">
+                    {hints.length - viewedHints.length}
+                  </span>
+                </motion.button>
+
+                {/* Send / Mic Button */}
+                {inputValue.trim() ? (
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={handleSendMessage}
+                    disabled={isGenerating}
+                    className="
+                      w-9 h-9 rounded-full flex-shrink-0
+                      bg-gradient-to-br from-blue-500 to-blue-600
+                      text-white shadow-lg shadow-blue-500/20
+                      flex items-center justify-center
+                      transition-all duration-200
+                    "
+                  >
+                    <HiPaperAirplane className="w-4 h-4" />
+                  </motion.button>
+                ) : (
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => {
+                      if (isMicActive) {
+                        setIsMicActive(false);
+                      } else {
+                        startAudio();
+                        setIsMicActive(true);
+                      }
+                    }}
+                    className={`
+                      w-9 h-9 rounded-full flex-shrink-0
+                      flex items-center justify-center
+                      transition-all duration-200
+                      ${isMicActive
+                        ? 'bg-red-500 text-white shadow-lg shadow-red-500/30'
+                        : 'bg-white/10 text-white border border-gray-600 hover:bg-white/20'
+                      }
+                    `}
+                  >
+                    {isMicActive ? (
+                      <HiStop className="w-4 h-4" />
+                    ) : (
+                      <div className="flex gap-[2px] items-end h-4">
+                        {[3, 5, 7, 5, 3].map((h, i) => (
+                          <div key={i} className="w-[2px] bg-white rounded-full" style={{ height: `${h * 2}px` }} />
+                        ))}
+                      </div>
+                    )}
+                  </motion.button>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </div>
         </div>
     );
 

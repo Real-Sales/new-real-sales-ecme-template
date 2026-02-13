@@ -5,6 +5,8 @@ import locale, { LocaleState } from './slices/locale/localeSlice'
 import theme from './slices/theme/themeSlice'
 import type { Theme } from '@/@types/theme'
 import routeKey, { RouteKeyState } from './slices/routeKeySlice'
+import settings, { SettingsState } from '@/views/profile/Settings/store/settingsSlice'
+import subscription, { SubscriptionState } from '@/views/profile/Subscription/store/subscriptionSlice'
 import RtkQueryService from '@/services/RtkQueryService'
 
 export type RootState = {
@@ -13,6 +15,8 @@ export type RootState = {
     locale: LocaleState
     theme: Theme
     routeKey: RouteKeyState
+    settings: SettingsState
+    subscription: SubscriptionState
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     [key: string]: any
 }
@@ -27,6 +31,8 @@ const staticReducers = {
     locale,
     theme,
     routeKey,
+    settings,
+    subscription,
     [RtkQueryService.reducerPath]: RtkQueryService.reducer,
 }
 

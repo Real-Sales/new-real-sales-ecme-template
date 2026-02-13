@@ -15,33 +15,20 @@ const salesRoute: Routes = [
         authority: [],
     },
     {
-        key: 'salesManager.subscription',
+        key: 'subscription',
         path: '/subscription',
-        component: lazy(() => import('@/views/sales/Subscription')),
+        component: lazy(() => import('@/views/profile/Subscription')),
         authority: [],
-    },
-    {
-        key: 'salesManager.sessions',
-        path: '/sessions',
-        component: lazy(() => import('@/views/sales/Sessions')),
-        authority: [],
+        meta: {
+            header: {
+                title: 'Subscription',
+            },
+        },
     },
     {
         key: 'salesManager.performance',
         path: '/performance',
         component: lazy(() => import('@/views/sales/Performance')),
-        authority: [],
-    },
-    {
-        key: 'salesManager.modes',
-        path: '/modes-used',
-        component: lazy(() => import('@/views/sales/ModesUsed')),
-        authority: [],
-    },
-    {
-        key: 'salesManager.personas',
-        path: '/personas-used',
-        component: lazy(() => import('@/views/sales/PersonasUsed')),
         authority: [],
     },
     {
@@ -51,10 +38,22 @@ const salesRoute: Routes = [
         authority: [],
     },
     {
+        key: 'salesManager.personaSelection',
+        path: '/persona-selection',
+        component: lazy(() => import('@/views/sales/PersonaSelection')),
+        authority: [],
+        meta: {
+            layout: 'blank',
+        },
+    },
+    {
         key: 'salesManager.audioVisualizer',
         path: '/audio-visualizer',
         component: lazy(() => import('@/views/sales/AudioVisualizer')),
         authority: [],
+        meta: {
+            layout: 'blank',
+        },
     },
     {
         key: 'companyGroup.company',
@@ -85,6 +84,28 @@ const salesRoute: Routes = [
         path: '/feedback',
         component: lazy(() => import('@/views/sales/MyFeedback')),
         authority: [],
+    },
+    {
+        key: 'profile.settings',
+        path: '/profile/settings',
+        component: lazy(() => import('@/views/profile/Settings')),
+        authority: [],
+        meta: {
+            header: {
+                title: 'Settings',
+            },
+        },
+    },
+    {
+        key: 'profile.subscription',
+        path: '/profile/subscription',
+        component: lazy(() => import('@/views/profile/Subscription')),
+        authority: [],
+        meta: {
+            header: {
+                title: 'Subscription',
+            },
+        },
     },
 ]
 

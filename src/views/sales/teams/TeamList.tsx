@@ -68,7 +68,7 @@ const TeamCard = ({
     const getPerformanceColor = (score: number) => {
         if (score >= 65) return 'bg-green-500'
         if (score >= 50) return 'bg-primary'
-        return 'bg-amber-500'
+        return 'bg-blue-500'
     }
 
     const handleCardClick = () => {
@@ -134,7 +134,7 @@ const TeamCard = ({
                         <Badge
                             innerClass={`${
                                 status === 'Focus'
-                                    ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                                    ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
                                     : status === 'Stable'
                                       ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
                                       : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'

@@ -1,6 +1,8 @@
 import { useEffect, useCallback } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useAppSelector, useAppDispatch } from '@/store/hook'
+import { setLayout, setPreviousLayout } from '@/store/slices/theme/themeSlice'
+import { setCurrentRouteKey } from '@/store/slices/routeKeySlice'
 import type { LayoutType } from '@/@types/theme'
 import type { ComponentType } from 'react'
 
@@ -18,28 +20,29 @@ const AppRoute = <T extends Record<string, unknown>>({
     const location = useLocation()
     const dispatch = useAppDispatch()
 
+    // Update the current route key in the store so the sidebar can highlight the active item
+    useEffect(() => {
+        dispatch(setCurrentRouteKey(routeKey))
+    }, [dispatch, routeKey])
+
     // Selectors for theme layout
     const layout = useAppSelector((state) => state.theme.layout)
     const layoutType = layout.type
     const previousLayout = layout.previousType
 
-    // Dummy action creators for demonstration (replace with your actual actions)
-    // import { setLayout, setPreviousLayout } from '@/store/slices/theme/themeSlice'
-    // import { setCurrentRouteKey } from '@/store/routeKeySlice'
-
     const handleLayoutChange = useCallback(() => {
-        // dispatch(setCurrentRouteKey(routeKey))
+        // If route specifies a layout and it's different from current, change it
+        if (props.layout && props.layout !== layoutType) {
+            dispatch(setPreviousLayout(layoutType))
+            dispatch(setLayout(props.layout))
+        }
 
-        // if (props.layout && props.layout !== layoutType) {
-        //     dispatch(setPreviousLayout(layoutType))
-        //     dispatch(setLayout(props.layout))
-        // }
-
-        // if (!props.layout && previousLayout && layoutType !== previousLayout) {
-        //     dispatch(setLayout(previousLayout))
-        //     dispatch(setPreviousLayout(''))
-        // }
-    }, [props.layout, routeKey, layoutType, previousLayout])
+        // If route doesn't specify layout and there's a previous layout, restore it
+        if (!props.layout && previousLayout && layoutType !== previousLayout) {
+            dispatch(setLayout(previousLayout))
+            dispatch(setPreviousLayout(''))
+        }
+    }, [props.layout, routeKey, layoutType, previousLayout, dispatch])
 
     useEffect(() => {
         handleLayoutChange()

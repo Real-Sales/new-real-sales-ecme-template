@@ -29,7 +29,7 @@ const ModeItem = ({ mode, label, data, defaultExpand = false }: ModeItemProps) =
     const getProgressColor = (mode: ModeType) => {
         switch (mode) {
             case 'prospecting':
-                return 'bg-yellow-500'
+                return 'bg-blue-500'
             case 'discovering':
                 return 'bg-green-500'
             case 'closing':
@@ -40,7 +40,7 @@ const ModeItem = ({ mode, label, data, defaultExpand = false }: ModeItemProps) =
     const getBorderColor = (mode: ModeType) => {
         switch (mode) {
             case 'prospecting':
-                return 'border-l-4 border-l-yellow-500 border-t border-t-gray-200 dark:border-t-gray-700 border-b border-b-gray-200 dark:border-b-gray-700 border-r border-r-gray-200 dark:border-r-gray-700'
+                return 'border-l-4 border-l-blue-500 border-t border-t-gray-200 dark:border-t-gray-700 border-b border-b-gray-200 dark:border-b-gray-700 border-r border-r-gray-200 dark:border-r-gray-700'
             case 'discovering':
                 return 'border-l-4 border-l-green-500 border-t border-t-gray-200 dark:border-t-gray-700 border-b border-b-gray-200 dark:border-b-gray-700 border-r border-r-gray-200 dark:border-r-gray-700'
             case 'closing':

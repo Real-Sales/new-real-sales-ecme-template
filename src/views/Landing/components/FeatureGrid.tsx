@@ -32,9 +32,9 @@ const features = [
         icon: <HiChartBar className="text-4xl" />,
         title: 'Performance Intelligence',
         description: 'Every session turns into insights you can act on, not generic feedback.',
-        color: 'from-orange-500 to-amber-500',
-        bgColor: 'bg-orange-100 dark:bg-orange-900/30',
-        iconColor: 'text-orange-600 dark:text-orange-400',
+        color: 'from-blue-500 to-blue-600',
+        bgColor: 'bg-blue-100 dark:bg-blue-900/30',
+        iconColor: 'text-blue-600 dark:text-blue-400',
     },
 ]
 

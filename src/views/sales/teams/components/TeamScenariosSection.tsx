@@ -347,8 +347,8 @@ const TeamScenariosSection = ({ teamMembers }: TeamScenariosSectionProps) => {
                         {row.userImg ? (
                             <Avatar size={40} shape="circle" src={row.userImg} />
                         ) : (
-                            <Avatar size={40} shape="circle" className="bg-yellow-100 dark:bg-yellow-500/20">
-                                <span className="text-yellow-600 dark:text-yellow-400 font-semibold">
+                            <Avatar size={40} shape="circle" className="bg-blue-100 dark:bg-blue-500/20">
+                                <span className="text-blue-600 dark:text-blue-400 font-semibold">
                                     {getInitials(row.userName)}
                                 </span>
                             </Avatar>
@@ -387,7 +387,7 @@ const TeamScenariosSection = ({ teamMembers }: TeamScenariosSectionProps) => {
                                 </div>
                                 <div className="flex items-center gap-1.5">
                                     <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Pending:</span>
-                                    <span className="text-sm font-bold text-amber-600 dark:text-amber-400">{row.pending}</span>
+                                    <span className="text-sm font-bold text-blue-600 dark:text-blue-400">{row.pending}</span>
                                 </div>
                             </div>
                         </div>
@@ -396,8 +396,8 @@ const TeamScenariosSection = ({ teamMembers }: TeamScenariosSectionProps) => {
                             showInfo={false}
                             customColorClass={classNames(
                                 'bg-red-500',
-                                rate >= 30 && 'bg-amber-500',
-                                rate >= 60 && 'bg-yellow-500',
+                                rate >= 30 && 'bg-blue-500',
+                                rate >= 60 && 'bg-blue-600',
                                 rate >= 80 && 'bg-green-500',
                             )}
                         />
@@ -449,7 +449,7 @@ const TeamScenariosSection = ({ teamMembers }: TeamScenariosSectionProps) => {
                                 </div>
                                 <div className="flex items-center gap-1.5">
                                     <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Pending:</span>
-                                    <span className="text-sm font-bold text-amber-600 dark:text-amber-400">{row.pendingUsers}</span>
+                                    <span className="text-sm font-bold text-blue-600 dark:text-blue-400">{row.pendingUsers}</span>
                                 </div>
                             </div>
                         </div>
@@ -458,8 +458,8 @@ const TeamScenariosSection = ({ teamMembers }: TeamScenariosSectionProps) => {
                             showInfo={false}
                             customColorClass={classNames(
                                 'bg-red-500',
-                                rate >= 30 && 'bg-amber-500',
-                                rate >= 60 && 'bg-yellow-500',
+                                rate >= 30 && 'bg-blue-500',
+                                rate >= 60 && 'bg-blue-600',
                                 rate >= 80 && 'bg-green-500',
                             )}
                         />
@@ -486,7 +486,7 @@ const TeamScenariosSection = ({ teamMembers }: TeamScenariosSectionProps) => {
                     <Button
                         size="sm"
                         variant={viewMode === 'users' ? 'solid' : 'plain'}
-                        className={viewMode === 'users' ? 'bg-yellow-500 hover:bg-yellow-600 text-white border-0' : ''}
+                        className={viewMode === 'users' ? 'bg-blue-500 hover:bg-blue-600 text-white border-0' : ''}
                         icon={<TbUsers />}
                         onClick={() => setViewMode('users')}
                     >
@@ -495,7 +495,7 @@ const TeamScenariosSection = ({ teamMembers }: TeamScenariosSectionProps) => {
                     <Button
                         size="sm"
                         variant={viewMode === 'scenarios' ? 'solid' : 'plain'}
-                        className={viewMode === 'scenarios' ? 'bg-yellow-500 hover:bg-yellow-600 text-white border-0' : ''}
+                        className={viewMode === 'scenarios' ? 'bg-blue-500 hover:bg-blue-600 text-white border-0' : ''}
                         icon={<TbListDetails />}
                         onClick={() => setViewMode('scenarios')}
                     >
@@ -544,7 +544,7 @@ const TeamScenariosSection = ({ teamMembers }: TeamScenariosSectionProps) => {
 
                 <Card className="border border-gray-200 dark:border-gray-700 shadow-md hover:shadow-lg transition-shadow duration-300" bodyClass="!p-4">
                     <div className="flex items-center gap-3">
-                        <div className="bg-orange-500/10 rounded-xl p-2 text-orange-600 dark:text-orange-400">
+                        <div className="bg-blue-500/10 rounded-xl p-2 text-blue-600 dark:text-blue-400">
                             <div className="text-3xl">
                                 <TbClock />
                             </div>
