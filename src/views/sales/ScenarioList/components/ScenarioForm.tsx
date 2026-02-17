@@ -118,6 +118,7 @@ const ScenarioForm = ({ initialValues, isEditMode, onSubmit, onCancel }: Scenari
                                 type="text"
                                 autoComplete="off"
                                 placeholder="Enter scenario title..."
+                                className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-200 shadow-md"
                                 {...field}
                             />
                         )}
@@ -135,6 +136,7 @@ const ScenarioForm = ({ initialValues, isEditMode, onSubmit, onCancel }: Scenari
                         control={control}
                         render={({ field }) => (
                             <Select
+                                className="[&>div]:!bg-gray-50 [&>div]:dark:!bg-gray-800/50 [&>div]:border [&>div]:border-gray-200 [&>div]:dark:border-gray-700 [&>div]:shadow-md"
                                 placeholder="Select a mode"
                                 options={modeOptions}
                                 value={modeOptions.find(opt => opt.value === field.value)}
@@ -155,6 +157,7 @@ const ScenarioForm = ({ initialValues, isEditMode, onSubmit, onCancel }: Scenari
                         control={control}
                         render={({ field }) => (
                             <Select
+                                className="[&>div]:!bg-gray-50 [&>div]:dark:!bg-gray-800/50 [&>div]:border [&>div]:border-gray-200 [&>div]:dark:border-gray-700 [&>div]:shadow-md"
                                 placeholder="Select a persona"
                                 options={personaOptions}
                                 value={personaOptions.find(opt => opt.value === field.value)}
@@ -179,6 +182,7 @@ const ScenarioForm = ({ initialValues, isEditMode, onSubmit, onCancel }: Scenari
                                 inputMode="numeric"
                                 autoComplete="off"
                                 placeholder="Enter deadline in days"
+                                className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-200 shadow-md"
                                 {...field}
                                 value={field.value === 0 ? '' : field.value}
                                 onChange={(e) => {
@@ -208,7 +212,7 @@ const ScenarioForm = ({ initialValues, isEditMode, onSubmit, onCancel }: Scenari
                         render={({ field }) => (
                             <div>
                                 <textarea
-                                    className="input input-md h-[120px] w-full"
+                                    className="input input-md h-[120px] w-full bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-200 shadow-md"
                                     placeholder="Write your scenario description here..."
                                     {...field}
                                     onChange={(e) => {
@@ -234,7 +238,7 @@ const ScenarioForm = ({ initialValues, isEditMode, onSubmit, onCancel }: Scenari
                         control={control}
                         render={({ field }) => (
                             <textarea
-                                className="input input-md h-[80px] w-full"
+                                className="input input-md h-[80px] w-full bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-200 shadow-md"
                                 placeholder="Optional message for participants..."
                                 {...field}
                             />

@@ -56,7 +56,7 @@ const MemberDetailDrawer = ({ isOpen, onClose, member }: MemberDetailDrawerProps
             width={600}
             title={DrawerTitle}
             headerClass="!items-start !bg-gray-100 dark:!bg-gray-900"
-            bodyClass="!p-6 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+            bodyClass="!p-6 !bg-gray-100 dark:!bg-gray-900 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
             onClose={onClose}
             onRequestClose={onClose}
         >

@@ -50,7 +50,7 @@ const ModeItem = ({ mode, label, data, defaultExpand = false }: ModeItemProps) =
 
     return (
         <div className={classNames(
-            "rounded-lg mb-3 overflow-hidden transition-all shadow-md hover:shadow-lg bg-gray-100 dark:bg-gray-800",
+            "rounded-lg mb-3 overflow-hidden transition-all shadow-md hover:shadow-lg bg-gray-50 dark:bg-gray-800/50",
             getBorderColor(mode)
         )}>
             <div
@@ -104,7 +104,7 @@ const ModeItem = ({ mode, label, data, defaultExpand = false }: ModeItemProps) =
                         exit={{ opacity: 0, height: 0 }}
                         transition={{ duration: 0.2 }}
                     >
-                        <div className="px-4 pb-4 pt-2 bg-white dark:bg-gray-800">
+                        <div className="px-4 pb-4 pt-2">
                             <div className="mb-3">
                                 <div className="flex items-center justify-between mb-2">
                                     <span className="text-sm text-gray-600 dark:text-gray-400">

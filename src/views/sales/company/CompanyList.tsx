@@ -24,7 +24,10 @@ type StatsCardProps = {
 
 const StatsCard = ({ icon, value, label }: StatsCardProps) => {
     return (
-        <Card className="hover:shadow-lg transition-shadow duration-300" bodyClass="!p-4">
+        <Card 
+            className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 shadow-md hover:shadow-xl transition-all duration-300" 
+            bodyClass="!p-4"
+        >
         <div className="flex items-center gap-3">
             <div className="bg-primary/10 rounded-xl p-2 text-primary">
                 <div className="text-3xl">{icon}</div>
@@ -70,7 +73,7 @@ const CompanyCard = ({
 }: CompanyCardProps) => {
     return (
         <Card
-            className="hover:shadow-lg transition-shadow duration-300 cursor-pointer overflow-hidden rounded-2xl border border-gray-200/60 dark:border-gray-800/60 relative"
+            className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 shadow-md hover:shadow-xl transition-all duration-300 cursor-pointer overflow-hidden rounded-2xl relative"
             bodyClass="!p-2"
             onClick={onClick}
         >
@@ -125,7 +128,7 @@ const CompanyCard = ({
                     />
                 </div>
             </div>
-            <div className="absolute top-16 left-1/2 -translate-x-1/2 z-10 h-17 w-17 rounded-full border-2 border-gray-300 dark:border-gray-600 bg-gray-800 text-primary flex items-center justify-center shadow-sm">
+            <div className="absolute top-16 left-1/2 -translate-x-1/2 z-10 h-17 w-17 rounded-full border-2 border-gray-300 dark:border-gray-600 bg-gray-900 dark:bg-gray-900 text-primary flex items-center justify-center shadow-lg">
                 <HiOfficeBuilding className="text-4xl" />
             </div>
 
@@ -175,14 +178,14 @@ const CompanyCard = ({
                             size="sm"
                             variant="default"
                             icon={<HiPencil />}
-                            className="hover:text-primary"
+                            className="bg-gray-800 dark:bg-gray-800 hover:bg-gray-800 dark:hover:bg-gray-800 text-gray-300 hover:text-primary transition-all"
                             onClick={(e) => e.stopPropagation()}
                         />
                         <Button
                             size="sm"
                             variant="default"
                             icon={<HiTrash className="text-red-500" />}
-                            className="hover:bg-red-50 dark:hover:bg-red-900/20"
+                            className="bg-gray-800 dark:bg-gray-800 hover:bg-red-500 dark:hover:bg-gray-800 hover:text-white transition-all"
                             onClick={(e) => e.stopPropagation()}
                         />
                     </div>
@@ -226,7 +229,11 @@ const CompanyList = () => {
 
     const DrawerFooter = (
         <div className="flex justify-between items-center w-full gap-3 px-2">
-            <Button size="sm" className="flex-1" onClick={onDrawerClose}>
+            <Button 
+                size="sm" 
+                className="flex-1 bg-gray-800 dark:bg-gray-800 hover:bg-gray-700 dark:hover:bg-gray-700 text-gray-300 border border-gray-600 dark:border-gray-600" 
+                onClick={onDrawerClose}
+            >
                 Cancel
             </Button>
             <Button
@@ -307,9 +314,9 @@ const CompanyList = () => {
                     </div>
                     <Button
                         variant="solid"
-                        size="md"
+                        size="sm"
                         icon={<HiPlus />}
-                        className="bg-primary hover:bg-primary-deep text-neutral border-none whitespace-nowrap"
+                        className="bg-primary hover:bg-primary-deep text-neutral border-none whitespace-nowrap rounded-md"
                         onClick={openDrawer}
                     >
                         Create Company
@@ -341,8 +348,8 @@ const CompanyList = () => {
                 isOpen={isDrawerOpen}
                 footer={DrawerFooter}
                 headerClass="!items-start !bg-gray-100 dark:!bg-gray-900"
-                footerClass="!bg-gray-100 dark:!bg-gray-800 !p-3"
-                bodyClass="!p-4 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+                footerClass="!bg-gray-100 dark:!bg-gray-900 !p-3"
+                bodyClass="!p-4 !bg-gray-100 dark:!bg-gray-900 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
                 onClose={onDrawerClose}
                 onRequestClose={onDrawerClose}
             >

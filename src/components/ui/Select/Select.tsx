@@ -91,7 +91,7 @@ function Select<
         ...rest
     } = props
 
-    const { controlSize } = useConfig()
+    const { controlSize, mode = 'light' } = useConfig()
     const formControlSize = useForm()?.size
     const formItemInvalid = useFormItem()?.invalid
     const inputGroupSize = useInputGroup()?.size
@@ -167,6 +167,8 @@ function Select<
                     multiValueLabel: () => 'select-multi-value-label',
                     multiValueRemove: () => 'select-multi-value-remove',
                     menu: () => 'select-menu',
+                    menuList: () => 'select-menu-list',
+                    menuPortal: () => 'select-menu-portal',
                     ...classNames,
                 } as ClassNamesConfig<Option, IsMulti, Group>
             }
@@ -186,15 +188,17 @@ function Select<
                     multiValue: () => ({}),
                     multiValueLabel: () => ({}),
                     multiValueRemove: () => ({}),
-                    menu: ({
-                        backgroundColor,
-                        marginTop,
-                        marginBottom,
-                        border,
-                        borderRadius,
-                        boxShadow,
-                        ...provided
-                    }) => ({ ...provided, zIndex: 50 }),
+                    menu: (provided) => ({
+                        ...provided,
+                        zIndex: 50,
+                        backgroundColor:
+                            mode === 'dark' ? 'rgb(17 24 39)' : 'rgb(255 255 255)',
+                    }),
+                    menuList: (provided) => ({
+                        ...provided,
+                        backgroundColor:
+                            mode === 'dark' ? 'rgb(17 24 39)' : 'rgb(255 255 255)',
+                    }),
                     ...styles,
                 } as StylesConfig<Option, IsMulti, Group>
             }

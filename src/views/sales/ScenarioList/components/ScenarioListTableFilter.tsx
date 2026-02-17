@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import type { ComponentType } from 'react'
 import Button from '@/components/ui/Button'
 import Drawer from '@/components/ui/Drawer'
 import Badge from '@/components/ui/Badge'
@@ -25,7 +26,7 @@ type Option = {
     className?: string
 }
 
-const { Control } = components
+const SelectControl = components.Control as ComponentType<ControlProps<Option>>
 
 const statusOptions: Option[] = [
     { value: 'all', label: 'All Status', className: 'bg-gray-400' },
@@ -71,12 +72,12 @@ const CustomSelectOption = (props: OptionProps<Option>) => {
 const CustomControl = ({ children, ...props }: ControlProps<Option>) => {
     const selected = props.getValue()[0]
     return (
-        <Control {...props}>
+        <SelectControl {...props}>
             {selected && selected.className && (
                 <Badge className={classNames('ml-4', selected.className)} />
             )}
             {children}
-        </Control>
+        </SelectControl>
     )
 }
 
@@ -90,6 +91,8 @@ type ScenarioListTableFilterProps = {
     onFilterChange: (filters: FormSchema) => void
     defaultValues: FormSchema
 }
+
+const FILTER_FORM_ID = 'filter-scenarios-form'
 
 const ScenarioListTableFilter = ({ onFilterChange, defaultValues }: ScenarioListTableFilterProps) => {
     const [filterIsOpen, setFilterIsOpen] = useState(false)
@@ -115,20 +118,52 @@ const ScenarioListTableFilter = ({ onFilterChange, defaultValues }: ScenarioList
         setFilterIsOpen(false)
     }
 
+    const handleApplyClick = () => {
+        document.getElementById(FILTER_FORM_ID)?.dispatchEvent(
+            new Event('submit', { cancelable: true, bubbles: true })
+        )
+    }
+
+    const DrawerFooter = (
+        <div className="flex justify-between items-center w-full gap-3 px-2">
+            <Button
+                size="sm"
+                variant="default"
+                type="button"
+                className="flex-1 bg-gray-800 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-md"
+                onClick={handleReset}
+            >
+                Reset
+            </Button>
+            <Button
+                size="sm"
+                variant="solid"
+                type="button"
+                className="flex-1 bg-primary hover:bg-primary-deep text-neutral border-none rounded-md"
+                onClick={handleApplyClick}
+            >
+                Apply Filters
+            </Button>
+        </div>
+    )
+
     return (
         <>
-            <Button icon={<TbFilter />} onClick={() => setFilterIsOpen(true)}>
+            <Button size="sm" icon={<TbFilter />} className="rounded-md !bg-gray-50 dark:!bg-gray-800/50 !border !border-gray-200 dark:!border-gray-700 shadow-md" onClick={() => setFilterIsOpen(true)}>
                 Filter
             </Button>
             <Drawer
                 title="Filter Scenarios"
                 isOpen={filterIsOpen}
+                footer={DrawerFooter}
+                headerClass="!items-start !bg-gray-100 dark:!bg-gray-900"
+                footerClass="!bg-gray-100 dark:!bg-gray-900 !p-3"
+                bodyClass="!p-4 !bg-gray-100 dark:!bg-gray-900 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
                 onClose={() => setFilterIsOpen(false)}
                 onRequestClose={() => setFilterIsOpen(false)}
             >
                 <Form
-                    className="h-full"
-                    containerClassName="flex flex-col justify-between h-full"
+                    id={FILTER_FORM_ID}
                     onSubmit={handleSubmit(onSubmit)}
                 >
                     <div>
@@ -138,6 +173,7 @@ const ScenarioListTableFilter = ({ onFilterChange, defaultValues }: ScenarioList
                                 control={control}
                                 render={({ field }) => (
                                     <Select<Option>
+                                        className="[&>div]:!bg-gray-50 [&>div]:dark:!bg-gray-800/50 [&>div]:border [&>div]:border-gray-200 [&>div]:dark:border-gray-700 [&>div]:shadow-md"
                                         options={statusOptions}
                                         {...field}
                                         value={statusOptions.filter(
@@ -161,6 +197,7 @@ const ScenarioListTableFilter = ({ onFilterChange, defaultValues }: ScenarioList
                                 control={control}
                                 render={({ field }) => (
                                     <Select<Option>
+                                        className="[&>div]:!bg-gray-50 [&>div]:dark:!bg-gray-800/50 [&>div]:border [&>div]:border-gray-200 [&>div]:dark:border-gray-700 [&>div]:shadow-md"
                                         options={modeOptions}
                                         {...field}
                                         value={modeOptions.filter(
@@ -184,6 +221,7 @@ const ScenarioListTableFilter = ({ onFilterChange, defaultValues }: ScenarioList
                                 control={control}
                                 render={({ field }) => (
                                     <Select<Option>
+                                        className="[&>div]:!bg-gray-50 [&>div]:dark:!bg-gray-800/50 [&>div]:border [&>div]:border-gray-200 [&>div]:dark:border-gray-700 [&>div]:shadow-md"
                                         options={personaOptions}
                                         {...field}
                                         value={personaOptions.filter(
@@ -200,23 +238,6 @@ const ScenarioListTableFilter = ({ onFilterChange, defaultValues }: ScenarioList
                                 )}
                             />
                         </FormItem>
-                    </div>
-                    <div className="flex gap-3">
-                        <Button 
-                            variant="default"
-                            type="button"
-                            className="flex-1"
-                            onClick={handleReset}
-                        >
-                            Reset
-                        </Button>
-                        <Button 
-                            variant="solid" 
-                            type="submit"
-                            className="bg-primary hover:bg-primary-deep text-neutral border-none flex-1"
-                        >
-                            Apply Filters
-                        </Button>
                     </div>
                 </Form>
             </Drawer>

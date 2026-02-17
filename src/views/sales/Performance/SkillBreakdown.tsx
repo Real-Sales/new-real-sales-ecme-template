@@ -38,10 +38,10 @@ const SkillBreakdown = () => {
     }
 
     return (
-        <Card>
+        <Card className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 shadow-md">
             {/* Section Heading */}
             <div className="flex items-center gap-3 mb-8">
-                <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-full bg-gray-50 dark:bg-gray-800/50 flex items-center justify-center">
                     <TbTargetArrow className="text-xl text-gray-700 dark:text-gray-300" />
                 </div>
                 <div>
@@ -70,7 +70,7 @@ const SkillBreakdown = () => {
                                 'rounded-xl cursor-pointer transition-all duration-300 p-4 shadow-md',
                                 isActive
                                     ? `ring-2 ${accent.ring} shadow-lg ${accent.bgLight}`
-                                    : 'ring-1 ring-gray-200 dark:ring-gray-700 hover:ring-gray-300 dark:hover:ring-gray-600 bg-white dark:bg-gray-800/50 hover:shadow-lg',
+                                    : 'ring-1 ring-gray-200 dark:ring-gray-700 hover:ring-gray-300 dark:hover:ring-gray-600 bg-gray-50 dark:bg-gray-800/50 hover:shadow-lg',
                             )}
                         >
                             <div className="flex items-center gap-3">

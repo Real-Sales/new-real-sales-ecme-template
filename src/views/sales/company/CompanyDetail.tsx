@@ -45,7 +45,11 @@ const CompanyDetail = () => {
 
     const DrawerFooter = (
         <div className="flex justify-between items-center w-full gap-3 px-2">
-            <Button size="sm" className="flex-1" onClick={onDrawerClose}>
+            <Button 
+                size="sm" 
+                className="flex-1 bg-gray-800 dark:bg-gray-800 hover:bg-gray-700 dark:hover:bg-gray-700 text-gray-300 border border-gray-600 dark:border-gray-600" 
+                onClick={onDrawerClose}
+            >
                 Cancel
             </Button>
             <Button
@@ -103,9 +107,9 @@ const CompanyDetail = () => {
                         </div>
                         <Button
                             variant="solid"
-                            size="md"
+                            size="sm"
                             icon={<HiPlus />}
-                            className="bg-primary hover:bg-primary-deep text-neutral border-none whitespace-nowrap"
+                            className="bg-primary hover:bg-primary-deep text-neutral border-none whitespace-nowrap rounded-md"
                             onClick={openDrawer}
                         >
                             Create Sales Representative
@@ -116,7 +120,7 @@ const CompanyDetail = () => {
                         {salesReps.map((rep) => (
                             <Card
                                 key={rep.id}
-                                className="hover:shadow-lg transition-shadow duration-300"
+                                className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 shadow-md hover:shadow-xl transition-all duration-300"
                             >
                                 <div className="flex items-center gap-4 p-2">
                                     <div className="bg-primary/10 rounded-full p-3 text-primary">
@@ -143,8 +147,8 @@ const CompanyDetail = () => {
                 isOpen={isDrawerOpen}
                 footer={DrawerFooter}
                 headerClass="!items-start !bg-gray-100 dark:!bg-gray-900"
-                footerClass="!bg-gray-100 dark:!bg-gray-800 !p-3"
-                bodyClass="!p-4 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+                footerClass="!bg-gray-100 dark:!bg-gray-900 !p-3"
+                bodyClass="!p-4 !bg-gray-100 dark:!bg-gray-900 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
                 onClose={onDrawerClose}
                 onRequestClose={onDrawerClose}
             >

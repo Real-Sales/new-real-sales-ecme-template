@@ -33,10 +33,10 @@ const PerformanceLineChart = () => {
     const colors = data.metrics.map((metric) => metric.color)
 
     return (
-        <Card>
+        <Card className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 shadow-md">
             {/* Header */}
             <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-full bg-gray-50 dark:bg-gray-800/50 flex items-center justify-center">
                     <TbChartLine className="text-xl text-gray-700 dark:text-gray-300" />
                 </div>
                 <h4 className="text-xl font-bold text-gray-900 dark:text-white">

@@ -92,7 +92,7 @@ const SettingsBilling = () => {
     return (
         <div>
             <h4 className="mb-4">Billing</h4>
-            <div className="bg-gray-100 dark:bg-gray-700 rounded-xl p-6">
+            <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
                         <div>
@@ -150,6 +150,7 @@ const SettingsBilling = () => {
                         <Button
                             size="sm"
                             variant="solid"
+                            className="rounded-md"
                             onClick={handleChangePlan}
                         >
                             Change plan

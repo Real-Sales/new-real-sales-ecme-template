@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import type { ComponentType } from 'react'
 import Card from '@/components/ui/Card'
 import Badge from '@/components/ui/Badge'
 import Button from '@/components/ui/Button'
@@ -18,13 +19,13 @@ import type { OptionProps, ControlProps } from 'react-select'
 import { components } from 'react-select'
 import { sessionHistoryData, type SessionHistory as SessionHistoryType } from './performanceData'
 
-const { Control } = components
-
 type Option = {
     value: string
     label: string
     className?: string
 }
+
+const SelectControl = components.Control as ComponentType<ControlProps<Option>>
 
 type FilterSchema = {
     persona: string
@@ -63,12 +64,12 @@ const CustomSelectOption = (props: OptionProps<Option>) => {
 const CustomControl = ({ children, ...props }: ControlProps<Option>) => {
     const selected = props.getValue()[0]
     return (
-        <Control {...props}>
+        <SelectControl {...props}>
             {selected && selected.className && (
                 <Badge className={classNames('ml-4', selected.className)} />
             )}
             {children}
-        </Control>
+        </SelectControl>
     )
 }
 
@@ -77,6 +78,8 @@ const defaultFilterValues: FilterSchema = {
     mode: 'all',
     dateRange: [null, null],
 }
+
+const FILTER_SESSIONS_FORM_ID = 'filter-sessions-form'
 
 const SessionHistorySection = () => {
     const [currentPage, setCurrentPage] = useState(1)
@@ -112,6 +115,35 @@ const SessionHistorySection = () => {
         setFilterIsOpen(false)
         removeBodyScrollLock()
     }
+
+    const handleApplyClick = () => {
+        document.getElementById(FILTER_SESSIONS_FORM_ID)?.dispatchEvent(
+            new Event('submit', { cancelable: true, bubbles: true })
+        )
+    }
+
+    const DrawerFooter = (
+        <div className="flex justify-between items-center w-full gap-3 px-2">
+            <Button
+                size="sm"
+                variant="default"
+                type="button"
+                className="flex-1 bg-gray-800 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-md"
+                onClick={handleReset}
+            >
+                Reset
+            </Button>
+            <Button
+                size="sm"
+                variant="solid"
+                type="button"
+                className="flex-1 bg-primary hover:bg-primary-deep text-neutral border-none rounded-md"
+                onClick={handleApplyClick}
+            >
+                Apply Filters
+            </Button>
+        </div>
+    )
 
     const removeBodyScrollLock = () => {
         const bodyClassList = document.body.classList
@@ -262,11 +294,11 @@ const SessionHistorySection = () => {
 
     return (
         <>
-        <Card>
+        <Card className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 shadow-md">
             {/* Section Heading */}
             <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                    <div className="w-10 h-10 rounded-full bg-gray-50 dark:bg-gray-800/50 flex items-center justify-center">
                         <TbHistory className="text-xl text-gray-700 dark:text-gray-300" />
                     </div>
                     <div>
@@ -313,12 +345,15 @@ const SessionHistorySection = () => {
             <Drawer
                 title="Filter Sessions"
                 isOpen={filterIsOpen}
+                footer={DrawerFooter}
+                headerClass="!items-start !bg-gray-100 dark:!bg-gray-900"
+                footerClass="!bg-gray-100 dark:!bg-gray-900 !p-3"
+                bodyClass="!p-4 !bg-gray-100 dark:!bg-gray-900 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
                 onClose={() => { setFilterIsOpen(false); removeBodyScrollLock() }}
                 onRequestClose={() => { setFilterIsOpen(false); removeBodyScrollLock() }}
             >
                 <Form
-                    className="h-full"
-                    containerClassName="flex flex-col justify-between h-full"
+                    id={FILTER_SESSIONS_FORM_ID}
                     onSubmit={handleSubmit(onSubmit)}
                 >
                     <div>
@@ -328,6 +363,7 @@ const SessionHistorySection = () => {
                                 control={control}
                                 render={({ field }) => (
                                     <Select<Option>
+                                        className="[&>div]:!bg-gray-50 [&>div]:dark:!bg-gray-800/50 [&>div]:border [&>div]:border-gray-200 [&>div]:dark:border-gray-700 [&>div]:shadow-md"
                                         options={personaOptions}
                                         {...field}
                                         value={personaOptions.filter(
@@ -350,6 +386,7 @@ const SessionHistorySection = () => {
                                 control={control}
                                 render={({ field }) => (
                                     <Select<Option>
+                                        className="[&>div]:!bg-gray-50 [&>div]:dark:!bg-gray-800/50 [&>div]:border [&>div]:border-gray-200 [&>div]:dark:border-gray-700 [&>div]:shadow-md"
                                         options={modeOptions}
                                         {...field}
                                         value={modeOptions.filter(
@@ -374,29 +411,13 @@ const SessionHistorySection = () => {
                                 render={({ field }) => (
                                     <DatePicker.DatePickerRange
                                         placeholder="Select date range"
+                                        className="[&_.input]:!bg-gray-50 [&_.input]:dark:!bg-gray-800/50 [&_.input]:!border [&_.input]:!border-gray-200 [&_.input]:dark:!border-gray-700"
                                         value={field.value}
                                         onChange={(val) => field.onChange(val)}
                                     />
                                 )}
                             />
                         </FormItem>
-                    </div>
-                    <div className="flex gap-3">
-                        <Button
-                            variant="default"
-                            type="button"
-                            className="flex-1"
-                            onClick={handleReset}
-                        >
-                            Reset
-                        </Button>
-                        <Button
-                            variant="solid"
-                            type="submit"
-                            className="bg-primary hover:bg-primary-deep text-neutral border-none flex-1"
-                        >
-                            Apply Filters
-                        </Button>
                     </div>
                 </Form>
             </Drawer>

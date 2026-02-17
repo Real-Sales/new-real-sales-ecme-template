@@ -138,9 +138,9 @@ const TeamDetail = () => {
                     </h1>
                     <Button
                         variant="solid"
-                        size="md"
+                        size="sm"
                         icon={<TbUserPlus />}
-                        className="bg-primary hover:bg-primary-deep text-neutral border-none whitespace-nowrap"
+                        className="bg-primary hover:bg-primary-deep text-neutral border-none whitespace-nowrap rounded-md"
                         onClick={openDialog}
                     >
                         Add Team Members
@@ -148,7 +148,7 @@ const TeamDetail = () => {
                 </div>
 
                 {/* Team Performance Section */}
-                <Card className="mb-6">
+                <Card className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 shadow-md hover:shadow-xl transition-all duration-300 mb-6">
                     <div className="p-2">
                         <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-1">
                             Team Performance
@@ -177,7 +177,7 @@ const TeamDetail = () => {
                 </div>
 
                 {/* Team Members Section */}
-                <Card>
+                <Card className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 shadow-md hover:shadow-xl transition-all duration-300">
                     <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
