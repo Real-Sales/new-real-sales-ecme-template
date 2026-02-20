@@ -46,15 +46,13 @@ export const SignInBase = ({
                 disableSubmit={disableSubmit}
                 setMessage={setMessage}
                 passwordHint={
-                    <div className="mb-7 mt-2">
-                        <ActionLink
-                            to={forgetPasswordUrl}
-                            className="font-semibold heading-text mt-2 underline"
-                            themeColor={false}
-                        >
-                            Forgot password
-                        </ActionLink>
-                    </div>
+                    <ActionLink
+                        to={forgetPasswordUrl}
+                        className="font-semibold heading-text underline"
+                        themeColor={false}
+                    >
+                        Forgot password
+                    </ActionLink>
                 }
             />
             <div className="mt-8">

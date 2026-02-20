@@ -2,6 +2,7 @@ import { useState } from 'react'
 import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
 import { FormItem, Form } from '@/components/ui/Form'
+import PasswordInput from '@/components/shared/PasswordInput'
 import { useAuth } from '@/auth'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -15,20 +16,22 @@ interface SignUpFormProps extends CommonProps {
 }
 
 type SignUpFormSchema = {
-    userName: string
-    password: string
     email: string
+    first_name: string
+    last_name: string
+    phone_number: string
+    password: string
     confirmPassword: string
 }
 
 const validationSchema: ZodType<SignUpFormSchema> = z
     .object({
-        email: z.string({ required_error: 'Please enter your email' }),
-        userName: z.string({ required_error: 'Please enter your name' }),
-        password: z.string({ required_error: 'Password Required' }),
-        confirmPassword: z.string({
-            required_error: 'Confirm Password Required',
-        }),
+        email: z.string().min(1, { message: 'Please enter your email' }).email({ message: 'Invalid email' }),
+        first_name: z.string().min(1, { message: 'Please enter your first name' }),
+        last_name: z.string().min(1, { message: 'Please enter your last name' }),
+        phone_number: z.string().min(1, { message: 'Please enter your phone number' }).regex(/^\d{10}$/, { message: 'Phone number must be exactly 10 digits' }),
+        password: z.string().min(1, { message: 'Password Required' }),
+        confirmPassword: z.string().min(1, { message: 'Confirm Password Required' }),
     })
     .refine((data) => data.password === data.confirmPassword, {
         message: 'Password not match',
@@ -48,14 +51,28 @@ const SignUpForm = (props: SignUpFormProps) => {
         control,
     } = useForm<SignUpFormSchema>({
         resolver: zodResolver(validationSchema),
+        defaultValues: {
+            email: '',
+            first_name: '',
+            last_name: '',
+            phone_number: '',
+            password: '',
+            confirmPassword: '',
+        }
     })
 
     const onSignUp = async (values: SignUpFormSchema) => {
-        const { userName, password, email } = values
+        const { email, first_name, last_name, phone_number, password } = values
 
         if (!disableSubmit) {
             setSubmitting(true)
-            const result = await signUp({ userName, password, email })
+            const result = await signUp({
+                email,
+                first_name,
+                last_name,
+                phone_number,
+                password
+            })
 
             if (result?.status === 'failed') {
                 setMessage?.(result.message)
@@ -68,24 +85,44 @@ const SignUpForm = (props: SignUpFormProps) => {
     return (
         <div className={className}>
             <Form onSubmit={handleSubmit(onSignUp)}>
-                <FormItem
-                    label="User name"
-                    invalid={Boolean(errors.userName)}
-                    errorMessage={errors.userName?.message}
-                >
-                    <Controller
-                        name="userName"
-                        control={control}
-                        render={({ field }) => (
-                            <Input
-                                type="text"
-                                placeholder="User Name"
-                                autoComplete="off"
-                                {...field}
-                            />
-                        )}
-                    />
-                </FormItem>
+                <div className="grid grid-cols-2 gap-4">
+                    <FormItem
+                        label="First Name"
+                        invalid={Boolean(errors.first_name)}
+                        errorMessage={errors.first_name?.message}
+                    >
+                        <Controller
+                            name="first_name"
+                            control={control}
+                            render={({ field }) => (
+                                <Input
+                                    type="text"
+                                    placeholder="First Name"
+                                    autoComplete="off"
+                                    {...field}
+                                />
+                            )}
+                        />
+                    </FormItem>
+                    <FormItem
+                        label="Last Name"
+                        invalid={Boolean(errors.last_name)}
+                        errorMessage={errors.last_name?.message}
+                    >
+                        <Controller
+                            name="last_name"
+                            control={control}
+                            render={({ field }) => (
+                                <Input
+                                    type="text"
+                                    placeholder="Last Name"
+                                    autoComplete="off"
+                                    {...field}
+                                />
+                            )}
+                        />
+                    </FormItem>
+                </div>
                 <FormItem
                     label="Email"
                     invalid={Boolean(errors.email)}
@@ -105,6 +142,24 @@ const SignUpForm = (props: SignUpFormProps) => {
                     />
                 </FormItem>
                 <FormItem
+                    label="Phone Number"
+                    invalid={Boolean(errors.phone_number)}
+                    errorMessage={errors.phone_number?.message}
+                >
+                    <Controller
+                        name="phone_number"
+                        control={control}
+                        render={({ field }) => (
+                            <Input
+                                type="text"
+                                placeholder="Phone Number"
+                                autoComplete="off"
+                                {...field}
+                            />
+                        )}
+                    />
+                </FormItem>
+                <FormItem
                     label="Password"
                     invalid={Boolean(errors.password)}
                     errorMessage={errors.password?.message}
@@ -113,8 +168,7 @@ const SignUpForm = (props: SignUpFormProps) => {
                         name="password"
                         control={control}
                         render={({ field }) => (
-                            <Input
-                                type="password"
+                            <PasswordInput
                                 autoComplete="off"
                                 placeholder="Password"
                                 {...field}
@@ -131,8 +185,7 @@ const SignUpForm = (props: SignUpFormProps) => {
                         name="confirmPassword"
                         control={control}
                         render={({ field }) => (
-                            <Input
-                                type="password"
+                            <PasswordInput
                                 autoComplete="off"
                                 placeholder="Confirm Password"
                                 {...field}

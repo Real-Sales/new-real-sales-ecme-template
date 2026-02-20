@@ -1,6 +1,7 @@
 export type SignInCredential = {
     email: string
     password: string
+    remember_me: boolean
 }
 
 export type SignInResponse = {
@@ -17,13 +18,21 @@ export type SignInResponse = {
 export type SignUpResponse = SignInResponse
 
 export type SignUpCredential = {
-    userName: string
     email: string
+    first_name: string
+    last_name: string
+    phone_number: string
     password: string
 }
 
 export type ForgotPassword = {
     email: string
+}
+
+export type ForgotPasswordConfirm = {
+    email: string
+    otp_code: string
+    new_password: string
 }
 
 export type ResetPassword = {

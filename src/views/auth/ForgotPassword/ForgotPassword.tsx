@@ -14,7 +14,9 @@ export const ForgotPasswordBase = ({
     signInUrl = '/sign-in',
 }: ForgotPasswordProps) => {
     const [emailSent, setEmailSent] = useState(false)
+    const [isResetDone, setIsResetDone] = useState(false)
     const [message, setMessage] = useTimeOutMessage()
+    const [status, setStatus] = useState<'success' | 'danger'>('danger')
 
     const navigate = useNavigate()
 
@@ -25,42 +27,58 @@ export const ForgotPasswordBase = ({
     return (
         <div>
             <div className="mb-6">
-                {emailSent ? (
+                {isResetDone ? (
                     <>
-                        <h3 className="mb-2">Check your email</h3>
+                        <h3 className="mb-2">Password Reset</h3>
                         <p className="font-semibold heading-text">
-                            We have sent a password recovery to your email
+                            Your password has been successfully reset.
+                        </p>
+                    </>
+                ) : emailSent ? (
+                    <>
+                        <h3 className="mb-2">Reset Password</h3>
+                        <p className="font-semibold heading-text">
+                            Please enter the OTP sent to your email and your new password
                         </p>
                     </>
                 ) : (
                     <>
                         <h3 className="mb-2">Forgot Password</h3>
                         <p className="font-semibold heading-text">
-                            Please enter your email to receive a verification
-                            code
+                            Please enter your email to receive a verification code
                         </p>
                     </>
                 )}
             </div>
             {message && (
-                <Alert showIcon className="mb-4" type="danger">
+                <Alert showIcon className="mb-4" type={status}>
                     <span className="break-all">{message}</span>
                 </Alert>
             )}
-            <ForgotPasswordForm
-                emailSent={emailSent}
-                setMessage={setMessage}
-                setEmailSent={setEmailSent}
-            >
+            {isResetDone ? (
                 <Button
                     block
                     variant="solid"
                     type="button"
                     onClick={handleContinue}
                 >
-                    Continue
+                    Back to Sign In
                 </Button>
-            </ForgotPasswordForm>
+            ) : (
+                <ForgotPasswordForm
+                    emailSent={emailSent}
+                    setMessage={(msg) => {
+                        setMessage(msg)
+                        setStatus('danger')
+                    }}
+                    setSuccess={(msg: string) => {
+                        setMessage(msg)
+                        setStatus('success')
+                    }}
+                    setEmailSent={setEmailSent}
+                    setIsResetDone={setIsResetDone}
+                />
+            )}
             <div className="mt-4 text-center">
                 <span>Back to </span>
                 <ActionLink

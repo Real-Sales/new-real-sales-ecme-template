@@ -1,5 +1,6 @@
 export type AppConfig = {
     apiPrefix: string
+    baseUrl: string
     authenticatedEntryPath: string
     unAuthenticatedEntryPath: string
     locale: string
@@ -9,12 +10,13 @@ export type AppConfig = {
 }
 
 const appConfig: AppConfig = {
-    apiPrefix: '/api',
+    baseUrl: import.meta.env.VITE_BASE_URL,
+    apiPrefix: `${import.meta.env.VITE_BASE_URL}${import.meta.env.VITE_API_PREFIX}`,
     authenticatedEntryPath: '/overview',
     unAuthenticatedEntryPath: '/landing',
     locale: 'en',
     accessTokenPersistStrategy: 'cookies',
-    enableMock: true,
+    enableMock: false,
     activeNavTranslation: false,
 }
 
