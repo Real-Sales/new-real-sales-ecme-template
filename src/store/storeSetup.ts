@@ -38,7 +38,7 @@ const persistConfig = {
     key: PERSIST_STORE_NAME,
     keyPrefix: '',
     storage: getPersistStorage(),
-    whitelist: ['auth', 'locale'],
+    whitelist: ['auth', 'locale', 'settings'],
 }
 
 import { PERSIST_STORE_NAME } from '@/constants/app.constant'

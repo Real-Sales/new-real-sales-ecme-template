@@ -3,6 +3,17 @@ import type { Routes } from '@/@types/routes'
 
 const salesRoute: Routes = [
     {
+        key: 'onboarding',
+        path: '/onboarding',
+        component: lazy(() => import('@/views/auth/Onboarding')),
+        authority: [],
+        meta: {
+            layout: 'blank',
+            pageContainerType: 'gutterless',
+            footer: false,
+        },
+    },
+    {
         key: 'home',
         path: '/home',
         component: lazy(() => import('@/views/Home')),

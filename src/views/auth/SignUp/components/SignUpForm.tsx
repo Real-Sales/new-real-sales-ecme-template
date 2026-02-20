@@ -17,8 +17,8 @@ interface SignUpFormProps extends CommonProps {
 type SignUpFormSchema = {
     userName: string
     password: string
-    email: string
     confirmPassword: string
+    email: string
 }
 
 const validationSchema: ZodType<SignUpFormSchema> = z
@@ -26,12 +26,10 @@ const validationSchema: ZodType<SignUpFormSchema> = z
         email: z.string({ required_error: 'Please enter your email' }),
         userName: z.string({ required_error: 'Please enter your name' }),
         password: z.string({ required_error: 'Password Required' }),
-        confirmPassword: z.string({
-            required_error: 'Confirm Password Required',
-        }),
+        confirmPassword: z.string({ required_error: 'Please confirm your password' }),
     })
     .refine((data) => data.password === data.confirmPassword, {
-        message: 'Password not match',
+        message: 'Passwords do not match',
         path: ['confirmPassword'],
     })
 
@@ -81,6 +79,7 @@ const SignUpForm = (props: SignUpFormProps) => {
                                 type="text"
                                 placeholder="User Name"
                                 autoComplete="off"
+                                className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-200 shadow-md"
                                 {...field}
                             />
                         )}
@@ -99,6 +98,7 @@ const SignUpForm = (props: SignUpFormProps) => {
                                 type="email"
                                 placeholder="Email"
                                 autoComplete="off"
+                                className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-200 shadow-md"
                                 {...field}
                             />
                         )}
@@ -117,6 +117,7 @@ const SignUpForm = (props: SignUpFormProps) => {
                                 type="password"
                                 autoComplete="off"
                                 placeholder="Password"
+                                className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-200 shadow-md"
                                 {...field}
                             />
                         )}
@@ -135,6 +136,7 @@ const SignUpForm = (props: SignUpFormProps) => {
                                 type="password"
                                 autoComplete="off"
                                 placeholder="Confirm Password"
+                                className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-200 shadow-md"
                                 {...field}
                             />
                         )}

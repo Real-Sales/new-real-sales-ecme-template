@@ -9,7 +9,74 @@ import {
     HiOutlineCheckCircle,
     HiArrowLeft,
 } from 'react-icons/hi'
+import { useAppSelector } from '@/store'
 import type { AIPersona } from '@/components/shared/SessionSetupPanel'
+
+// Map user's profile industry to persona industries (strict matching)
+const industryToPersonaIndustries: Record<string, string[]> = {
+    technology: ['Technology', 'Software'],
+    healthcare: ['Technology', 'Software'],
+    finance: ['Finance'],
+    retail: ['Retail'],
+    manufacturing: ['Manufacturing', 'Industrial'],
+    real_estate: ['Finance'],
+    education: ['Technology', 'Software'],
+    media: ['Marketing', 'Technology'],
+    telecom: ['Technology', 'Software'],
+    energy: ['Industrial', 'Manufacturing'],
+    automotive: ['Manufacturing', 'Industrial'],
+    logistics: ['Industrial', 'Manufacturing'],
+    consulting: ['Finance', 'Technology'],
+    insurance: ['Finance'],
+    food: ['Retail', 'Manufacturing'],
+    travel: ['Retail'],
+    agriculture: ['Manufacturing', 'Industrial'],
+    construction: ['Manufacturing', 'Industrial'],
+    other: ['Manufacturing', 'Technology', 'Industrial', 'Finance', 'Software', 'Retail', 'Marketing'],
+}
+
+// Map product types to persona industries (for category filtering)
+const productToPersonaIndustries: Record<string, string[]> = {
+    saas: ['Technology', 'Software'],
+    cloud: ['Technology', 'Software'],
+    ai_ml: ['Technology', 'Software'],
+    cybersecurity: ['Technology', 'Software'],
+    devtools: ['Technology', 'Software'],
+    data_analytics: ['Technology', 'Software', 'Finance'],
+    ehr: ['Technology', 'Software'],
+    telehealth: ['Technology', 'Software'],
+    medical_devices: ['Manufacturing', 'Technology'],
+    pharma: ['Manufacturing', 'Finance'],
+    health_analytics: ['Technology', 'Software'],
+    fintech: ['Finance', 'Technology'],
+    payments: ['Finance', 'Technology'],
+    lending: ['Finance'],
+    wealth_mgmt: ['Finance'],
+    regtech: ['Finance', 'Technology'],
+    ecommerce: ['Retail', 'Technology'],
+    pos: ['Retail', 'Technology'],
+    inventory: ['Manufacturing', 'Retail'],
+    crm: ['Technology', 'Software'],
+    crm_general: ['Technology', 'Software'],
+    loyalty: ['Retail', 'Marketing'],
+    erp: ['Manufacturing', 'Technology'],
+    supply_chain: ['Manufacturing', 'Industrial'],
+    quality: ['Manufacturing', 'Industrial'],
+    iot: ['Technology', 'Industrial'],
+    proptech: ['Technology', 'Finance'],
+    property_mgmt: ['Technology', 'Finance'],
+    crm_re: ['Technology', 'Software'],
+    listings: ['Technology', 'Retail'],
+    lms: ['Technology', 'Software'],
+    edtech: ['Technology', 'Software'],
+    assessment: ['Technology', 'Software'],
+    tutoring: ['Technology', 'Marketing'],
+    marketing: ['Marketing'],
+    project_mgmt: ['Technology', 'Manufacturing'],
+    communication: ['Technology'],
+    hr_tools: ['Technology', 'Marketing'],
+    accounting: ['Finance', 'Technology'],
+}
 
 // Mock AI Personas - Replace with API data
 const aiPersonas: AIPersona[] = [
@@ -17,39 +84,39 @@ const aiPersonas: AIPersona[] = [
         id: 'tony-romano',
         name: 'Tony Romano',
         role: 'Operations Manager',
-        company: 'TechCorp Industries',
+        company: 'Apex Manufacturing Co.',
         industry: 'Manufacturing',
-        personality: 'Analytical, detail-oriented, budget-conscious',
+        personality: 'Data-driven, focuses on efficiency and cost savings. Needs clear ROI before making decisions.',
         difficulty: 'Medium',
-        avatar: '/img/avatars/thumb-1.jpg',
+        avatar: '/img/avatars/thumb-3.jpg',
     },
     {
         id: 'sarah-chen',
         name: 'Sarah Chen',
         role: 'VP of Sales',
-        company: 'Global Enterprises',
+        company: 'Nexus Tech Solutions',
         industry: 'Technology',
-        personality: 'Direct, results-driven, competitive',
+        personality: 'Goal-oriented and competitive. Values direct communication and proven results.',
         difficulty: 'Hard',
-        avatar: '/img/avatars/thumb-2.jpg',
+        avatar: '/img/avatars/thumb-1.jpg',
     },
     {
         id: 'michael-foster',
         name: 'Michael Foster',
         role: 'Plant Manager',
-        company: 'Midwest Manufacturing',
+        company: 'Midwest Industrial Group',
         industry: 'Industrial',
-        personality: 'Practical, skeptical, values proven solutions',
+        personality: 'Hands-on leader. Skeptical of change, needs tangible proof before committing.',
         difficulty: 'Medium',
-        avatar: '/img/avatars/thumb-3.jpg',
+        avatar: '/img/avatars/thumb-5.jpg',
     },
     {
         id: 'jessica-park',
         name: 'Jessica Park',
         role: 'Chief Procurement Officer',
-        company: 'Fortune Solutions',
+        company: 'Summit Financial Partners',
         industry: 'Finance',
-        personality: 'Strategic, relationship-focused, long-term thinker',
+        personality: 'Strategic thinker. Builds long-term relationships and evaluates vendors carefully.',
         difficulty: 'Hard',
         avatar: '/img/avatars/thumb-4.jpg',
     },
@@ -57,19 +124,19 @@ const aiPersonas: AIPersona[] = [
         id: 'david-miller',
         name: 'David Miller',
         role: 'IT Director',
-        company: 'NextGen Systems',
+        company: 'CloudFirst Software',
         industry: 'Software',
-        personality: 'Technical, curious, open to innovation',
+        personality: 'Tech-savvy and open to innovation. Wants scalable solutions that integrate well.',
         difficulty: 'Easy',
-        avatar: '/img/avatars/thumb-5.jpg',
+        avatar: '/img/avatars/thumb-2.jpg',
     },
     {
         id: 'emily-rodriguez',
         name: 'Emily Rodriguez',
         role: 'Business Owner',
-        company: 'Rodriguez & Co',
+        company: 'Rodriguez Retail Group',
         industry: 'Retail',
-        personality: 'Cautious, value-driven, hands-on',
+        personality: 'Wears many hats. Cautious with spending, prioritizes customer experience.',
         difficulty: 'Medium',
         avatar: '/img/avatars/thumb-6.jpg',
     },
@@ -77,9 +144,9 @@ const aiPersonas: AIPersona[] = [
         id: 'robert-johnson',
         name: 'Robert Johnson',
         role: 'CTO',
-        company: 'Tech Innovations',
+        company: 'Innovate Labs',
         industry: 'Technology',
-        personality: 'Visionary, fast-paced, innovation-focused',
+        personality: 'Forward-thinking. Moves fast, expects vendors to match his pace and vision.',
         difficulty: 'Hard',
         avatar: '/img/avatars/thumb-7.jpg',
     },
@@ -87,9 +154,9 @@ const aiPersonas: AIPersona[] = [
         id: 'lisa-martinez',
         name: 'Lisa Martinez',
         role: 'Purchasing Director',
-        company: 'Global Manufacturing',
+        company: 'Premier Manufacturing Corp',
         industry: 'Manufacturing',
-        personality: 'Methodical, risk-averse, compliance-focused',
+        personality: 'Process-focused. Prioritizes compliance, quality, and reliability over price.',
         difficulty: 'Medium',
         avatar: '/img/avatars/thumb-8.jpg',
     },
@@ -99,7 +166,7 @@ const aiPersonas: AIPersona[] = [
         role: 'Operations VP',
         company: 'Wilson Industries',
         industry: 'Industrial',
-        personality: 'No-nonsense, efficiency-driven, results-oriented',
+        personality: 'Direct communicator. Focused on efficiency and hitting targets.',
         difficulty: 'Hard',
         avatar: '/img/avatars/thumb-9.jpg',
     },
@@ -107,9 +174,9 @@ const aiPersonas: AIPersona[] = [
         id: 'amanda-lee',
         name: 'Amanda Lee',
         role: 'Marketing Director',
-        company: 'Creative Solutions',
+        company: 'BrandWave Agency',
         industry: 'Marketing',
-        personality: 'Creative, collaborative, brand-conscious',
+        personality: 'Creative and collaborative. Cares about brand fit and market positioning.',
         difficulty: 'Easy',
         avatar: '/img/avatars/thumb-10.jpg',
     },
@@ -117,9 +184,9 @@ const aiPersonas: AIPersona[] = [
         id: 'kevin-brown',
         name: 'Kevin Brown',
         role: 'CFO',
-        company: 'Financial Corp',
+        company: 'Precision Financial Corp',
         industry: 'Finance',
-        personality: 'Numbers-driven, conservative, ROI-focused',
+        personality: 'Metrics-focused. Requires solid financial justification and clear payback period.',
         difficulty: 'Hard',
         avatar: '/img/avatars/thumb-11.jpg',
     },
@@ -127,9 +194,9 @@ const aiPersonas: AIPersona[] = [
         id: 'maria-garcia',
         name: 'Maria Garcia',
         role: 'Store Manager',
-        company: 'Retail Plus',
+        company: 'Urban Retail Co.',
         industry: 'Retail',
-        personality: 'Customer-focused, practical, cost-conscious',
+        personality: 'Customer-centric. Balances day-to-day operations with strategic improvements.',
         difficulty: 'Easy',
         avatar: '/img/avatars/thumb-12.jpg',
     },
@@ -151,7 +218,7 @@ const roleOptions = [
     { value: 'Store Manager', label: 'Store Manager' },
 ]
 
-const industryOptions = [
+const allIndustryOptions = [
     { value: '', label: 'All Industries' },
     { value: 'Manufacturing', label: 'Manufacturing' },
     { value: 'Technology', label: 'Technology' },
@@ -172,6 +239,13 @@ const difficultyOptions = [
 const PersonaSelection = () => {
     const navigate = useNavigate()
     const location = useLocation()
+    const authUser = useAppSelector((state) => state.auth.user)
+    const settingsProfile = useAppSelector((state) => state.settings.profile)
+
+    // Use profile settings (industry, products) when set; fall back to auth user (from onboarding)
+    const userIndustry = settingsProfile?.industry || authUser?.industry || ''
+    const userProducts: string[] = (settingsProfile?.products?.map((p) => p.value) ?? authUser?.industryProducts ?? []).filter(Boolean)
+
     const sessionData = location.state as {
         mode: string
         scenarios?: string[]
@@ -187,9 +261,32 @@ const PersonaSelection = () => {
     )
     const [hoveredPersona, setHoveredPersona] = useState<string | null>(null)
 
-    // Filter and search personas
+    // Get related personas based on user's industry and product category
+    const relatedPersonas = useMemo(() => {
+        if (!userIndustry && userProducts.length === 0) {
+            return aiPersonas
+        }
+        const allowedIndustries = new Set<string>()
+        if (userIndustry && industryToPersonaIndustries[userIndustry]) {
+            industryToPersonaIndustries[userIndustry].forEach((i) =>
+                allowedIndustries.add(i)
+            )
+        }
+        userProducts.forEach((product) => {
+            const industries = productToPersonaIndustries[product]
+            if (industries) {
+                industries.forEach((i) => allowedIndustries.add(i))
+            }
+        })
+        if (allowedIndustries.size === 0) return aiPersonas
+        return aiPersonas.filter((persona) =>
+            allowedIndustries.has(persona.industry)
+        )
+    }, [userIndustry, userProducts])
+
+    // Filter and search personas (within related personas only)
     const filteredPersonas = useMemo(() => {
-        return aiPersonas.filter((persona) => {
+        return relatedPersonas.filter((persona) => {
             const matchesSearch =
                 searchQuery === '' ||
                 persona.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -216,7 +313,7 @@ const PersonaSelection = () => {
                 matchesDifficulty
             )
         })
-    }, [searchQuery, selectedRole, selectedIndustry, selectedDifficulty])
+    }, [relatedPersonas, searchQuery, selectedRole, selectedIndustry, selectedDifficulty])
 
     const handleStartSession = () => {
         if (selectedPersona) {
@@ -318,8 +415,8 @@ const PersonaSelection = () => {
                             <Select
                                 size="lg"
                                 placeholder="Industry"
-                                options={industryOptions}
-                                value={industryOptions.find(
+                                options={allIndustryOptions}
+                                value={allIndustryOptions.find(
                                     (opt) => opt.value === selectedIndustry
                                 )}
                                 onChange={(option) =>
@@ -363,7 +460,12 @@ const PersonaSelection = () => {
                     <div className="mt-4 flex items-center justify-between">
                         <p className="text-sm text-gray-600 dark:text-gray-400">
                             Showing {filteredPersonas.length} of{' '}
-                            {aiPersonas.length} personas
+                            {relatedPersonas.length} related personas
+                            {(userIndustry || userProducts.length > 0) && (
+                                <span className="block text-xs mt-0.5 text-gray-500 dark:text-gray-500">
+                                    (filtered by your industry & products)
+                                </span>
+                            )}
                         </p>
                         {selectedPersona && (
                             <Button
@@ -390,7 +492,9 @@ const PersonaSelection = () => {
                             No personas found
                         </h3>
                         <p className="text-gray-600 dark:text-gray-400">
-                            Try adjusting your filters or search query
+                            {relatedPersonas.length === 0
+                                ? "No personas match your industry and product category. Try updating your company profile in Settings."
+                                : 'Try adjusting your filters or search query'}
                         </p>
                     </div>
                 ) : (

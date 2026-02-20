@@ -25,6 +25,8 @@ export type Integration = {
     installed?: boolean
 }
 
+export type ProfileProductOption = { value: string; label: string }
+
 export type GetSettingsProfileResponse = {
     id: string
     name: string
@@ -40,6 +42,8 @@ export type GetSettingsProfileResponse = {
     dialCode: string
     birthday: string
     phoneNumber: string
+    industry?: string
+    products?: ProfileProductOption[]
 }
 
 export type GetSettingsNotificationResponse = {
