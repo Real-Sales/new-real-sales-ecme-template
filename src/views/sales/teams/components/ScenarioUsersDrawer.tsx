@@ -67,9 +67,9 @@ const AccordionItem = ({
     }
 
     return (
-        <div className={`border-l-4 ${borderColor} border-t border-t-gray-200 dark:border-t-gray-700 border-b border-b-gray-200 dark:border-b-gray-700 border-r border-r-gray-200 dark:border-r-gray-700 rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-all bg-gray-100 dark:bg-gray-800`}>
+        <div className={`border-l-4 ${borderColor} border-t border-t-gray-200 dark:border-t-gray-700 border-b border-b-gray-200 dark:border-b-gray-700 border-r border-r-gray-200 dark:border-r-gray-700 rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-all bg-gray-50 dark:bg-gray-800/50`}>
             <button
-                className="w-full flex items-center justify-between p-4 bg-gray-100 dark:bg-gray-800 hover:opacity-90 transition-all cursor-pointer"
+                className="w-full flex items-center justify-between p-4 hover:opacity-90 transition-all cursor-pointer"
                 onClick={() => setIsOpen(!isOpen)}
             >
                 <div className="flex items-center gap-3">
@@ -101,7 +101,7 @@ const AccordionItem = ({
                         exit={{ height: 0, opacity: 0 }}
                         transition={{ duration: 0.2 }}
                     >
-                        <div className="p-4 space-y-4 bg-white dark:bg-gray-800">
+                        <div className="p-4 space-y-4">
                             {users.length === 0 ? (
                                 <div className="text-center py-8 text-gray-500 dark:text-gray-400">
                                     No users found
@@ -241,7 +241,7 @@ const ScenarioUsersDrawer = ({ isOpen, onClose, scenario, users }: ScenarioUsers
             width={600}
             title={DrawerTitle}
             headerClass="!items-start !bg-gray-100 dark:!bg-gray-900"
-            bodyClass="!p-6 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+            bodyClass="!p-6 !bg-gray-100 dark:!bg-gray-900 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
         >
             {scenario && (
                 <div className="space-y-6">
@@ -253,7 +253,7 @@ const ScenarioUsersDrawer = ({ isOpen, onClose, scenario, users }: ScenarioUsers
                         <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                             Complete information about this scenario
                         </p>
-                        <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                        <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
                             <ScenarioDetail scenario={scenario} />
                         </div>
                     </div>

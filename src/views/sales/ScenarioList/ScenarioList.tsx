@@ -177,13 +177,13 @@ const ScenarioList = () => {
 
     const DrawerFooter = (
         <div className="flex justify-between items-center w-full gap-3 px-2">
-            <Button size="sm" className="flex-1" onClick={onDrawerClose}>
+            <Button size="sm" className="flex-1 bg-gray-800 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-md" onClick={onDrawerClose}>
                 Cancel
             </Button>
             <Button
                 size="sm"
                 variant="solid"
-                className="flex-1 bg-primary hover:bg-primary-deep text-neutral border-none"
+                className="flex-1 bg-primary hover:bg-primary-deep text-neutral border-none rounded-md"
                 onClick={handleSubmitClick}
             >
                 {isEditMode ? 'Edit' : 'Create'}
@@ -251,8 +251,8 @@ const ScenarioList = () => {
                 isOpen={isDrawerOpen}
                 footer={DrawerFooter}
                 headerClass="!items-start !bg-gray-100 dark:!bg-gray-900"
-                footerClass="!bg-gray-100 dark:!bg-gray-800 !p-3"
-                bodyClass="!p-4 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+                footerClass="!bg-gray-100 dark:!bg-gray-900 !p-3"
+                bodyClass="!bg-gray-100 dark:!bg-gray-900 !p-4 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
                 onClose={onDrawerClose}
                 onRequestClose={onDrawerClose}
             >

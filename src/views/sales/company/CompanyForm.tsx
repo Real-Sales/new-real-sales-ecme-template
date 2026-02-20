@@ -58,6 +58,7 @@ const CompanyForm = ({ onSubmit, onCancel }: CompanyFormProps) => {
                                 type="text"
                                 autoComplete="off"
                                 placeholder="Enter company name"
+                                className="bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-200 shadow-md"
                                 {...field}
                             />
                         )}
@@ -77,6 +78,7 @@ const CompanyForm = ({ onSubmit, onCancel }: CompanyFormProps) => {
                                 type="text"
                                 autoComplete="off"
                                 placeholder="e.g., Technology, Healthcare"
+                                className="bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-200 shadow-md"
                                 {...field}
                             />
                         )}
@@ -96,6 +98,7 @@ const CompanyForm = ({ onSubmit, onCancel }: CompanyFormProps) => {
                                 type="text"
                                 autoComplete="off"
                                 placeholder="+1 (555) 123-4567"
+                                className="bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-200 shadow-md"
                                 {...field}
                             />
                         )}
@@ -115,6 +118,7 @@ const CompanyForm = ({ onSubmit, onCancel }: CompanyFormProps) => {
                                 type="email"
                                 autoComplete="off"
                                 placeholder="contact@company.com"
+                                className="bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-200 shadow-md"
                                 {...field}
                             />
                         )}
@@ -134,6 +138,7 @@ const CompanyForm = ({ onSubmit, onCancel }: CompanyFormProps) => {
                                 type="text"
                                 autoComplete="off"
                                 placeholder="City, State"
+                                className="bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-200 shadow-md"
                                 {...field}
                             />
                         )}

@@ -471,7 +471,7 @@ const TeamScenariosSection = ({ teamMembers }: TeamScenariosSectionProps) => {
 
     return (
         <>
-        <Card className="mt-6">
+        <Card className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 shadow-md hover:shadow-xl transition-all duration-300 mt-6">
             {/* Header with Toggle */}
             <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-3">
@@ -506,7 +506,7 @@ const TeamScenariosSection = ({ teamMembers }: TeamScenariosSectionProps) => {
 
             {/* Stats Cards */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                <Card className="border border-gray-200 dark:border-gray-700 shadow-md hover:shadow-lg transition-shadow duration-300" bodyClass="!p-4">
+                <Card className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 shadow-md hover:shadow-xl transition-all duration-300" bodyClass="!p-4">
                     <div className="flex items-center gap-3">
                         <div className="bg-primary/10 rounded-xl p-2 text-primary">
                             <div className="text-3xl">
@@ -524,7 +524,7 @@ const TeamScenariosSection = ({ teamMembers }: TeamScenariosSectionProps) => {
                     </div>
                 </Card>
 
-                <Card className="border border-gray-200 dark:border-gray-700 shadow-md hover:shadow-lg transition-shadow duration-300" bodyClass="!p-4">
+                <Card className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 shadow-md hover:shadow-xl transition-all duration-300" bodyClass="!p-4">
                     <div className="flex items-center gap-3">
                         <div className="bg-green-500/10 rounded-xl p-2 text-green-600 dark:text-green-400">
                             <div className="text-3xl">
@@ -542,7 +542,7 @@ const TeamScenariosSection = ({ teamMembers }: TeamScenariosSectionProps) => {
                     </div>
                 </Card>
 
-                <Card className="border border-gray-200 dark:border-gray-700 shadow-md hover:shadow-lg transition-shadow duration-300" bodyClass="!p-4">
+                <Card className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 shadow-md hover:shadow-xl transition-all duration-300" bodyClass="!p-4">
                     <div className="flex items-center gap-3">
                         <div className="bg-blue-500/10 rounded-xl p-2 text-blue-600 dark:text-blue-400">
                             <div className="text-3xl">
@@ -560,7 +560,7 @@ const TeamScenariosSection = ({ teamMembers }: TeamScenariosSectionProps) => {
                     </div>
                 </Card>
 
-                <Card className="border border-gray-200 dark:border-gray-700 shadow-md hover:shadow-lg transition-shadow duration-300" bodyClass="!p-4">
+                <Card className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 shadow-md hover:shadow-xl transition-all duration-300" bodyClass="!p-4">
                     <div className="flex items-center gap-3">
                         <div className="bg-blue-500/10 rounded-xl p-2 text-blue-600 dark:text-blue-400">
                             <div className="text-3xl">

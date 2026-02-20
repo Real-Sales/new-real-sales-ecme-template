@@ -44,7 +44,7 @@ const UpgradeCard = () => {
     const usagePercent = 50
 
     return (
-        <div className="p-2.5 mx-4 mb-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
+        <div className="p-2.5 mx-4 mb-2 rounded-lg bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 shadow-md hover:shadow-lg transition-all duration-300">
             {/* Balance Section */}
             <div className="flex items-center gap-2 mb-2">
                 <CircleProgress percent={usagePercent} />
@@ -77,7 +77,7 @@ const UpgradeCard = () => {
                 <Button
                     block
                     size="sm"
-                    className="bg-black hover:bg-gray-900 text-blue-400 border-none flex justify-between items-center px-2.5 py-1.5 h-auto rounded-md"
+                    className="bg-gray-800 dark:bg-gray-800 hover:bg-gray-700 dark:hover:bg-gray-700 text-gray-300 hover:text-primary border border-gray-600 dark:border-gray-600 flex justify-between items-center px-2.5 py-1.5 h-auto rounded-lg transition-all"
                 >
                     <span className="text-xs font-semibold">upgrade your plan</span>
                     <HiArrowRight className="text-sm" />

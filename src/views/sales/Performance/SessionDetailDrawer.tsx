@@ -72,7 +72,7 @@ const SessionDetailDrawer = ({ isOpen, onClose, session }: SessionDetailDrawerPr
             width={480}
             title="Session Detail"
             headerClass="!items-start !bg-gray-100 dark:!bg-gray-900"
-            bodyClass="!p-5 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+            bodyClass="!p-5 !bg-gray-100 dark:!bg-gray-900 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
             onClose={handleClose}
             onRequestClose={handleClose}
         >

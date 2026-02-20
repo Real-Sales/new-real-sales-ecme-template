@@ -118,6 +118,7 @@ const CreditCardDialog = ({
                                 type="text"
                                 autoComplete="off"
                                 placeholder="Card holder name"
+                                className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-200 shadow-md"
                                 {...field}
                             />
                         )}
@@ -135,6 +136,7 @@ const CreditCardDialog = ({
                             <FormPatternInput
                                 placeholder="•••• •••• •••• ••••"
                                 format="#### #### #### ####"
+                                className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-200 shadow-md"
                                 value={field.value}
                                 onValueChange={(e) => {
                                     field.onChange(e.value)
@@ -156,6 +158,7 @@ const CreditCardDialog = ({
                                 <FormCustomFormatInput
                                     placeholder="••/••"
                                     format={cardExpiryFormat}
+                                    className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-200 shadow-md"
                                     value={field.value}
                                     onValueChange={(e) => {
                                         field.onChange(e.value)
@@ -176,6 +179,7 @@ const CreditCardDialog = ({
                                 <FormPatternInput
                                     placeholder="•••"
                                     format="###"
+                                    className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-200 shadow-md"
                                     value={field.value}
                                     onValueChange={(e) => {
                                         field.onChange(e.value)
@@ -190,6 +194,7 @@ const CreditCardDialog = ({
                     variant="solid"
                     type="submit"
                     loading={isSubmitting}
+                    className="rounded-md"
                 >
                     Update
                 </Button>

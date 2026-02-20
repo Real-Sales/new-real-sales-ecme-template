@@ -1,4 +1,5 @@
 import { useMemo, useEffect } from 'react'
+import type { ComponentType } from 'react'
 import Button from '@/components/ui/Button'
 import Upload from '@/components/ui/Upload'
 import Input from '@/components/ui/Input'
@@ -38,7 +39,7 @@ type CountryOption = {
     value: string
 }
 
-const { Control } = components
+const SelectControl = components.Control as ComponentType<ControlProps<CountryOption>>
 
 const validationSchema: ZodType<ProfileSchema> = z.object({
     firstName: z.string().min(1, { message: 'First name required' }),
@@ -82,7 +83,7 @@ const CustomSelectOption = (
 const CustomControl = ({ children, ...props }: ControlProps<CountryOption>) => {
     const selected = props.getValue()[0]
     return (
-        <Control {...props}>
+        <SelectControl {...props}>
             {selected && (
                 <Avatar
                     className="ltr:ml-4 rtl:mr-4"
@@ -92,7 +93,7 @@ const CustomControl = ({ children, ...props }: ControlProps<CountryOption>) => {
                 />
             )}
             {children}
-        </Control>
+        </SelectControl>
     )
 }
 
@@ -183,6 +184,7 @@ const SettingsProfile = () => {
                                             size="sm"
                                             type="button"
                                             icon={<TbPlus />}
+                                            className="bg-primary hover:bg-primary-deep text-white border-none rounded-md"
                                         >
                                             Upload Image
                                         </Button>
@@ -190,6 +192,7 @@ const SettingsProfile = () => {
                                     <Button
                                         size="sm"
                                         type="button"
+                                        className="bg-transparent dark:bg-transparent hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600 rounded-md"
                                         onClick={() => {
                                             field.onChange('')
                                         }}
@@ -215,6 +218,7 @@ const SettingsProfile = () => {
                                     type="text"
                                     autoComplete="off"
                                     placeholder="First Name"
+                                    className="bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-200 shadow-md"
                                     {...field}
                                 />
                             )}
@@ -233,6 +237,7 @@ const SettingsProfile = () => {
                                     type="text"
                                     autoComplete="off"
                                     placeholder="Last Name"
+                                    className="bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-200 shadow-md"
                                     {...field}
                                 />
                             )}
@@ -244,18 +249,19 @@ const SettingsProfile = () => {
                     invalid={Boolean(errors.email)}
                     errorMessage={errors.email?.message}
                 >
-                    <Controller
-                        name="email"
-                        control={control}
-                        render={({ field }) => (
-                            <Input
-                                type="email"
-                                autoComplete="off"
-                                placeholder="Email"
-                                {...field}
-                            />
-                        )}
-                    />
+                        <Controller
+                            name="email"
+                            control={control}
+                            render={({ field }) => (
+                                <Input
+                                    type="email"
+                                    autoComplete="off"
+                                    placeholder="Email"
+                                    className="bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-200 shadow-md"
+                                    {...field}
+                                />
+                            )}
+                        />
                 </FormItem>
                 <div className="flex items-end gap-4 w-full mb-6">
                     <FormItem
@@ -272,7 +278,7 @@ const SettingsProfile = () => {
                                 <Select<CountryOption>
                                     options={dialCodeList}
                                     {...field}
-                                    className="w-[150px]"
+                                    className="w-[150px] [&>div]:!bg-gray-50 [&>div]:dark:!bg-gray-800/50 [&>div]:!border-gray-200 [&>div]:dark:!border-gray-700 [&>div]:!shadow-md"
                                     components={{
                                         Option: (props) => (
                                             <CustomSelectOption
@@ -309,6 +315,7 @@ const SettingsProfile = () => {
                                 <NumericInput
                                     autoComplete="off"
                                     placeholder="Phone Number"
+                                    className="bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-200 shadow-md"
                                     value={field.value}
                                     onChange={field.onChange}
                                     onBlur={field.onBlur}
@@ -330,6 +337,7 @@ const SettingsProfile = () => {
                             <Select<CountryOption>
                                 options={countryList}
                                 {...field}
+                                className="[&>div]:!bg-gray-50 [&>div]:dark:!bg-gray-800/50 [&>div]:!border-gray-200 [&>div]:dark:!border-gray-700 [&>div]:!shadow-md"
                                 components={{
                                     Option: (props) => (
                                         <CustomSelectOption
@@ -355,18 +363,19 @@ const SettingsProfile = () => {
                     invalid={Boolean(errors.address)}
                     errorMessage={errors.address?.message}
                 >
-                    <Controller
-                        name="address"
-                        control={control}
-                        render={({ field }) => (
-                            <Input
-                                type="text"
-                                autoComplete="off"
-                                placeholder="Address"
-                                {...field}
-                            />
-                        )}
-                    />
+                        <Controller
+                            name="address"
+                            control={control}
+                            render={({ field }) => (
+                                <Input
+                                    type="text"
+                                    autoComplete="off"
+                                    placeholder="Address"
+                                    className="bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-200 shadow-md"
+                                    {...field}
+                                />
+                            )}
+                        />
                 </FormItem>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <FormItem
@@ -382,6 +391,7 @@ const SettingsProfile = () => {
                                     type="text"
                                     autoComplete="off"
                                     placeholder="City"
+                                    className="bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-200 shadow-md"
                                     {...field}
                                 />
                             )}
@@ -400,6 +410,7 @@ const SettingsProfile = () => {
                                     type="text"
                                     autoComplete="off"
                                     placeholder="Postal Code"
+                                    className="bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-200 shadow-md"
                                     {...field}
                                 />
                             )}
@@ -411,6 +422,7 @@ const SettingsProfile = () => {
                         variant="solid"
                         type="submit"
                         loading={isSubmitting}
+                        className="bg-primary hover:bg-primary-deep text-white border-none rounded-md"
                     >
                         Save
                     </Button>

@@ -71,7 +71,7 @@ const MemberPerformanceChart = ({ data, memberName, overallScore, totalSessions 
             </div>
 
             {/* Chart Card */}
-            <Card className="mb-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-md">
+            <Card className="mb-6 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 shadow-md">
                 {/* Stats Row */}
                 <div className="mb-6">
                     <div className="flex items-center gap-10">

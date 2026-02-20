@@ -19,7 +19,7 @@ const CurrentPlanUsage = () => {
     )
 
     return (
-        <Card className="mb-6">
+        <Card className="mb-6 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
             {/* Header */}
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6">
                 <div className="flex items-center gap-4">
@@ -54,7 +54,7 @@ const CurrentPlanUsage = () => {
             {/* Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {/* Sessions Usage */}
-                <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+                <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-800/50">
                     <div className="flex items-center gap-3 mb-3">
                         <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-blue-50 dark:bg-blue-500/10">
                             <TbMessageCircle className="text-lg text-blue-500" />
@@ -92,7 +92,7 @@ const CurrentPlanUsage = () => {
                 </div>
 
                 {/* Next Billing */}
-                <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+                <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-800/50">
                     <div className="flex items-center gap-3 mb-3">
                         <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-amber-50 dark:bg-amber-500/10">
                             <TbCalendarEvent className="text-lg text-amber-500" />
@@ -110,7 +110,7 @@ const CurrentPlanUsage = () => {
                 </div>
 
                 {/* Amount Due */}
-                <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+                <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-800/50">
                     <div className="flex items-center gap-3 mb-3">
                         <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-emerald-50 dark:bg-emerald-500/10">
                             <TbCreditCard className="text-lg text-emerald-500" />

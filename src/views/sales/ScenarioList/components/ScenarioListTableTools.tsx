@@ -27,11 +27,13 @@ const ScenarioListTableTools = ({
 
     return (
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-            <DebouceInput
-                placeholder="Search scenarios..."
-                suffix={<TbSearch className="text-lg" />}
-                onChange={handleInputChange}
-            />
+            <div className="flex-1 [&_.input]:!bg-gray-50 [&_.input]:dark:!bg-gray-800/50 [&_.input]:!border [&_.input]:!border-gray-200 [&_.input]:dark:!border-gray-700 [&_.input]:shadow-md [&_.input]:text-gray-900 [&_.input]:dark:text-gray-200">
+                <DebouceInput
+                    placeholder="Search scenarios..."
+                    suffix={<TbSearch className="text-lg" />}
+                    onChange={handleInputChange}
+                />
+            </div>
             <ScenarioListTableFilter 
                 onFilterChange={onFilterChange}
                 defaultValues={filterValues}

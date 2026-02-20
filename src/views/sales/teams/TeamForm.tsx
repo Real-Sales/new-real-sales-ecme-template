@@ -52,6 +52,7 @@ const TeamForm = ({ onSubmit, onCancel }: TeamFormProps) => {
                                 type="text"
                                 autoComplete="off"
                                 placeholder="Enter team name"
+                                className="bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-200 shadow-md"
                                 {...field}
                             />
                         )}
@@ -71,6 +72,7 @@ const TeamForm = ({ onSubmit, onCancel }: TeamFormProps) => {
                                 type="text"
                                 autoComplete="off"
                                 placeholder="Select or enter company"
+                                className="bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-200 shadow-md"
                                 {...field}
                             />
                         )}
@@ -89,6 +91,7 @@ const TeamForm = ({ onSubmit, onCancel }: TeamFormProps) => {
                                 type="text"
                                 autoComplete="off"
                                 placeholder="Brief description (optional)"
+                                className="bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-200 shadow-md"
                                 {...field}
                             />
                         )}

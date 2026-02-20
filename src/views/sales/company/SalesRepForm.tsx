@@ -61,6 +61,7 @@ const SalesRepForm = ({ onSubmit, onCancel }: SalesRepFormProps) => {
                                 type="text"
                                 autoComplete="off"
                                 placeholder="Enter First Name"
+                                className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-200 shadow-md"
                                 {...field}
                             />
                         )}
@@ -80,6 +81,7 @@ const SalesRepForm = ({ onSubmit, onCancel }: SalesRepFormProps) => {
                                 type="text"
                                 autoComplete="off"
                                 placeholder="Enter Last Name"
+                                className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-200 shadow-md"
                                 {...field}
                             />
                         )}
@@ -99,6 +101,7 @@ const SalesRepForm = ({ onSubmit, onCancel }: SalesRepFormProps) => {
                                 type="text"
                                 autoComplete="off"
                                 placeholder="+1 (555) 123-4567"
+                                className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-200 shadow-md"
                                 {...field}
                             />
                         )}
@@ -118,6 +121,7 @@ const SalesRepForm = ({ onSubmit, onCancel }: SalesRepFormProps) => {
                                 type="email"
                                 autoComplete="off"
                                 placeholder="contact@company.com"
+                                className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-200 shadow-md"
                                 {...field}
                             />
                         )}
@@ -137,6 +141,7 @@ const SalesRepForm = ({ onSubmit, onCancel }: SalesRepFormProps) => {
                                 type="password"
                                 autoComplete="off"
                                 placeholder="Password"
+                                className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-200 shadow-md"
                                 {...field}
                             />
                         )}
