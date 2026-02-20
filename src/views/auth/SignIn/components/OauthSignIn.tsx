@@ -50,7 +50,7 @@ const OauthSignIn = ({ setMessage, disableSubmit }: OauthSignInProps) => {
     return (
         <div className="flex items-center gap-2">
             <Button
-                className="flex-1"
+                className="flex-1 !bg-gray-50 dark:!bg-gray-800/50 !border !border-gray-200 dark:!border-gray-700"
                 type="button"
                 onClick={handleGoogleSignIn}
             >
@@ -64,7 +64,7 @@ const OauthSignIn = ({ setMessage, disableSubmit }: OauthSignInProps) => {
                 </div>
             </Button>
             <Button
-                className="flex-1"
+                className="flex-1 !bg-gray-50 dark:!bg-gray-800/50 !border !border-gray-200 dark:!border-gray-700"
                 type="button"
                 onClick={handleGithubSignIn}
             >

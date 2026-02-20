@@ -22,20 +22,19 @@ export const SignInBase = ({
     const mode = useAppSelector((state) => state.theme.mode)
 
     return (
-        <>
-            <div className="mb-8">
+        <div className="flex flex-col h-full min-h-0 justify-center">
+            <div className="mb-10 flex items-center gap-4">
                 <Logo
                     type="streamline"
                     mode={mode}
-                    imgClass="mx-auto"
                     logoWidth={60}
                 />
-            </div>
-            <div className="mb-10">
-                <h2 className="mb-2">Welcome back!</h2>
-                <p className="font-semibold heading-text">
-                    Please enter your credentials to sign in!
-                </p>
+                <div>
+                    <h2 className="mb-2">Welcome back!</h2>
+                    <p className="font-semibold heading-text">
+                        Please enter your credentials to sign in!
+                    </p>
+                </div>
             </div>
             {message && (
                 <Alert showIcon className="mb-4" type="danger">
@@ -82,7 +81,7 @@ export const SignInBase = ({
                     </ActionLink>
                 </div>
             </div>
-        </>
+        </div>
     )
 }
 

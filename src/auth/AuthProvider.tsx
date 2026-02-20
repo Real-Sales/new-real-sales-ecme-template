@@ -62,12 +62,12 @@ function AuthProvider({ children }: AuthProviderProps) {
         dispatch(signInSuccess(tokens.accessToken))
 
         if (user) {
-            // Map nulls to empty strings for UserState compatibility
             dispatch(setUser({
                 avatar: user.avatar ?? '',
                 userName: user.userName ?? '',
                 email: user.email ?? '',
                 authority: user.authority ?? [],
+                isNewUser: (user as User & { isNewUser?: boolean }).isNewUser ?? false,
             }))
         }
     }
@@ -105,8 +105,11 @@ function AuthProvider({ children }: AuthProviderProps) {
         try {
             const resp = await apiSignUp(values)
             if (resp) {
-                handleSignIn({ accessToken: resp.token }, resp.user)
-                redirect()
+                handleSignIn({ accessToken: resp.token }, {
+                    ...resp.user,
+                    isNewUser: true,
+                } as User)
+                navigatorRef.current?.navigate('/onboarding')
                 return {
                     status: 'success',
                     message: '',

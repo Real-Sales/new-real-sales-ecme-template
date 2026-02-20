@@ -6,6 +6,10 @@ export type UserState = {
     userName?: string
     email?: string
     authority?: string[]
+    isNewUser?: boolean
+    companyName?: string
+    industry?: string
+    industryProducts?: string[]
 }
 
 const initialState: UserState = {
@@ -13,6 +17,10 @@ const initialState: UserState = {
     userName: '',
     email: '',
     authority: [],
+    isNewUser: false,
+    companyName: '',
+    industry: '',
+    industryProducts: [],
 }
 
 const userSlice = createSlice({
@@ -24,9 +32,26 @@ const userSlice = createSlice({
             state.email = action.payload?.email
             state.userName = action.payload?.userName
             state.authority = action.payload?.authority
+            state.isNewUser = action.payload?.isNewUser
+            state.companyName = action.payload?.companyName
+            state.industry = action.payload?.industry
+            state.industryProducts = action.payload?.industryProducts
+        },
+        setOnboardingComplete(
+            state,
+            action: PayloadAction<{
+                companyName: string
+                industry: string
+                industryProducts: string[]
+            }>,
+        ) {
+            state.isNewUser = false
+            state.companyName = action.payload.companyName
+            state.industry = action.payload.industry
+            state.industryProducts = action.payload.industryProducts
         },
     },
 })
 
-export const { setUser } = userSlice.actions
+export const { setUser, setOnboardingComplete } = userSlice.actions
 export default userSlice.reducer 

@@ -1,9 +1,11 @@
 import { useState } from 'react'
+import { motion } from 'framer-motion'
 import { Card, Badge, Button } from '@/components/ui'
 import Container from '@/components/shared/Container'
 import SessionSetupPanel from '@/components/shared/SessionSetupPanel'
-import type { ConversationMode, AIPersona } from '@/components/shared/SessionSetupPanel'
+import type { ConversationMode } from '@/components/shared/SessionSetupPanel'
 import { useNavigate } from 'react-router-dom'
+import { useAppSelector } from '@/store'
 import {
     HiTrendingUp,
     HiUsers,
@@ -13,6 +15,11 @@ import {
     HiLightningBolt,
     HiBeaker,
     HiPresentationChartLine,
+    HiPlay,
+    HiAdjustments,
+    HiUserCircle,
+    HiOutlineChatAlt2,
+    HiOutlineChartBar,
 } from 'react-icons/hi'
 import { HiSparkles } from 'react-icons/hi2'
 
@@ -56,7 +63,9 @@ const MetricCard = ({
 
 const Overview = () => {
     const [isSetupOpen, setIsSetupOpen] = useState(false)
+    const [isVideoPlaying, setIsVideoPlaying] = useState(false)
     const navigate = useNavigate()
+    const mode = useAppSelector((state) => state.theme.mode)
 
     const handleNavigateToPersonas = (
         mode: ConversationMode,
@@ -107,7 +116,7 @@ const Overview = () => {
     return (
         <div className="min-h-full">
             {/* Hero Section */}
-            <div className="py-8 px-4">
+            <section className="py-8 px-4">
                 <Container>
                     <div className="text-center max-w-4xl mx-auto">
                         <h1 className="text-4xl md:text-5xl font-bold mb-6 text-gray-900 dark:text-white">
@@ -120,10 +129,172 @@ const Overview = () => {
                         </p>
                     </div>
                 </Container>
-            </div>
+            </section>
+
+            {/* CTA Section */}
+            <section className="py-6 px-4">
+                <Container>
+                <Card className="bg-primary border-none">
+                    <div className="flex flex-col md:flex-row items-center justify-between gap-6 p-4">
+                        <div className="text-center md:text-left">
+                            <h2 className="text-xl md:text-2xl font-bold mb-1 text-neutral">
+                                Ready to Begin Your Sales Acceleration?
+                            </h2>
+                            <p className="text-sm text-neutral opacity-90">
+                                Join thousands of sales professionals improving
+                                their performance with AI
+                            </p>
+                        </div>
+                        <Button
+                            variant="solid"
+                            size="md"
+                            className="bg-gray-800 hover:bg-gray-700 text-white border-none whitespace-nowrap"
+                            icon={<HiArrowRight />}
+                            iconAlignment="end"
+                            onClick={() => setIsSetupOpen(true)}
+                        >
+                            Get Started Now
+                        </Button>
+                    </div>
+                </Card>
+                </Container>
+            </section>
+
+            {/* Demo Video Section - inline playback */}
+            <section className="py-6 px-4">
+                <Container>
+                    <Card className="bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 overflow-hidden">
+                        <div className="p-4">
+                            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
+                                <div>
+                                    <h2 className="text-2xl font-bold mb-2 text-gray-900 dark:text-white">
+                                        Watch the Demo
+                                    </h2>
+                                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                                        See how Realsales AI transforms sales training with realistic AI conversations
+                                    </p>
+                                </div>
+                                <Badge
+                                    className="self-start md:self-center"
+                                    innerClass="bg-primary/20 text-primary border border-primary px-3 py-1 text-xs font-medium"
+                                    content="2:30 min"
+                                />
+                            </div>
+                            <div className="relative rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 shadow-lg bg-black">
+                                <div className="aspect-video w-full">
+                                    {isVideoPlaying ? (
+                                        <iframe
+                                            title="Realsales Demo Video"
+                                            className="w-full h-full"
+                                            src="https://www.youtube.com/embed/4zd9hzngFwY?autoplay=1"
+                                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                            allowFullScreen
+                                        />
+                                    ) : (
+                                        <div
+                                            className="relative w-full h-full flex items-center justify-center cursor-pointer group bg-cover bg-center"
+                                            style={{
+                                                backgroundImage: 'url("https://img.youtube.com/vi/4zd9hzngFwY/hqdefault.jpg")',
+                                            }}
+                                            onClick={() => setIsVideoPlaying(true)}
+                                        >
+                                            <motion.div
+                                                className="relative z-10 flex flex-col items-center gap-2"
+                                                whileHover={{ scale: 1.05 }}
+                                                whileTap={{ scale: 0.98 }}
+                                            >
+                                                <div className="w-16 h-16 rounded-full bg-primary/90 flex items-center justify-center shadow-xl group-hover:bg-primary transition-colors">
+                                                    <HiPlay className="text-white text-2xl ml-1" />
+                                                </div>
+                                                <p className="text-gray-700 dark:text-gray-200 font-semibold text-sm">
+                                                    Click to Play
+                                                </p>
+                                            </motion.div>
+                                            <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent" />
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </Card>
+                </Container>
+            </section>
+
+            {/* How It Works */}
+            <section className="py-10 px-4">
+                <Container>
+                    <div className="text-center mb-10">
+                        <h2 className="text-2xl md:text-3xl font-bold mb-2 text-gray-900 dark:text-white">
+                            How It Works
+                        </h2>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 max-w-xl mx-auto">
+                            From choosing your scenario to reviewing your results — in four steps
+                        </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-5">
+                        {/* Step 1 */}
+                        <div className="relative flex flex-col items-start bg-white dark:bg-gray-800/60 border border-gray-100 dark:border-gray-700 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow group">
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="w-9 h-9 rounded-xl bg-blue-500 flex items-center justify-center flex-shrink-0 shadow-sm">
+                                    <HiAdjustments className="w-4 h-4 text-white" />
+                                </div>
+                                <span className="text-xs font-semibold text-blue-500 uppercase tracking-widest">Step 1</span>
+                            </div>
+                            <h3 className="text-base font-bold text-gray-900 dark:text-white mb-1">Choose Mode</h3>
+                            <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
+                                Select Prospecting, Discovering, or Closing to match your training focus
+                            </p>
+                        </div>
+
+                        {/* Step 2 */}
+                        <div className="relative flex flex-col items-start bg-white dark:bg-gray-800/60 border border-gray-100 dark:border-gray-700 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow group">
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="w-9 h-9 rounded-xl bg-indigo-500 flex items-center justify-center flex-shrink-0 shadow-sm">
+                                    <HiUserCircle className="w-4 h-4 text-white" />
+                                </div>
+                                <span className="text-xs font-semibold text-indigo-500 uppercase tracking-widest">Step 2</span>
+                            </div>
+                            <h3 className="text-base font-bold text-gray-900 dark:text-white mb-1">Pick a Persona</h3>
+                            <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
+                                Choose from AI buyers with different profiles and negotiation styles
+                            </p>
+                        </div>
+
+                        {/* Step 3 */}
+                        <div className="relative flex flex-col items-start bg-white dark:bg-gray-800/60 border border-gray-100 dark:border-gray-700 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow group">
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="w-9 h-9 rounded-xl bg-purple-500 flex items-center justify-center flex-shrink-0 shadow-sm">
+                                    <HiOutlineChatAlt2 className="w-4 h-4 text-white" />
+                                </div>
+                                <span className="text-xs font-semibold text-purple-500 uppercase tracking-widest">Step 3</span>
+                            </div>
+                            <h3 className="text-base font-bold text-gray-900 dark:text-white mb-1">Communicate with Persona</h3>
+                            <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
+                                Have a real conversation with your AI buyer — practice exactly as you would with real customers
+                            </p>
+                        </div>
+
+                        {/* Step 4 */}
+                        <div className="relative flex flex-col items-start bg-white dark:bg-gray-800/60 border border-gray-100 dark:border-gray-700 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow">
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="w-9 h-9 rounded-xl bg-green-500 flex items-center justify-center flex-shrink-0 shadow-sm">
+                                    <HiOutlineChartBar className="w-4 h-4 text-white" />
+                                </div>
+                                <span className="text-xs font-semibold text-green-500 uppercase tracking-widest">Step 4</span>
+                            </div>
+                            <h3 className="text-base font-bold text-gray-900 dark:text-white mb-1">See Your Performance Report</h3>
+                            <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
+                                Get instant feedback, actionable insights, and track your improvement over time
+                            </p>
+                        </div>
+                    </div>
+                </Container>
+            </section>
 
             {/* Platform Overview Section */}
-            <Container className="py-6 px-4">
+            <section className="py-6 px-4">
+                <Container>
                 <Card className="bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700">
                     <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 p-4">
                         <div>
@@ -148,37 +319,12 @@ const Overview = () => {
                         ))}
                     </div>
                 </Card>
-            </Container>
-
-            {/* CTA Section */}
-            <Container className="py-6 px-4">
-                <Card className="bg-primary border-none">
-                    <div className="flex flex-col md:flex-row items-center justify-between gap-6 p-4">
-                        <div className="text-center md:text-left">
-                            <h2 className="text-xl md:text-2xl font-bold mb-1 text-neutral">
-                                Ready to Begin Your Sales Acceleration?
-                            </h2>
-                            <p className="text-sm text-neutral opacity-90">
-                                Join thousands of sales professionals improving
-                                their performance with AI
-                            </p>
-                        </div>
-                        <Button
-                            variant="solid"
-                            size="md"
-                            className="bg-gray-800 hover:bg-gray-700 text-white border-none whitespace-nowrap"
-                            icon={<HiArrowRight />}
-                            iconAlignment="end"
-                            onClick={() => setIsSetupOpen(true)}
-                        >
-                            Get Started Now
-                        </Button>
-                    </div>
-                </Card>
-            </Container>
+                </Container>
+            </section>
 
             {/* Platform Capabilities Section */}
-            <Container className="py-6 px-4">
+            <section className="py-6 px-4">
+                <Container>
                 <div className="text-center mb-8">
                     <h2 className="text-3xl font-bold mb-3 text-gray-900 dark:text-white">
                         Platform Capabilities
@@ -275,7 +421,8 @@ const Overview = () => {
                         Powered by advanced machine learning algorithms and natural language processing
                     </p>
                 </div>
-            </Container>
+                </Container>
+            </section>
 
             {/* Session Setup Panel */}
             <SessionSetupPanel
