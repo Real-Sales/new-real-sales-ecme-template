@@ -8,6 +8,19 @@ import routeKey, { RouteKeyState } from './slices/routeKeySlice'
 import settings, { SettingsState } from '@/views/profile/Settings/store/settingsSlice'
 import subscription, { SubscriptionState } from '@/views/profile/Subscription/store/subscriptionSlice'
 import RtkQueryService from '@/services/RtkQueryService'
+import { persistReducer } from 'redux-persist'
+import storage from 'redux-persist/lib/storage'
+import appConfig from '@/configs/app.config'
+
+// When using cookies, only persist user profile data — NOT the session (token/signedIn)
+// The JWT token lives exclusively in the auth_token cookie
+const authPersistConfig = {
+    key: 'auth',
+    storage,
+    whitelist: appConfig.accessTokenPersistStrategy === 'cookies' ? ['user'] : ['user', 'session'],
+}
+
+const persistedAuth = persistReducer(authPersistConfig, auth as Reducer)
 
 export type RootState = {
     auth: AuthState
@@ -26,7 +39,7 @@ export interface AsyncReducers {
 }
 
 const staticReducers = {
-    auth,
+    auth: persistedAuth,
     base,
     locale,
     theme,

@@ -21,22 +21,15 @@ type SignUpFormSchema = {
     last_name: string
     phone_number: string
     password: string
-    confirmPassword: string
 }
 
-const validationSchema: ZodType<SignUpFormSchema> = z
-    .object({
-        email: z.string().min(1, { message: 'Please enter your email' }).email({ message: 'Invalid email' }),
-        first_name: z.string().min(1, { message: 'Please enter your first name' }),
-        last_name: z.string().min(1, { message: 'Please enter your last name' }),
-        phone_number: z.string().min(1, { message: 'Please enter your phone number' }).regex(/^\d{10}$/, { message: 'Phone number must be exactly 10 digits' }),
-        password: z.string().min(1, { message: 'Password Required' }),
-        confirmPassword: z.string().min(1, { message: 'Confirm Password Required' }),
-    })
-    .refine((data) => data.password === data.confirmPassword, {
-        message: 'Passwords do not match',
-        path: ['confirmPassword'],
-    })
+const validationSchema: ZodType<SignUpFormSchema> = z.object({
+    email: z.string().min(1, { message: 'Please enter your email' }).email({ message: 'Invalid email' }),
+    first_name: z.string().min(1, { message: 'Please enter your first name' }),
+    last_name: z.string().min(1, { message: 'Please enter your last name' }),
+    phone_number: z.string().min(1, { message: 'Please enter your phone number' }).regex(/^\d{10}$/, { message: 'Phone number must be exactly 10 digits' }),
+    password: z.string().min(1, { message: 'Password Required' }),
+})
 
 const SignUpForm = (props: SignUpFormProps) => {
     const { disableSubmit = false, className, setMessage } = props
@@ -57,7 +50,6 @@ const SignUpForm = (props: SignUpFormProps) => {
             last_name: '',
             phone_number: '',
             password: '',
-            confirmPassword: '',
         }
     })
 
@@ -176,25 +168,6 @@ const SignUpForm = (props: SignUpFormProps) => {
                                 <PasswordInput
                                     autoComplete="off"
                                     placeholder="Password"
-                                    {...field}
-                                />
-                            </div>
-                        )}
-                    />
-                </FormItem>
-                <FormItem
-                    label="Confirm Password"
-                    invalid={Boolean(errors.confirmPassword)}
-                    errorMessage={errors.confirmPassword?.message}
-                >
-                    <Controller
-                        name="confirmPassword"
-                        control={control}
-                        render={({ field }) => (
-                            <div className="[&_.input]:!bg-gray-50 [&_.input]:dark:!bg-gray-800/50 [&_.input]:!border [&_.input]:!border-gray-200 [&_.input]:dark:!border-gray-700 [&_.input]:shadow-md [&_.input]:text-gray-900 [&_.input]:dark:text-gray-200">
-                                <PasswordInput
-                                    autoComplete="off"
-                                    placeholder="Confirm Password"
                                     {...field}
                                 />
                             </div>
