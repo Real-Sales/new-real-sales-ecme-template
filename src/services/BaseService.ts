@@ -4,6 +4,10 @@ import { TOKEN_TYPE, REQUEST_HEADER_AUTH_KEY } from '@/constants/api.constant'
 import { PERSIST_STORE_NAME } from '@/constants/app.constant'
 import deepParseJson from '@/utils/deepParseJson'
 import store, { signOutSuccess } from '../store'
+import Cookies from 'js-cookie'
+
+const AUTH_TOKEN_COOKIE = 'auth_token'
+const useCookies = appConfig.accessTokenPersistStrategy === 'cookies'
 
 const unauthorizedCode = [401]
 
@@ -14,15 +18,20 @@ const BaseService = axios.create({
 
 BaseService.interceptors.request.use(
     (config) => {
-        const rawPersistData = localStorage.getItem(PERSIST_STORE_NAME)
-        const persistData = deepParseJson(rawPersistData)
+        let accessToken: string | undefined
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        let accessToken = (persistData as any).auth.session.token
+        if (useCookies) {
+            accessToken = Cookies.get(AUTH_TOKEN_COOKIE)
+        } else {
+            const rawPersistData = localStorage.getItem(PERSIST_STORE_NAME)
+            const persistData = deepParseJson(rawPersistData)
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            accessToken = (persistData as any)?.auth?.session?.token
+        }
 
         if (!accessToken) {
             const { auth } = store.getState()
-            accessToken = auth.session.token
+            accessToken = auth.session.token ?? undefined
         }
 
         if (accessToken) {

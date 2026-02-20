@@ -1,12 +1,29 @@
-import { useRef, useImperativeHandle } from 'react'
+import { useRef, useImperativeHandle, useEffect } from 'react'
 import AuthContext from './AuthContext'
 import appConfig from '@/configs/app.config'
 import { useAppSelector, useAppDispatch } from '@/store/hook'
 import { signInSuccess, signOutSuccess } from '@/store/slices/auth/sessionSlice'
 import { setUser } from '@/store/slices/auth/userSlice'
+import { setProfile } from '@/views/profile/Settings/store/settingsSlice'
 import { apiSignIn, apiSignOut, apiSignUp } from '@/services/AuthService'
 import { REDIRECT_URL_KEY } from '@/constants/app.constant'
 import { useNavigate } from 'react-router-dom'
+import Cookies from 'js-cookie'
+
+const AUTH_TOKEN_COOKIE = 'auth_token'
+const useCookies = appConfig.accessTokenPersistStrategy === 'cookies'
+
+const setAuthCookie = (token: string) => {
+    if (useCookies) {
+        Cookies.set(AUTH_TOKEN_COOKIE, token, { expires: 7, sameSite: 'lax', path: '/' })
+    }
+}
+
+const clearAuthCookie = () => {
+    if (useCookies) {
+        Cookies.remove(AUTH_TOKEN_COOKIE, { path: '/' })
+    }
+}
 import type {
     SignInCredential,
     SignUpCredential,
@@ -44,9 +61,24 @@ function AuthProvider({ children }: AuthProviderProps) {
     // To update user: dispatch(setUser(userData))
     // To sign in: dispatch(signInSuccess(token))
     // To sign out: dispatch(signOutSuccess())
-    const authenticated = Boolean(token && signedIn)
+    // When using cookies strategy, the cookie is the source of truth for authentication.
+    // localStorage auth.user still persists profile data (name, email, avatar).
+    const authenticated = useCookies
+        ? Boolean(Cookies.get(AUTH_TOKEN_COOKIE))
+        : Boolean(token && signedIn)
 
     const navigatorRef = useRef<IsolatedNavigatorRef>(null)
+
+    // On app startup with cookies strategy, restore auth session from cookie
+    useEffect(() => {
+        if (useCookies && !signedIn) {
+            const cookieToken = Cookies.get(AUTH_TOKEN_COOKIE)
+            if (cookieToken) {
+                dispatch(signInSuccess(cookieToken))
+            }
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [])
 
     const redirect = () => {
         const search = window.location.search
@@ -60,14 +92,31 @@ function AuthProvider({ children }: AuthProviderProps) {
 
     const handleSignIn = (tokens: Token, user?: User) => {
         dispatch(signInSuccess(tokens.accessToken))
+        setAuthCookie(tokens.accessToken)
 
         if (user) {
-            dispatch(setUser({
+            const userData = {
+                userId: user.userId ?? '',
                 avatar: user.avatar ?? '',
-                userName: user.userName ?? '',
+                userName: user.userName ?? `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim(),
+                firstName: user.firstName ?? '',
+                lastName: user.lastName ?? '',
                 email: user.email ?? '',
-                authority: user.authority ?? [],
+                phoneNumber: user.phoneNumber ?? '',
+                role: user.role ?? '',
+                authority: user.authority ?? (user.role ? [user.role] : []),
                 isNewUser: (user as User & { isNewUser?: boolean }).isNewUser ?? false,
+            }
+            
+            dispatch(setUser(userData))
+            
+            // Sync auth.user data to settings.profile so the profile page shows correct data
+            dispatch(setProfile({
+                firstName: userData.firstName,
+                lastName: userData.lastName,
+                email: userData.email,
+                phoneNumber: userData.phoneNumber,
+                img: userData.avatar,
             }))
         }
     }
@@ -75,13 +124,21 @@ function AuthProvider({ children }: AuthProviderProps) {
     const handleSignOut = () => {
         dispatch(signOutSuccess())
         dispatch(setUser({}))
+        clearAuthCookie()
     }
 
     const signIn = async (values: SignInCredential): AuthResult => {
         try {
             const resp = await apiSignIn(values)
             if (resp) {
-                handleSignIn({ accessToken: resp.token }, resp.user)
+                handleSignIn({ accessToken: resp.token }, {
+                    userId: resp.user.user_id,
+                    firstName: resp.user.first_name,
+                    lastName: resp.user.last_name,
+                    email: resp.user.email,
+                    phoneNumber: resp.user.phone_number,
+                    role: resp.user.role,
+                })
                 redirect()
                 return {
                     status: 'success',
@@ -116,7 +173,12 @@ function AuthProvider({ children }: AuthProviderProps) {
             const resp = await apiSignUp(values)
             if (resp) {
                 handleSignIn({ accessToken: resp.token }, {
-                    ...resp.user,
+                    userId: resp.user.user_id,
+                    firstName: resp.user.first_name,
+                    lastName: resp.user.last_name,
+                    email: resp.user.email,
+                    phoneNumber: resp.user.phone_number,
+                    role: resp.user.role,
                     isNewUser: true,
                 } as User)
                 navigatorRef.current?.navigate('/onboarding')

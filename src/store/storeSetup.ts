@@ -16,29 +16,13 @@ import {
     REGISTER,
 } from 'redux-persist'
 import storage from 'redux-persist/lib/storage'
-import appConfig from '@/configs/app.config'
-import cookiesStorage from '@/utils/cookiesStorage'
-let storageSession: typeof storage | undefined
-try {
-    storageSession = require('redux-persist/lib/storage/session').default
-} catch {}
-
-const getPersistStorage = () => {
-    if (appConfig.accessTokenPersistStrategy === 'localStorage') {
-        return storage
-    }
-    if (appConfig.accessTokenPersistStrategy === 'sessionStorage' && storageSession) {
-        return storageSession
-    }
-    // Use async-compatible custom cookies storage
-    return cookiesStorage
-}
 
 const persistConfig = {
     key: PERSIST_STORE_NAME,
     keyPrefix: '',
-    storage: getPersistStorage(),
-    whitelist: ['auth', 'locale', 'settings'],
+    storage,
+    // auth is handled by its own nested persistReducer in rootReducer
+    whitelist: ['locale', 'settings'],
 }
 
 import { PERSIST_STORE_NAME } from '@/constants/app.constant'

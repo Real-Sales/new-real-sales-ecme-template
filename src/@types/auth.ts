@@ -5,13 +5,15 @@ export type SignInCredential = {
 }
 
 export type SignInResponse = {
+    message: string
     token: string
     user: {
-        userId: string
-        userName: string
-        authority: string[]
-        avatar: string
         email: string
+        user_id: string
+        first_name: string
+        last_name: string
+        phone_number: string
+        role: string
     }
 }
 
@@ -52,6 +54,10 @@ export type User = {
     userName?: string | null
     email?: string | null
     authority?: string[]
+    firstName?: string | null
+    lastName?: string | null
+    phoneNumber?: string | null
+    role?: string | null
 }
 
 export type Token = {
