@@ -69,7 +69,7 @@ const salesNavigationConfig: NavigationTree[] = [
             {
                 key: 'companyGroup.company',
                 path: '/company',
-                title: 'Company',
+                title: 'Sales Divisions',
                 translateKey: '',
                 icon: 'company',
                 type: NAV_ITEM_TYPE_ITEM,

@@ -24,25 +24,24 @@ type StatsCardProps = {
 
 const StatsCard = ({ icon, value, label }: StatsCardProps) => {
     return (
-        <Card 
-            className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 shadow-md hover:shadow-xl transition-all duration-300" 
+        <Card className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 shadow-md hover:shadow-xl transition-all duration-300"
             bodyClass="!p-4"
         >
-        <div className="flex items-center gap-3">
-            <div className="bg-primary/10 rounded-xl p-2 text-primary">
-                <div className="text-3xl">{icon}</div>
+            <div className="flex items-center gap-3">
+                <div className="bg-primary/10 rounded-xl p-2 text-primary">
+                    <div className="text-3xl">{icon}</div>
+                </div>
+                <div className="flex-1">
+                    <h3 className="text-xl font-bold text-gray-900 dark:text-white">
+                        {value}
+                    </h3>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">
+                        {label}
+                    </p>
+
+                </div>
             </div>
-            <div className="flex-1">
-                <h3 className="text-xl font-bold text-gray-900 dark:text-white">
-                    {value}
-                </h3>
-                <p className="text-xs text-gray-600 dark:text-gray-400">
-                    {label}
-                </p>
-             
-            </div>
-        </div>
-    </Card>
+        </Card>
     )
 }
 
@@ -119,11 +118,10 @@ const CompanyCard = ({
                 </svg>
                 <div className="absolute top-3 right-3">
                     <Badge
-                        innerClass={`${
-                            status === 'Active'
-                                ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                                : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-400'
-                        } px-2 py-0.5 text-xs font-medium`}
+                        innerClass={`${status === 'Active'
+                            ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                            : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-400'
+                            } px-2 py-0.5 text-xs font-medium`}
                         content={status}
                     />
                 </div>
@@ -229,9 +227,9 @@ const CompanyList = () => {
 
     const DrawerFooter = (
         <div className="flex justify-between items-center w-full gap-3 px-2">
-            <Button 
-                size="sm" 
-                className="flex-1 bg-gray-800 dark:bg-gray-800 hover:bg-gray-700 dark:hover:bg-gray-700 text-gray-300 border border-gray-600 dark:border-gray-600" 
+            <Button
+                size="sm"
+                className="flex-1 bg-gray-800 dark:bg-gray-800 hover:bg-gray-700 dark:hover:bg-gray-700 text-gray-300 border border-gray-600 dark:border-gray-600"
                 onClick={onDrawerClose}
             >
                 Cancel
@@ -249,9 +247,9 @@ const CompanyList = () => {
 
     const DrawerTitle = (
         <div>
-            <h4 className="mb-2 text-lg font-bold">Create New Company</h4>
+            <h4 className="mb-2 text-lg font-bold">Create New Sales Division</h4>
             <p className="text-sm text-gray-600 dark:text-gray-400">
-                Fill in the details to create a new company
+                Fill in the details to create a new sales division
             </p>
         </div>
     )
@@ -260,7 +258,7 @@ const CompanyList = () => {
         {
             icon: <HiOfficeBuilding />,
             value: 2,
-            label: 'Total Companies',
+            label: 'Total Sales Divisions',
         },
         {
             icon: <HiUserGroup />,
@@ -270,14 +268,14 @@ const CompanyList = () => {
         {
             icon: <HiOfficeBuilding />,
             value: 2,
-            label: 'Active Companies',
+            label: 'Active Sales Divisions',
         },
     ]
 
     const companies = [
         {
             id: 'company-a',
-            name: 'Company "A"',
+            name: 'Division "A"',
             industry: 'Healthcare',
             location: 'NY',
             phone: '4565457689',
@@ -288,7 +286,7 @@ const CompanyList = () => {
         },
         {
             id: 'company-b',
-            name: 'Company "B"',
+            name: 'Division "B"',
             industry: 'Food & Beverages',
             location: 'NY',
             phone: '8978675645',
@@ -306,10 +304,10 @@ const CompanyList = () => {
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
                     <div>
                         <h1 className="text-3xl font-bold mb-1 text-gray-900 dark:text-white">
-                            Company Management
+                            Sales Division Management
                         </h1>
                         <p className="text-sm text-gray-600 dark:text-gray-400">
-                            Create and manage companies under your supervision
+                            Create and manage sales divisions under your supervision
                         </p>
                     </div>
                     <Button
@@ -319,7 +317,7 @@ const CompanyList = () => {
                         className="bg-primary hover:bg-primary-deep text-neutral border-none whitespace-nowrap rounded-md"
                         onClick={openDrawer}
                     >
-                        Create Company
+                        Create Sales Division
                     </Button>
                 </div>
 
@@ -342,7 +340,7 @@ const CompanyList = () => {
                 </div>
             </Container>
 
-            {/* Create Company Drawer */}
+            {/* Create Sales Division Drawer */}
             <Drawer
                 title={DrawerTitle}
                 isOpen={isDrawerOpen}
@@ -355,8 +353,8 @@ const CompanyList = () => {
             >
                 <div className="px-2">
                     <form ref={formRef}>
-                    <CompanyForm
-                        onSubmit={onCompanySubmit}
+                        <CompanyForm
+                            onSubmit={onCompanySubmit}
                             onCancel={onDrawerClose}
                         />
                     </form>

@@ -3,11 +3,11 @@ import Container from './LandingContainer'
 import type { Mode } from '@/@types/theme'
 
 const companyLogos = [
-    'Company A',
-    'Company B',
-    'Company C',
-    'Company D',
-    'Company E',
+    'Division A',
+    'Division B',
+    'Division C',
+    'Division D',
+    'Division E',
 ]
 
 const signalPhrases = [

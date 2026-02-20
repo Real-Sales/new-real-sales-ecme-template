@@ -13,7 +13,7 @@ type CompanyFormSchema = {
 }
 
 const validationSchema = z.object({
-    companyName: z.string().min(1, { message: 'Company name is required' }).max(100, 'Too Long!'),
+    companyName: z.string().min(1, { message: 'Sales division name is required' }).max(100, 'Too Long!'),
     industry: z.string().min(1, { message: 'Industry is required' }),
     location: z.string().min(1, { message: 'Location is required' }),
     phone: z.string().min(1, { message: 'Phone is required' }).regex(/^[0-9+\-\s()]+$/, 'Invalid phone number'),
@@ -45,7 +45,7 @@ const CompanyForm = ({ onSubmit, onCancel }: CompanyFormProps) => {
         <Form onSubmit={handleSubmit(onSubmit)}>
             <div className="space-y-4">
                 <FormItem
-                    label="Company Name"
+                    label="Sales Division Name"
                     asterisk
                     invalid={Boolean(errors.companyName)}
                     errorMessage={errors.companyName?.message}
