@@ -34,7 +34,7 @@ const validationSchema: ZodType<SignUpFormSchema> = z
         confirmPassword: z.string().min(1, { message: 'Confirm Password Required' }),
     })
     .refine((data) => data.password === data.confirmPassword, {
-        message: 'Password not match',
+        message: 'Passwords do not match',
         path: ['confirmPassword'],
     })
 
@@ -99,6 +99,7 @@ const SignUpForm = (props: SignUpFormProps) => {
                                     type="text"
                                     placeholder="First Name"
                                     autoComplete="off"
+                                    className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-200 shadow-md"
                                     {...field}
                                 />
                             )}
@@ -117,6 +118,7 @@ const SignUpForm = (props: SignUpFormProps) => {
                                     type="text"
                                     placeholder="Last Name"
                                     autoComplete="off"
+                                    className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-200 shadow-md"
                                     {...field}
                                 />
                             )}
@@ -136,6 +138,7 @@ const SignUpForm = (props: SignUpFormProps) => {
                                 type="email"
                                 placeholder="Email"
                                 autoComplete="off"
+                                className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-200 shadow-md"
                                 {...field}
                             />
                         )}
@@ -154,6 +157,7 @@ const SignUpForm = (props: SignUpFormProps) => {
                                 type="text"
                                 placeholder="Phone Number"
                                 autoComplete="off"
+                                className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-200 shadow-md"
                                 {...field}
                             />
                         )}
@@ -168,11 +172,13 @@ const SignUpForm = (props: SignUpFormProps) => {
                         name="password"
                         control={control}
                         render={({ field }) => (
-                            <PasswordInput
-                                autoComplete="off"
-                                placeholder="Password"
-                                {...field}
-                            />
+                            <div className="[&_.input]:!bg-gray-50 [&_.input]:dark:!bg-gray-800/50 [&_.input]:!border [&_.input]:!border-gray-200 [&_.input]:dark:!border-gray-700 [&_.input]:shadow-md [&_.input]:text-gray-900 [&_.input]:dark:text-gray-200">
+                                <PasswordInput
+                                    autoComplete="off"
+                                    placeholder="Password"
+                                    {...field}
+                                />
+                            </div>
                         )}
                     />
                 </FormItem>
@@ -185,11 +191,13 @@ const SignUpForm = (props: SignUpFormProps) => {
                         name="confirmPassword"
                         control={control}
                         render={({ field }) => (
-                            <PasswordInput
-                                autoComplete="off"
-                                placeholder="Confirm Password"
-                                {...field}
-                            />
+                            <div className="[&_.input]:!bg-gray-50 [&_.input]:dark:!bg-gray-800/50 [&_.input]:!border [&_.input]:!border-gray-200 [&_.input]:dark:!border-gray-700 [&_.input]:shadow-md [&_.input]:text-gray-900 [&_.input]:dark:text-gray-200">
+                                <PasswordInput
+                                    autoComplete="off"
+                                    placeholder="Confirm Password"
+                                    {...field}
+                                />
+                            </div>
                         )}
                     />
                 </FormItem>

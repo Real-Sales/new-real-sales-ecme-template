@@ -41,7 +41,6 @@ const ForgotPasswordForm = (props: ForgotPasswordFormProps) => {
         formState: { errors },
         control,
         setValue,
-        resetField,
     } = useForm<ForgotPasswordFormSchema>({
         resolver: zodResolver(validationSchema),
         defaultValues: {
@@ -110,6 +109,7 @@ const ForgotPasswordForm = (props: ForgotPasswordFormProps) => {
                                         type="email"
                                         placeholder="Email"
                                         autoComplete="off"
+                                        className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-200 shadow-md"
                                         {...field}
                                     />
                                 )}
@@ -151,6 +151,7 @@ const ForgotPasswordForm = (props: ForgotPasswordFormProps) => {
                                         type="text"
                                         placeholder="Enter OTP"
                                         autoComplete="one-time-code"
+                                        className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-200 shadow-md"
                                         {...field}
                                     />
                                 )}
@@ -165,11 +166,13 @@ const ForgotPasswordForm = (props: ForgotPasswordFormProps) => {
                                 name="new_password"
                                 control={control}
                                 render={({ field }) => (
-                                    <PasswordInput
-                                        placeholder="Enter New Password"
-                                        autoComplete="off"
-                                        {...field}
-                                    />
+                                    <div className="[&_.input]:!bg-gray-50 [&_.input]:dark:!bg-gray-800/50 [&_.input]:!border [&_.input]:!border-gray-200 [&_.input]:dark:!border-gray-700 [&_.input]:shadow-md [&_.input]:text-gray-900 [&_.input]:dark:text-gray-200">
+                                        <PasswordInput
+                                            placeholder="Enter New Password"
+                                            autoComplete="off"
+                                            {...field}
+                                        />
+                                    </div>
                                 )}
                             />
                         </FormItem>

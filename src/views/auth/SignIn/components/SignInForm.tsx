@@ -87,6 +87,7 @@ const SignInForm = (props: SignInFormProps) => {
                                 type="email"
                                 placeholder="Email"
                                 autoComplete="off"
+                                className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-200 shadow-md"
                                 {...field}
                             />
                         )}
@@ -106,12 +107,14 @@ const SignInForm = (props: SignInFormProps) => {
                         control={control}
                         rules={{ required: true }}
                         render={({ field }) => (
-                            <PasswordInput
-                                type="text"
-                                placeholder="Password"
-                                autoComplete="off"
-                                {...field}
-                            />
+                            <div className="[&_.input]:!bg-gray-50 [&_.input]:dark:!bg-gray-800/50 [&_.input]:!border [&_.input]:!border-gray-200 [&_.input]:dark:!border-gray-700 [&_.input]:shadow-md [&_.input]:text-gray-900 [&_.input]:dark:text-gray-200">
+                                <PasswordInput
+                                    type="text"
+                                    placeholder="Password"
+                                    autoComplete="off"
+                                    {...field}
+                                />
+                            </div>
                         )}
                     />
                 </FormItem>

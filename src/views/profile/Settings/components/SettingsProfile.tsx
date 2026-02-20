@@ -20,10 +20,55 @@ import { HiOutlineUser } from 'react-icons/hi'
 import { TbPlus } from 'react-icons/tb'
 import type { ZodType } from 'zod'
 
+type ProductOption = { value: string; label: string }
+
+const industryOptions: ProductOption[] = [
+    { value: 'technology', label: 'Technology' },
+    { value: 'healthcare', label: 'Healthcare' },
+    { value: 'retail', label: 'Retail' },
+    { value: 'manufacturing', label: 'Manufacturing' },
+    { value: 'finance', label: 'Finance' },
+]
+
+const productsByIndustry: Record<string, ProductOption[]> = {
+    technology: [
+        { value: 'crm', label: 'CRM Software' },
+        { value: 'erp', label: 'ERP System' },
+        { value: 'analytics', label: 'Analytics Platform' },
+        { value: 'cloud', label: 'Cloud Services' },
+    ],
+    healthcare: [
+        { value: 'emr', label: 'Electronic Medical Records' },
+        { value: 'telehealth', label: 'Telehealth' },
+        { value: 'pharma', label: 'Pharmaceutical' },
+        { value: 'medical-devices', label: 'Medical Devices' },
+    ],
+    retail: [
+        { value: 'pos', label: 'POS System' },
+        { value: 'inventory', label: 'Inventory Management' },
+        { value: 'ecommerce', label: 'E-commerce' },
+        { value: 'loyalty', label: 'Loyalty Program' },
+    ],
+    manufacturing: [
+        { value: 'scm', label: 'Supply Chain' },
+        { value: 'production', label: 'Production Planning' },
+        { value: 'quality', label: 'Quality Control' },
+        { value: 'iot', label: 'IoT / Industrial' },
+    ],
+    finance: [
+        { value: 'banking', label: 'Banking' },
+        { value: 'insurance', label: 'Insurance' },
+        { value: 'investment', label: 'Investment' },
+        { value: 'payments', label: 'Payments' },
+    ],
+}
+
 type ProfileSchema = {
     firstName: string
     lastName: string
     email: string
+    industry?: string
+    products?: ProductOption[]
     dialCode: string
     phoneNumber: string
     img: string
@@ -48,6 +93,8 @@ const validationSchema: ZodType<ProfileSchema> = z.object({
         .string()
         .min(1, { message: 'Email required' })
         .email({ message: 'Invalid email' }),
+    industry: z.string().optional(),
+    products: z.array(z.object({ value: z.string(), label: z.string() })).optional(),
     dialCode: z.string().min(1, { message: 'Please select your country code' }),
     phoneNumber: z
         .string()
@@ -132,13 +179,29 @@ const SettingsProfile = () => {
         reset,
         formState: { errors, isSubmitting },
         control,
+        watch,
+        setValue,
     } = useForm<ProfileSchema>({
+        defaultValues: {
+            industry: '',
+            products: [],
+        },
         resolver: zodResolver(validationSchema),
     })
 
+    const selectedIndustry = watch('industry')
+    const productOptions = useMemo(
+        () => (selectedIndustry ? productsByIndustry[selectedIndustry] ?? [] : []),
+        [selectedIndustry],
+    )
+
     useEffect(() => {
         if (data) {
-            reset(data)
+            reset({
+                ...data,
+                industry: data.industry ?? '',
+                products: data.products ?? [],
+            })
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [data])
@@ -249,20 +312,69 @@ const SettingsProfile = () => {
                     invalid={Boolean(errors.email)}
                     errorMessage={errors.email?.message}
                 >
+                    <Controller
+                        name="email"
+                        control={control}
+                        render={({ field }) => (
+                            <Input
+                                type="email"
+                                autoComplete="off"
+                                placeholder="Email"
+                                className="bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-200 shadow-md"
+                                {...field}
+                            />
+                        )}
+                    />
+                </FormItem>
+                <div className="grid md:grid-cols-2 gap-4">
+                    <FormItem
+                        label="Industry"
+                        invalid={Boolean(errors.industry)}
+                        errorMessage={errors.industry?.message}
+                    >
                         <Controller
-                            name="email"
+                            name="industry"
                             control={control}
                             render={({ field }) => (
-                                <Input
-                                    type="email"
-                                    autoComplete="off"
-                                    placeholder="Email"
-                                    className="bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-200 shadow-md"
-                                    {...field}
+                                <Select<ProductOption>
+                                    placeholder="Select industry"
+                                    options={industryOptions}
+                                    className="[&>div]:!bg-gray-50 [&>div]:dark:!bg-gray-800/50 [&>div]:border [&>div]:border-gray-200 [&>div]:dark:border-gray-700 [&>div]:shadow-md"
+                                    value={industryOptions.find((opt) => opt.value === field.value) ?? null}
+                                    onChange={(opt) => {
+                                        field.onChange(opt?.value ?? '')
+                                        setValue('products', [])
+                                    }}
                                 />
                             )}
                         />
-                </FormItem>
+                    </FormItem>
+                    <FormItem
+                        label="Products"
+                        invalid={Boolean(errors.products)}
+                        errorMessage={errors.products?.message}
+                    >
+                        <Controller
+                            name="products"
+                            control={control}
+                            render={({ field }) => (
+                                <Select<ProductOption, true>
+                                    isMulti
+                                    placeholder={
+                                        selectedIndustry
+                                            ? 'Select products'
+                                            : 'Select industry first'
+                                    }
+                                    isDisabled={!selectedIndustry}
+                                    options={productOptions}
+                                    className="[&>div]:!bg-gray-50 [&>div]:dark:!bg-gray-800/50 [&>div]:border [&>div]:border-gray-200 [&>div]:dark:border-gray-700 [&>div]:shadow-md"
+                                    value={field.value ?? []}
+                                    onChange={(opts) => field.onChange(opts ?? [])}
+                                />
+                            )}
+                        />
+                    </FormItem>
+                </div>
                 <div className="flex items-end gap-4 w-full mb-6">
                     <FormItem
                         invalid={

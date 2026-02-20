@@ -18,6 +18,8 @@ const mockProfile: GetSettingsProfileResponse = {
     dialCode: '+1',
     birthday: '1990-01-01',
     phoneNumber: '5551234567',
+    industry: 'technology',
+    products: [{ value: 'crm', label: 'CRM Software' }],
 }
 
 const mockNotification: GetSettingsNotificationResponse = {
