@@ -21,8 +21,8 @@ type StatCardProps = {
 
 const StatCard = ({ icon, value, label }: StatCardProps) => {
     return (
-        <Card 
-            className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 shadow-md hover:shadow-xl transition-all duration-300" 
+        <Card
+            className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 shadow-md hover:shadow-xl transition-all duration-300"
             bodyClass="!p-4"
         >
             <div className="flex items-center gap-3">
@@ -135,13 +135,12 @@ const TeamCard = ({
                 {status && (
                     <div className="absolute top-3 right-3">
                         <Badge
-                            innerClass={`${
-                                status === 'Focus'
+                            innerClass={`${status === 'Focus'
                                     ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
                                     : status === 'Stable'
-                                      ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                                      : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
-                            } px-2 py-0.5 text-xs font-medium`}
+                                        ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                                        : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                                } px-2 py-0.5 text-xs font-medium`}
                             content={status}
                         />
                     </div>
@@ -236,9 +235,9 @@ const TeamList = () => {
 
     const DrawerFooter = (
         <div className="flex justify-between items-center w-full gap-3 px-2">
-            <Button 
-                size="sm" 
-                className="flex-1 bg-gray-800 dark:bg-gray-800 hover:bg-gray-700 dark:hover:bg-gray-700 text-gray-300 border border-gray-600 dark:border-gray-600" 
+            <Button
+                size="sm"
+                className="flex-1 bg-gray-800 dark:bg-gray-800 hover:bg-gray-700 dark:hover:bg-gray-700 text-gray-300 border border-gray-600 dark:border-gray-600"
                 onClick={onDrawerClose}
             >
                 Cancel
@@ -290,7 +289,7 @@ const TeamList = () => {
         {
             id: 'healthcare-sales',
             name: 'Healthcare Sales',
-            company: 'Company "B"',
+            company: 'Division "B"',
             members: 5,
             avgScore: 54.7,
             sessions: 71,
@@ -301,7 +300,7 @@ const TeamList = () => {
         {
             id: 'full-sales-team',
             name: 'Full Sales Team',
-            company: 'Company "A"',
+            company: 'Division "A"',
             members: 4,
             avgScore: 61.7,
             sessions: 60,
@@ -312,7 +311,7 @@ const TeamList = () => {
         {
             id: 'bd-team',
             name: 'BD Team',
-            company: 'Company "A"',
+            company: 'Division "A"',
             members: 2,
             avgScore: 67.8,
             sessions: 30,

@@ -12,7 +12,7 @@ type TeamFormSchema = {
 
 const validationSchema = z.object({
     teamName: z.string().min(1, { message: 'Team name is required' }).max(100, 'Too Long!'),
-    company: z.string().min(1, { message: 'Company is required' }),
+    company: z.string().min(1, { message: 'Division is required' }),
     description: z.string().optional(),
 })
 
@@ -59,7 +59,7 @@ const TeamForm = ({ onSubmit, onCancel }: TeamFormProps) => {
                     />
                 </FormItem>
                 <FormItem
-                    label="Company"
+                    label="Division"
                     asterisk
                     invalid={Boolean(errors.company)}
                     errorMessage={errors.company?.message}
@@ -71,7 +71,7 @@ const TeamForm = ({ onSubmit, onCancel }: TeamFormProps) => {
                             <Input
                                 type="text"
                                 autoComplete="off"
-                                placeholder="Select or enter company"
+                                placeholder="Select or enter division"
                                 className="bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-200 shadow-md"
                                 {...field}
                             />
