@@ -11,6 +11,7 @@ import { z } from 'zod'
 import type { ZodType } from 'zod'
 import type { CommonProps } from '@/@types/common'
 import type { ReactNode } from 'react'
+import Checkbox from '@/components/ui/Checkbox'
 
 interface SignInFormProps extends CommonProps {
     disableSubmit?: boolean
@@ -21,6 +22,7 @@ interface SignInFormProps extends CommonProps {
 type SignInFormSchema = {
     email: string
     password: string
+    remember_me: boolean
 }
 
 const validationSchema: ZodType<SignInFormSchema> = z.object({
@@ -30,6 +32,7 @@ const validationSchema: ZodType<SignInFormSchema> = z.object({
     password: z
         .string({ required_error: 'Please enter your password' })
         .min(1, { message: 'Please enter your password' }),
+    remember_me: z.boolean(),
 })
 
 const SignInForm = (props: SignInFormProps) => {
@@ -45,6 +48,7 @@ const SignInForm = (props: SignInFormProps) => {
         defaultValues: {
             email: 'admin-01@ecme.com',
             password: '123Qwe',
+            remember_me: false,
         },
         resolver: zodResolver(validationSchema),
     })
@@ -52,12 +56,12 @@ const SignInForm = (props: SignInFormProps) => {
     const { signIn } = useAuth()
 
     const onSignIn = async (values: SignInFormSchema) => {
-        const { email, password } = values
+        const { email, password, remember_me } = values
 
         if (!disableSubmit) {
             setSubmitting(true)
 
-            const result = await signIn({ email, password })
+            const result = await signIn({ email, password, remember_me })
 
             if (result?.status === 'failed') {
                 setMessage?.(result.message)
@@ -114,7 +118,18 @@ const SignInForm = (props: SignInFormProps) => {
                         )}
                     />
                 </FormItem>
-                {passwordHint}
+                <div className="flex justify-between mb-6">
+                    <Controller
+                        name="remember_me"
+                        control={control}
+                        render={({ field }) => (
+                            <Checkbox {...field} checked={field.value} onChange={(checked) => field.onChange(checked)}>
+                                Remember Me
+                            </Checkbox>
+                        )}
+                    />
+                    {passwordHint}
+                </div>
                 <Button
                     block
                     loading={isSubmitting}

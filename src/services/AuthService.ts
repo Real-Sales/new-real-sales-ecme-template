@@ -4,6 +4,7 @@ import type {
     SignInCredential,
     SignUpCredential,
     ForgotPassword,
+    ForgotPasswordConfirm,
     ResetPassword,
     SignInResponse,
     SignUpResponse,
@@ -32,9 +33,17 @@ export async function apiSignOut() {
     })
 }
 
-export async function apiForgotPassword<T>(data: ForgotPassword) {
+export async function apiForgotPasswordRequest<T>(data: ForgotPassword) {
     return ApiService.fetchDataWithAxios<T>({
-        url: endpointConfig.forgotPassword,
+        url: endpointConfig.forgotPasswordRequest,
+        method: 'post',
+        data,
+    })
+}
+
+export async function apiForgotPasswordConfirm<T>(data: ForgotPasswordConfirm) {
+    return ApiService.fetchDataWithAxios<T>({
+        url: endpointConfig.forgotPasswordConfirm,
         method: 'post',
         data,
     })

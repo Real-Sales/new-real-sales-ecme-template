@@ -5,6 +5,7 @@ import { BrowserRouter } from 'react-router-dom'
 import Theme from '@/components/template/Theme'
 import Layout from '@/components/layouts'
 import { AuthProvider } from '@/auth'
+import { GoogleOAuthProvider } from '@react-oauth/google'
 import Views from '@/views'
 import appConfig from './configs/app.config'
 import './locales'
@@ -19,11 +20,13 @@ function App() {
             <PersistGate loading={null} persistor={persistor}>
                 <Theme>
                     <BrowserRouter>
-                        <AuthProvider>
-                            <Layout>
-                                <Views />
-                            </Layout>
-                        </AuthProvider>
+                        <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>
+                            <AuthProvider>
+                                <Layout>
+                                    <Views />
+                                </Layout>
+                            </AuthProvider>
+                        </GoogleOAuthProvider>
                     </BrowserRouter>
                 </Theme>
             </PersistGate>

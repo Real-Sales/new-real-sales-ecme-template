@@ -94,9 +94,19 @@ function AuthProvider({ children }: AuthProviderProps) {
             }
             // eslint-disable-next-line  @typescript-eslint/no-explicit-any
         } catch (errors: any) {
+            if (
+                errors?.response?.status === 404 ||
+                errors?.response?.status === 401 ||
+                errors?.response?.status === 403
+            ) {
+                return {
+                    status: 'failed',
+                    message: 'Invalid credentials',
+                }
+            }
             return {
                 status: 'failed',
-                message: errors?.response?.data?.message || errors.toString(),
+                message: errors?.response?.data?.message || errors?.response?.data?.error || errors?.response?.data?.detail || errors.toString(),
             }
         }
     }
@@ -123,7 +133,7 @@ function AuthProvider({ children }: AuthProviderProps) {
         } catch (errors: any) {
             return {
                 status: 'failed',
-                message: errors?.response?.data?.message || errors.toString(),
+                message: errors?.response?.data?.message || errors?.response?.data?.error || errors?.response?.data?.detail || errors.toString(),
             }
         }
     }
