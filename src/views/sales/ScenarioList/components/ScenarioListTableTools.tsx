@@ -2,6 +2,7 @@ import DebouceInput from '@/components/shared/DebouceInput'
 import ScenarioListTableFilter from './ScenarioListTableFilter'
 import { TbSearch } from 'react-icons/tb'
 import type { ChangeEvent } from 'react'
+import type { Scenario } from '../types'
 
 type FilterValues = {
     status: string
@@ -10,12 +11,14 @@ type FilterValues = {
 }
 
 type ScenarioListTableToolsProps = {
+    scenarios: Scenario[]
     onSearch: (value: string) => void
     onFilterChange: (filters: FilterValues) => void
     filterValues: FilterValues
 }
 
 const ScenarioListTableTools = ({
+    scenarios,
     onSearch,
     onFilterChange,
     filterValues,
@@ -35,6 +38,7 @@ const ScenarioListTableTools = ({
                 />
             </div>
             <ScenarioListTableFilter 
+                scenarios={scenarios}
                 onFilterChange={onFilterChange}
                 defaultValues={filterValues}
             />

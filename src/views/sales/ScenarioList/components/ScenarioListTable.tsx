@@ -22,6 +22,9 @@ const statusLabel: Record<string, string> = {
     inactive: 'Inactive',
 }
 
+const getDerivedStatus = (row: Scenario) =>
+    row.persona?.status_active && row.mode?.status_active ? 'active' : 'inactive'
+
 const ActionColumn = ({ 
     row, 
     onDelete,
@@ -31,7 +34,7 @@ const ActionColumn = ({
     onDelete: () => void
     onEdit: () => void
 }) => {
-    const isInactive = row.session_status === 'inactive'
+    const isInactive = getDerivedStatus(row) === 'inactive'
 
     const onShare = () => {
         console.log('Share scenario:', row.scenario_id)
@@ -75,6 +78,7 @@ type ScenarioListTableProps = {
     onAllRowSelect: (checked: boolean, rows: any[]) => void
     onRowClick: (scenario: Scenario) => void
     onEdit: (scenario: Scenario) => void
+    onConfirmDeleteScenario?: (scenario: Scenario) => void | Promise<void>
     pagingData: {
         total: number
         pageIndex: number
@@ -92,6 +96,7 @@ const ScenarioListTable = ({
     onAllRowSelect,
     onRowClick,
     onEdit,
+    onConfirmDeleteScenario,
     pagingData,
     onPaginationChange,
     onSelectChange,
@@ -109,10 +114,9 @@ const ScenarioListTable = ({
         setToDeleteScenario(scenario)
     }
 
-    const handleConfirmDelete = () => {
+    const handleConfirmDelete = async () => {
         if (toDeleteScenario) {
-            console.log('Deleting scenario:', toDeleteScenario.scenario_id)
-            // In real app: call API to delete scenario
+            await onConfirmDeleteScenario?.(toDeleteScenario)
         }
         setDeleteConfirmationOpen(false)
         setToDeleteScenario(null)
@@ -126,7 +130,7 @@ const ScenarioListTable = ({
                 enableSorting: false,
                 cell: (props) => {
                     const row = props.row.original
-                    const isInactive = row.session_status === 'inactive'
+                    const isInactive = getDerivedStatus(row) === 'inactive'
                     return (
                         <span 
                             className={classNames(
@@ -141,12 +145,33 @@ const ScenarioListTable = ({
                 },
             },
             {
-                header: 'Completions',
-                accessorKey: 'completion_percentage',
+                header: 'Type',
+                accessorKey: 'creator_role',
                 enableSorting: false,
                 cell: (props) => {
-                    const { completion_percentage, completed_users, total_users, session_status } = props.row.original
-                    const isInactive = session_status === 'inactive'
+                    const row = props.row.original
+                    const isSystem = row.creator_role === 'super_admin'
+                    return isSystem ? (
+                        <Badge
+                            innerClass="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 px-2 py-0.5 text-xs font-medium"
+                            content="System"
+                        />
+                    ) : (
+                        <span className="text-gray-500 dark:text-gray-400">—</span>
+                    )
+                },
+            },
+            {
+                header: 'Completions',
+                accessorKey: 'completions',
+                enableSorting: false,
+                cell: (props) => {
+                    const row = props.row.original
+                    const total = row.users_assigned_count ?? row.assigned_sessions_count ?? 0
+                    const completed = row.users_completed_count ?? 0
+                    const isInactive = getDerivedStatus(row) === 'inactive'
+                    const completionPercent = total > 0 ? Math.round((completed / total) * 100) : 0
+
                     return (
                         <div className="flex flex-col gap-1">
                             <span className={classNames(
@@ -154,25 +179,21 @@ const ScenarioListTable = ({
                                 isInactive && "text-gray-500 dark:text-gray-500"
                             )}>
                                 <span className="font-semibold">
-                                    <NumericFormat
-                                        displayType="text"
-                                        value={completed_users}
-                                        thousandSeparator={true}
-                                    />
-                                    /{total_users}
+                                    <NumericFormat displayType="text" value={completed} thousandSeparator={true} />
+                                    /{total}
                                 </span>
                                 <span>Users</span>
                             </span>
                             <Progress
-                                percent={completion_percentage}
+                                percent={completionPercent}
                                 showInfo={false}
                                 customColorClass={
-                                    isInactive 
+                                    isInactive
                                         ? 'bg-gray-400 dark:bg-gray-600'
                                         : classNames(
                                             'bg-error',
-                                            completion_percentage > 40 && 'bg-warning',
-                                            completion_percentage > 70 && 'bg-success',
+                                            completionPercent > 40 && 'bg-warning',
+                                            completionPercent > 70 && 'bg-success'
                                         )
                                 }
                             />
@@ -185,8 +206,8 @@ const ScenarioListTable = ({
                 accessorKey: 'time_limit_days',
                 enableSorting: false,
                 cell: (props) => {
-                    const { time_limit_days, session_status } = props.row.original
-                    const isInactive = session_status === 'inactive'
+                    const { time_limit_days } = props.row.original
+                    const isInactive = getDerivedStatus(props.row.original) === 'inactive'
                     return (
                         <span className={classNames(
                             "font-semibold",
@@ -199,14 +220,14 @@ const ScenarioListTable = ({
             },
             {
                 header: 'Status',
-                accessorKey: 'session_status',
+                accessorKey: 'status',
                 enableSorting: false,
                 cell: (props) => {
-                    const { session_status } = props.row.original
+                    const status = getDerivedStatus(props.row.original)
                     return (
                         <Badge
-                            innerClass={`${statusColor[session_status]} px-2 py-0.5 text-xs font-medium`}
-                            content={statusLabel[session_status]}
+                            innerClass={`${statusColor[status]} px-2 py-0.5 text-xs font-medium`}
+                            content={statusLabel[status]}
                         />
                     )
                 },
@@ -217,7 +238,7 @@ const ScenarioListTable = ({
                 enableSorting: false,
                 cell: (props) => {
                     const row = props.row.original
-                    const isInactive = row.session_status === 'inactive'
+                    const isInactive = getDerivedStatus(row) === 'inactive'
                     return (
                         <span className={classNames(
                             "font-semibold",

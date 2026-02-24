@@ -13,6 +13,7 @@ import { z } from 'zod'
 import type { ZodType } from 'zod'
 import type { ControlProps, OptionProps } from 'react-select'
 import classNames from '@/utils/classNames'
+import type { Scenario } from '../types'
 
 type FormSchema = {
     status: string
@@ -34,26 +35,21 @@ const statusOptions: Option[] = [
     { value: 'inactive', label: 'Inactive', className: 'bg-gray-500' },
 ]
 
-const modeOptions: Option[] = [
-    { value: 'all', label: 'All Modes', className: 'bg-gray-400' },
-    { value: 'Role Play', label: 'Role Play', className: 'bg-blue-500' },
-    { value: 'Practice', label: 'Practice', className: 'bg-purple-500' },
-    { value: 'Coaching', label: 'Coaching', className: 'bg-green-500' },
-]
+const buildModeOptions = (scenarios: Scenario[]): Option[] => {
+    const modes = [...new Set(scenarios.map((s) => s.mode?.name).filter(Boolean))].sort() as string[]
+    return [
+        { value: 'all', label: 'All Modes', className: 'bg-gray-400' },
+        ...modes.map((m) => ({ value: m, label: m, className: 'bg-blue-500' })),
+    ]
+}
 
-const personaOptions: Option[] = [
-    { value: 'all', label: 'All Personas' },
-    { value: 'Enterprise CTO', label: 'Enterprise CTO' },
-    { value: 'SMB Owner', label: 'SMB Owner' },
-    { value: 'Budget-Conscious Manager', label: 'Budget-Conscious Manager' },
-    { value: 'Technical Lead', label: 'Technical Lead' },
-    { value: 'Procurement Director', label: 'Procurement Director' },
-    { value: 'Existing Customer - VP', label: 'Existing Customer - VP' },
-    { value: 'Operations Manager', label: 'Operations Manager' },
-    { value: 'Decision Maker - CEO', label: 'Decision Maker - CEO' },
-    { value: 'Finance Director', label: 'Finance Director' },
-    { value: 'Committee of Decision Makers', label: 'Committee of Decision Makers' },
-]
+const buildPersonaOptions = (scenarios: Scenario[]): Option[] => {
+    const personas = [...new Set(scenarios.map((s) => s.persona?.name).filter(Boolean))].sort() as string[]
+    return [
+        { value: 'all', label: 'All Personas' },
+        ...personas.map((p) => ({ value: p, label: p })),
+    ]
+}
 
 const CustomSelectOption = (props: OptionProps<Option>) => {
     return (
@@ -88,13 +84,14 @@ const validationSchema: ZodType<FormSchema> = z.object({
 })
 
 type ScenarioListTableFilterProps = {
+    scenarios: Scenario[]
     onFilterChange: (filters: FormSchema) => void
     defaultValues: FormSchema
 }
 
 const FILTER_FORM_ID = 'filter-scenarios-form'
 
-const ScenarioListTableFilter = ({ onFilterChange, defaultValues }: ScenarioListTableFilterProps) => {
+const ScenarioListTableFilter = ({ scenarios, onFilterChange, defaultValues }: ScenarioListTableFilterProps) => {
     const [filterIsOpen, setFilterIsOpen] = useState(false)
 
     const { handleSubmit, control, reset } = useForm<FormSchema>({
@@ -198,9 +195,9 @@ const ScenarioListTableFilter = ({ onFilterChange, defaultValues }: ScenarioList
                                 render={({ field }) => (
                                     <Select<Option>
                                         className="[&>div]:!bg-gray-50 [&>div]:dark:!bg-gray-800/50 [&>div]:border [&>div]:border-gray-200 [&>div]:dark:border-gray-700 [&>div]:shadow-md"
-                                        options={modeOptions}
+                                        options={buildModeOptions(scenarios)}
                                         {...field}
-                                        value={modeOptions.filter(
+                                        value={buildModeOptions(scenarios).filter(
                                             (option) =>
                                                 option.value === field.value,
                                         )}
@@ -222,9 +219,9 @@ const ScenarioListTableFilter = ({ onFilterChange, defaultValues }: ScenarioList
                                 render={({ field }) => (
                                     <Select<Option>
                                         className="[&>div]:!bg-gray-50 [&>div]:dark:!bg-gray-800/50 [&>div]:border [&>div]:border-gray-200 [&>div]:dark:border-gray-700 [&>div]:shadow-md"
-                                        options={personaOptions}
+                                        options={buildPersonaOptions(scenarios)}
                                         {...field}
-                                        value={personaOptions.filter(
+                                        value={buildPersonaOptions(scenarios).filter(
                                             (option) =>
                                                 option.value === field.value,
                                         )}
