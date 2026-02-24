@@ -7,7 +7,7 @@ import classNames from '@/utils/classNames'
 import { TbChevronDown, TbAlertCircle, TbChecks, TbTrash, TbDownload, TbClock, TbCalendar } from 'react-icons/tb'
 import { motion, AnimatePresence } from 'framer-motion'
 import dayjs from 'dayjs'
-import type { Scenario } from '@/views/sales/ScenarioList/types'
+import type { ScenarioSession } from '@/views/sales/ScenarioList/types'
 
 type UserAssignment = {
     userId: string
@@ -24,7 +24,7 @@ type UserAssignment = {
 type ScenarioUsersDrawerProps = {
     isOpen: boolean
     onClose: () => void
-    scenario: Scenario | null
+    scenario: ScenarioSession | null
     users: UserAssignment[]
 }
 

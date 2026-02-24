@@ -1,4 +1,5 @@
-import { useState, useMemo, useRef } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
+import { injectReducer } from '@/store'
 import Container from '@/components/shared/Container'
 import AdaptiveCard from '@/components/shared/AdaptiveCard'
 import Drawer from '@/components/ui/Drawer'
@@ -9,8 +10,21 @@ import ScenarioListTableTools from './components/ScenarioListTableTools'
 import ScenarioListSelected from './components/ScenarioListSelected'
 import ScenarioForm, { type ScenarioFormSchema } from './components/ScenarioForm'
 import ScenarioDetail from './components/ScenarioDetail'
-import { mockScenarios } from './mockData'
+import scenarioLibraryReducer, {
+    useAppSelector,
+    useAppDispatch,
+    fetchScenarioLibrary,
+    fetchPersonas,
+    fetchModes,
+    createScenario,
+    updateScenario,
+    deleteScenario,
+    resetNotification,
+} from './store'
+import toast from '@/components/ui/toast'
+import Notification from '@/components/ui/Notification'
 import type { Scenario } from './types'
+import type { ScenarioFormOption } from './components/ScenarioForm'
 
 type FilterValues = {
     status: string
@@ -18,8 +32,51 @@ type FilterValues = {
     persona: string
 }
 
+// Inject reducer when component mounts (lazy-loaded)
+injectReducer('scenarioLibrary', scenarioLibraryReducer)
+
 const ScenarioList = () => {
-    const [scenarios] = useState<Scenario[]>(mockScenarios)
+    const dispatch = useAppDispatch()
+    const {
+        scenariosData,
+        scenarioLibraryLoading,
+        personasData,
+        modesData,
+        notification,
+    } = useAppSelector(
+        (state) =>
+            state.scenarioLibrary?.data ?? {
+                scenariosData: [],
+                scenarioLibraryLoading: false,
+                personasData: [],
+                modesData: [],
+                error: null,
+                notification: null,
+            }
+    )
+
+    useEffect(() => {
+        if (scenariosData.length === 0 && !scenarioLibraryLoading) {
+            dispatch(fetchScenarioLibrary())
+        }
+    }, [dispatch, scenariosData.length, scenarioLibraryLoading])
+
+    useEffect(() => {
+        if (notification) {
+            const type = (notification.type || 'info') as 'success' | 'warning' | 'danger' | 'info'
+            toast.push(
+                <Notification title={type.charAt(0).toUpperCase() + type.slice(1)} type={type}>
+                    {notification.message}
+                </Notification>
+            )
+            dispatch(resetNotification())
+        }
+    }, [notification, dispatch])
+
+    useEffect(() => {
+        dispatch(fetchPersonas())
+        dispatch(fetchModes())
+    }, [dispatch])
     const [searchQuery, setSearchQuery] = useState('')
     const [isDrawerOpen, setIsDrawerOpen] = useState(false)
     const [isViewDrawerOpen, setIsViewDrawerOpen] = useState(false)
@@ -40,27 +97,28 @@ const ScenarioList = () => {
 
     // Filter and sort scenarios based on search and filters
     const filteredScenarios = useMemo(() => {
-        return scenarios
+        return scenariosData
             .filter((scenario) => {
                 // Search filter
                 const matchesSearch =
                     searchQuery === '' ||
                     scenario.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                    scenario.user_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                     scenario.scenario_id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                    scenario.persona.toLowerCase().includes(searchQuery.toLowerCase())
+                    scenario.persona?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                    scenario.mode?.name?.toLowerCase().includes(searchQuery.toLowerCase())
 
-                // Status filter
+                // Status filter (derived from persona.status_active)
+                const derivedStatus = scenario.persona?.status_active && scenario.mode?.status_active ? 'active' : 'inactive'
                 const matchesStatus =
-                    filters.status === 'all' || scenario.session_status === filters.status
+                    filters.status === 'all' || derivedStatus === filters.status
 
                 // Mode filter
                 const matchesMode =
-                    filters.mode === 'all' || scenario.mode === filters.mode
+                    filters.mode === 'all' || scenario.mode?.name === filters.mode
 
                 // Persona filter
                 const matchesPersona =
-                    filters.persona === 'all' || scenario.persona === filters.persona
+                    filters.persona === 'all' || scenario.persona?.name === filters.persona
 
                 return matchesSearch && matchesStatus && matchesMode && matchesPersona
             })
@@ -70,7 +128,7 @@ const ScenarioList = () => {
                 const titleB = b.title || ''
                 return titleA.localeCompare(titleB, undefined, { sensitivity: 'base' })
             })
-    }, [scenarios, searchQuery, filters])
+    }, [scenariosData, searchQuery, filters])
 
     // Paginate filtered scenarios
     const paginatedScenarios = useMemo(() => {
@@ -105,15 +163,29 @@ const ScenarioList = () => {
         }
     }
 
-    const onScenarioSubmit = (values: ScenarioFormSchema) => {
-        if (isEditMode) {
-            console.log('Updating scenario:', editingScenario?.scenario_id, values)
-            window.alert(`Editing: ${JSON.stringify(values, null, 2)}`)
-        } else {
-            console.log('Creating new scenario:', values)
-            window.alert(`Creating: ${JSON.stringify(values, null, 2)}`)
+    const onScenarioSubmit = async (values: ScenarioFormSchema) => {
+        const payload = {
+            persona_id: values.persona || null,
+            mode_id: values.mode || null,
+            title: values.title || null,
+            scenario_text: values.scenario || null,
+            document_content: values.document_content || null,
+            time_limit_days: values.deadline ?? 7,
+            message: values.message || null,
         }
-        onDrawerClose()
+        if (isEditMode && editingScenario) {
+            const result = await dispatch(
+                updateScenario({ scenarioId: editingScenario.scenario_id, payload })
+            )
+            if (updateScenario.fulfilled.match(result)) {
+                onDrawerClose()
+            }
+        } else {
+            const result = await dispatch(createScenario(payload))
+            if (createScenario.fulfilled.match(result)) {
+                onDrawerClose()
+            }
+        }
     }
 
     const handleSearch = (value: string) => {
@@ -145,10 +217,15 @@ const ScenarioList = () => {
         setSelectedScenarios([])
     }
 
-    const handleDeleteSelected = () => {
-        // In a real app, this would call an API to delete the selected scenarios
-        console.log('Deleting scenarios:', selectedScenarios.map(s => s.scenario_id))
+    const handleDeleteSelected = async () => {
+        for (const s of selectedScenarios) {
+            await dispatch(deleteScenario(s.scenario_id))
+        }
         setSelectedScenarios([])
+    }
+
+    const handleConfirmDeleteScenario = (scenario: Scenario) => {
+        dispatch(deleteScenario(scenario.scenario_id))
     }
 
     const handleRowClick = (scenario: Scenario) => {
@@ -174,6 +251,20 @@ const ScenarioList = () => {
             pageIndex: 1,
         })
     }
+
+    const modeOptions: ScenarioFormOption[] = useMemo(() => {
+        return modesData
+            .filter((m) => m.mode_id && m.name)
+            .map((m) => ({ label: m.name, value: m.mode_id }))
+            .sort((a, b) => a.label.localeCompare(b.label))
+    }, [modesData])
+
+    const personaOptions: (ScenarioFormOption & { role?: string })[] = useMemo(() => {
+        return personasData
+            .filter((p) => p.persona_id && p.name)
+            .map((p) => ({ label: p.name, value: p.persona_id, role: p.ai_role?.name }))
+            .sort((a, b) => a.label.localeCompare(b.label))
+    }, [personasData])
 
     const DrawerFooter = (
         <div className="flex justify-between items-center w-full gap-3 px-2">
@@ -222,17 +313,20 @@ const ScenarioList = () => {
                             />
                         </div>
                         <ScenarioListTableTools
+                            scenarios={scenariosData}
                             onSearch={handleSearch}
                             onFilterChange={handleFilterChange}
                             filterValues={filters}
                         />
                     <ScenarioListTable 
                         data={paginatedScenarios}
+                        loading={scenarioLibraryLoading}
                         selectedScenarios={selectedScenarios}
                         onRowSelect={handleRowSelect}
                         onAllRowSelect={handleAllRowSelect}
                         onRowClick={handleRowClick}
                         onEdit={handleEdit}
+                        onConfirmDeleteScenario={handleConfirmDeleteScenario}
                         pagingData={{
                             total: filteredScenarios.length,
                             pageIndex: tableData.pageIndex,
@@ -257,21 +351,23 @@ const ScenarioList = () => {
                 onRequestClose={onDrawerClose}
             >
                 <div className="px-2">
-                    <form ref={formRef}>
-                        <ScenarioForm
-                            initialValues={editingScenario ? {
-                                title: editingScenario.title || '',
-                                mode: editingScenario.mode,
-                                persona: editingScenario.persona,
-                                deadline: editingScenario.time_limit_days,
-                                scenario: editingScenario.scenario_text || '',
-                                message: editingScenario.message || '',
-                            } : undefined}
-                            isEditMode={isEditMode}
-                            onSubmit={onScenarioSubmit}
-                            onCancel={onDrawerClose}
-                        />
-                    </form>
+                    <ScenarioForm
+                        formRef={formRef}
+                        initialValues={editingScenario ? {
+                            title: editingScenario.title || '',
+                            mode: editingScenario.mode?.mode_id ?? '',
+                            persona: editingScenario.persona?.persona_id ?? '',
+                            deadline: editingScenario.time_limit_days,
+                            scenario: editingScenario.scenario_text || '',
+                            message: editingScenario.message || '',
+                        } : undefined}
+                        isEditMode={isEditMode}
+                        modeOptions={modeOptions}
+                        personaOptions={personaOptions}
+                        personasData={personasData}
+                        onSubmit={onScenarioSubmit}
+                        onCancel={onDrawerClose}
+                    />
                 </div>
             </Drawer>
 
@@ -280,8 +376,8 @@ const ScenarioList = () => {
                 title="Scenario Details"
                 isOpen={isViewDrawerOpen}
                 width={500}
-                headerClass="!items-start"
-                bodyClass="!p-6 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+                headerClass="!items-start !bg-gray-100 dark:!bg-gray-900"
+                bodyClass="!bg-gray-100 dark:!bg-gray-900 !p-6 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
                 onClose={onViewDrawerClose}
                 onRequestClose={onViewDrawerClose}
             >

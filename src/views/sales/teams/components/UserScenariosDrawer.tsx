@@ -6,7 +6,7 @@ import ScenarioDetail from '@/views/sales/ScenarioList/components/ScenarioDetail
 import classNames from '@/utils/classNames'
 import { TbChevronDown, TbAlertCircle, TbChecks, TbTrash, TbDownload, TbClock } from 'react-icons/tb'
 import { motion, AnimatePresence } from 'framer-motion'
-import type { Scenario } from '@/views/sales/ScenarioList/types'
+import type { ScenarioSession } from '@/views/sales/ScenarioList/types'
 
 type UserScenariosDrawerProps = {
     isOpen: boolean
@@ -17,7 +17,7 @@ type UserScenariosDrawerProps = {
         userEmail: string
         userImg?: string
     } | null
-    scenarios: Scenario[]
+    scenarios: ScenarioSession[]
 }
 
 type AccordionItemProps = {
@@ -26,7 +26,7 @@ type AccordionItemProps = {
     icon: React.ReactNode
     iconBgColor: string
     borderColor: string
-    scenarios: Scenario[]
+    scenarios: ScenarioSession[]
     defaultOpen?: boolean
     showDeleteButton?: boolean
     showDownloadButton?: boolean

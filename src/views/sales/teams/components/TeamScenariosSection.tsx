@@ -7,7 +7,7 @@ import ScenarioUsersDrawer from './ScenarioUsersDrawer'
 import classNames from '@/utils/classNames'
 import { TbUsers, TbListDetails, TbChecks, TbClock, TbPercentage } from 'react-icons/tb'
 import type { ColumnDef } from '@/components/shared/DataTable'
-import type { Scenario } from '@/views/sales/ScenarioList/types'
+import type { ScenarioSession } from '@/views/sales/ScenarioList/types'
 import { NumericFormat } from 'react-number-format'
 import dayjs from 'dayjs'
 
@@ -56,9 +56,9 @@ const TeamScenariosSection = ({ teamMembers }: TeamScenariosSectionProps) => {
         userEmail: string
         userImg?: string
     } | null>(null)
-    const [selectedUserScenarios, setSelectedUserScenarios] = useState<Scenario[]>([])
+    const [selectedUserScenarios, setSelectedUserScenarios] = useState<ScenarioSession[]>([])
     const [scenarioDrawerOpen, setScenarioDrawerOpen] = useState(false)
-    const [selectedScenario, setSelectedScenario] = useState<Scenario | null>(null)
+    const [selectedScenario, setSelectedScenario] = useState<ScenarioSession | null>(null)
     const [selectedScenarioUsers, setSelectedScenarioUsers] = useState<any[]>([])
 
     // Mock scenario templates
@@ -91,10 +91,10 @@ const TeamScenariosSection = ({ teamMembers }: TeamScenariosSectionProps) => {
     ]
 
     // Mock scenario data for each user with full scenario details
-    const userScenariosMap = new Map<string, Scenario[]>()
+    const userScenariosMap = new Map<string, ScenarioSession[]>()
     teamMembers.forEach((member) => {
         const numScenarios = Math.floor(Math.random() * 3) + 1
-        const scenarios: Scenario[] = []
+        const scenarios: ScenarioSession[] = []
         
         for (let i = 0; i < numScenarios; i++) {
             const template = scenarioTemplates[i % scenarioTemplates.length]
