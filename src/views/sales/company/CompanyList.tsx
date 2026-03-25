@@ -1,19 +1,27 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Card, Button, Badge, Drawer } from '@/components/ui'
+import { Card, Button, Badge, Drawer, toast, Notification } from '@/components/ui'
 import Container from '@/components/shared/Container'
 import CompanyForm, { type CompanyFormSchema } from './CompanyForm'
 import {
     HiOfficeBuilding,
     HiUserGroup,
-    HiLocationMarker,
-    HiPhone,
-    HiMail,
     HiCalendar,
     HiPencil,
     HiTrash,
     HiPlus,
 } from 'react-icons/hi'
+import { useAppSelector } from '@/store'
+import {
+    apiGetSalesDivisions,
+    apiCreateSalesDivision,
+    apiUpdateSalesDivision,
+    apiDeleteSalesDivision
+} from '@/services/SalesCompanyService'
+import type { SalesDivisionResponse } from '@/services/SalesCompanyService'
+import dayjs from 'dayjs'
+
+console.log('DEBUG: CompanyList.tsx file loaded')
 
 // Stats card component
 type StatsCardProps = {
@@ -45,30 +53,27 @@ const StatsCard = ({ icon, value, label }: StatsCardProps) => {
     )
 }
 
-// Company card component
 type CompanyCardProps = {
     id: string
     name: string
-    industry: string
-    location: string
-    phone: string
-    email: string
+    category: string
     createdDate: string
     teams: number
     status: 'Active' | 'Inactive'
     onClick: () => void
+    onEdit: (e: React.MouseEvent) => void
+    onDelete: (e: React.MouseEvent) => void
 }
 
 const CompanyCard = ({
     name,
-    industry,
-    location,
-    phone,
-    email,
+    category,
     createdDate,
     teams,
     status,
     onClick,
+    onEdit,
+    onDelete,
 }: CompanyCardProps) => {
     return (
         <Card
@@ -76,7 +81,7 @@ const CompanyCard = ({
             bodyClass="!p-2"
             onClick={onClick}
         >
-            {/* Header image */}
+            {/* Header image removed for brevity in search, will replace carefully */}
             <div className="relative h-23 rounded-2xl bg-slate-100 dark:bg-gray-900 overflow-hidden">
                 <div className="absolute inset-0 bg-gradient-to-br from-slate-100 via-blue-50 to-slate-200 dark:from-gray-800 dark:via-gray-900 dark:to-gray-800" />
                 <svg
@@ -137,24 +142,12 @@ const CompanyCard = ({
                         {name}
                     </h3>
                     <p className="text-sm text-gray-600 dark:text-gray-400">
-                        {industry}
+                        {category}
                     </p>
                 </div>
 
                 {/* Details */}
                 <div className="space-y-2 mb-4">
-                    <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
-                        <HiLocationMarker className="text-sm" />
-                        <span>{location}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
-                        <HiPhone className="text-sm" />
-                        <span>{phone}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
-                        <HiMail className="text-sm" />
-                        <span>{email}</span>
-                    </div>
                     <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
                         <HiCalendar className="text-sm" />
                         <span>Created {createdDate}</span>
@@ -177,14 +170,14 @@ const CompanyCard = ({
                             variant="default"
                             icon={<HiPencil />}
                             className="bg-gray-800 dark:bg-gray-800 hover:bg-gray-800 dark:hover:bg-gray-800 text-gray-300 hover:text-primary transition-all"
-                            onClick={(e) => e.stopPropagation()}
+                            onClick={onEdit}
                         />
                         <Button
                             size="sm"
                             variant="default"
                             icon={<HiTrash className="text-red-500" />}
                             className="bg-gray-800 dark:bg-gray-800 hover:bg-red-500 dark:hover:bg-gray-800 hover:text-white transition-all"
-                            onClick={(e) => e.stopPropagation()}
+                            onClick={onDelete}
                         />
                     </div>
                 </div>
@@ -194,35 +187,144 @@ const CompanyCard = ({
 }
 
 const CompanyList = () => {
+    console.log('CompanyList component rendering...')
     const navigate = useNavigate()
     const [isDrawerOpen, setIsDrawerOpen] = useState(false)
+    const [drawerMode, setDrawerMode] = useState<'create' | 'edit'>('create')
+    const [selectedDivision, setSelectedDivision] = useState<SalesDivisionResponse | null>(null)
     const formRef = useRef<HTMLFormElement>(null)
 
-    const openDrawer = () => {
+    useEffect(() => {
+        console.log('CompanyList component mounted')
+    }, [])
+
+    const openDrawer = (mode: 'create' | 'edit', division?: SalesDivisionResponse) => {
+        setDrawerMode(mode)
+        if (mode === 'edit' && division) {
+            setSelectedDivision(division)
+        } else {
+            setSelectedDivision(null)
+        }
         setIsDrawerOpen(true)
     }
 
     const onDrawerClose = () => {
         setIsDrawerOpen(false)
+        setSelectedDivision(null)
     }
 
-    const handleCompanyClick = (companyId: string) => {
-        navigate(`/company/${companyId}`)
-    }
+    const [divisions, setDivisions] = useState<SalesDivisionResponse[]>([])
+    const [loading, setLoading] = useState(true)
+    const companyId = useAppSelector((state) => state.auth.user.companyId)
 
-    const handleSubmitClick = () => {
-        if (formRef.current) {
-            formRef.current.dispatchEvent(
-                new Event('submit', { cancelable: true, bubbles: true })
-            )
+    const fetchDivisions = async () => {
+        console.log('CompanyList: companyId from store:', companyId)
+        if (companyId) {
+            try {
+                setLoading(true)
+                console.log('CompanyList: Fetching divisions for company:', companyId)
+                const data = await apiGetSalesDivisions(companyId)
+                console.log('CompanyList: Divisions data received:', data)
+                setDivisions(data)
+            } catch (error) {
+                console.error('CompanyList: Failed to fetch divisions:', error)
+            } finally {
+                setLoading(false)
+            }
+        } else {
+            console.warn('CompanyList: No companyId found in store')
         }
     }
 
-    const onCompanySubmit = (values: CompanyFormSchema) => {
+    useEffect(() => {
+        fetchDivisions()
+    }, [companyId])
+
+    const handleCompanyClick = (companyId: string) => {
+        navigate(`/sales-division/${companyId}`)
+    }
+
+    const handleSubmitClick = () => {
+        console.log('handleSubmitClick called, formRef.current:', formRef.current)
+        if (formRef.current) {
+            formRef.current.requestSubmit()
+        }
+    }
+
+    const onCompanySubmit = async (values: CompanyFormSchema) => {
         console.log('Company form submitted:', values)
-        // Add your API call here
-        window.alert(JSON.stringify(values, null, 2))
-        onDrawerClose()
+        if (!companyId) {
+            toast.push(
+                <Notification title="Error" type="danger">
+                    Company ID is missing. Please log in again.
+                </Notification>
+            )
+            return
+        }
+
+        try {
+            setLoading(true)
+            if (drawerMode === 'create') {
+                await apiCreateSalesDivision({
+                    name: values.companyName,
+                    division_category: values.category,
+                    sales_company_id: companyId,
+                    is_active: true
+                })
+                toast.push(
+                    <Notification title="Success" type="success">
+                        Sales division created successfully
+                    </Notification>
+                )
+            } else if (drawerMode === 'edit' && selectedDivision) {
+                await apiUpdateSalesDivision(selectedDivision.sales_division_id, {
+                    name: values.companyName,
+                    division_category: values.category,
+                    sales_company_id: companyId,
+                    is_active: selectedDivision.is_active
+                })
+                toast.push(
+                    <Notification title="Success" type="success">
+                        Sales division updated successfully
+                    </Notification>
+                )
+            }
+            onDrawerClose()
+            fetchDivisions()
+        } catch (error) {
+            console.error('Failed to save division:', error)
+            toast.push(
+                <Notification title="Error" type="danger">
+                    Failed to {drawerMode === 'create' ? 'create' : 'update'} sales division
+                </Notification>
+            )
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    const handleDelete = async (division: SalesDivisionResponse) => {
+        if (confirm(`Are you sure you want to delete "${division.name}"?`)) {
+            try {
+                setLoading(true)
+                await apiDeleteSalesDivision(division.sales_division_id)
+                toast.push(
+                    <Notification title="Success" type="success">
+                        Sales division deleted successfully
+                    </Notification>
+                )
+                fetchDivisions()
+            } catch (error) {
+                console.error('Failed to delete division:', error)
+                toast.push(
+                    <Notification title="Error" type="danger">
+                        Failed to delete sales division
+                    </Notification>
+                )
+            } finally {
+                setLoading(false)
+            }
+        }
     }
 
     const DrawerFooter = (
@@ -240,16 +342,20 @@ const CompanyList = () => {
                 className="flex-1 bg-primary hover:bg-primary-deep text-neutral border-none"
                 onClick={handleSubmitClick}
             >
-                Create
+                {drawerMode === 'create' ? 'Create' : 'Save'}
             </Button>
         </div>
     )
 
     const DrawerTitle = (
         <div>
-            <h4 className="mb-2 text-lg font-bold">Create New Sales Division</h4>
+            <h4 className="mb-2 text-lg font-bold">
+                {drawerMode === 'create' ? 'Create New Sales Division' : 'Edit Sales Division'}
+            </h4>
             <p className="text-sm text-gray-600 dark:text-gray-400">
-                Fill in the details to create a new sales division
+                {drawerMode === 'create' 
+                    ? 'Fill in the details to create a new sales division'
+                    : 'Update the details of the sales division'}
             </p>
         </div>
     )
@@ -257,45 +363,30 @@ const CompanyList = () => {
     const stats = [
         {
             icon: <HiOfficeBuilding />,
-            value: 2,
+            value: loading ? '...' : divisions.length,
             label: 'Total Sales Divisions',
         },
         {
             icon: <HiUserGroup />,
-            value: 3,
+            value: 0, // Teams count not available from this endpoint
             label: 'Total Teams',
         },
         {
             icon: <HiOfficeBuilding />,
-            value: 2,
+            value: loading ? '...' : divisions.filter(d => d.is_active).length,
             label: 'Active Sales Divisions',
         },
     ]
 
-    const companies = [
-        {
-            id: 'company-a',
-            name: 'Division "A"',
-            industry: 'Healthcare',
-            location: 'NY',
-            phone: '4565457689',
-            email: 'healthcare@gmail.com',
-            createdDate: 'Jan 15, 2024',
-            teams: 2,
-            status: 'Active' as const,
-        },
-        {
-            id: 'company-b',
-            name: 'Division "B"',
-            industry: 'Food & Beverages',
-            location: 'NY',
-            phone: '8978675645',
-            email: 'oembeverage@gmail.com',
-            createdDate: 'Feb 20, 2024',
-            teams: 1,
-            status: 'Active' as const,
-        },
-    ]
+    const companies = divisions.map(d => ({
+        id: d.sales_division_id,
+        name: d.name,
+        category: d.division_category,
+        createdDate: dayjs(d.created_at).format('MMM DD, YYYY'),
+        teams: 0, // Teams count not available from this endpoint
+        status: (d.is_active ? 'Active' : 'Inactive') as 'Active' | 'Inactive',
+        original: d
+    }))
 
     return (
         <div className="min-h-full">
@@ -315,7 +406,7 @@ const CompanyList = () => {
                         size="sm"
                         icon={<HiPlus />}
                         className="bg-primary hover:bg-primary-deep text-neutral border-none whitespace-nowrap rounded-md"
-                        onClick={openDrawer}
+                        onClick={() => openDrawer('create')}
                     >
                         Create Sales Division
                     </Button>
@@ -335,6 +426,14 @@ const CompanyList = () => {
                             key={company.id}
                             {...company}
                             onClick={() => handleCompanyClick(company.id)}
+                            onEdit={(e) => {
+                                e.stopPropagation()
+                                openDrawer('edit', company.original)
+                            }}
+                            onDelete={(e) => {
+                                e.stopPropagation()
+                                handleDelete(company.original)
+                            }}
                         />
                     ))}
                 </div>
@@ -352,12 +451,15 @@ const CompanyList = () => {
                 onRequestClose={onDrawerClose}
             >
                 <div className="px-2">
-                    <form ref={formRef}>
-                        <CompanyForm
-                            onSubmit={onCompanySubmit}
-                            onCancel={onDrawerClose}
-                        />
-                    </form>
+                    <CompanyForm
+                        ref={formRef}
+                        onSubmit={onCompanySubmit}
+                        onCancel={onDrawerClose}
+                        defaultValues={selectedDivision ? {
+                            companyName: selectedDivision.name,
+                            category: selectedDivision.division_category
+                        } : undefined}
+                    />
                 </div>
             </Drawer>
         </div>

@@ -9,6 +9,7 @@ import { z } from 'zod'
 import type { ZodType } from 'zod'
 import type { CommonProps } from '@/@types/common'
 import type { MultiValue, ActionMeta } from 'react-select'
+import { useAppSelector } from '@/store'
 
 interface OnboardingFormProps extends CommonProps {
     onComplete: (data: OnboardingFormSchema) => void
@@ -29,6 +30,9 @@ export type OnboardingFormSchema = {
     companyName: string
     industry: string
     industryProducts: string[]
+    location: string
+    email: string
+    phone_number: string
 }
 
 const validationSchema: ZodType<OnboardingFormSchema> = z.object({
@@ -41,6 +45,9 @@ const validationSchema: ZodType<OnboardingFormSchema> = z.object({
     industryProducts: z
         .array(z.string())
         .min(1, { message: 'Please add at least one product' }),
+    location: z.string().min(1, { message: 'Please enter company location' }),
+    email: z.string().email({ message: 'Invalid email' }).min(1, { message: 'Email is required' }),
+    phone_number: z.string().min(1, { message: 'Phone number is required' }),
 })
 
 const industryOptions: IndustryOption[] = [
@@ -132,6 +139,7 @@ const selectClassName =
 
 const OnboardingForm = ({ className, onComplete, isSubmitting = false }: OnboardingFormProps) => {
     const [selectedIndustry, setSelectedIndustry] = useState<string>('')
+    const user = useAppSelector((state) => state.auth.user)
 
     const {
         handleSubmit,
@@ -144,6 +152,9 @@ const OnboardingForm = ({ className, onComplete, isSubmitting = false }: Onboard
             companyName: '',
             industry: '',
             industryProducts: [],
+            location: '',
+            email: user.email || '',
+            phone_number: user.phoneNumber || '',
         },
     })
 
@@ -174,6 +185,65 @@ const OnboardingForm = ({ className, onComplete, isSubmitting = false }: Onboard
                                 type="text"
                                 placeholder="Enter your company name"
                                 autoComplete="organization"
+                                className={inputClassName}
+                                {...field}
+                            />
+                        )}
+                    />
+                </FormItem>
+
+                <div className="grid grid-cols-2 gap-4">
+                    <FormItem
+                        label="Location"
+                        invalid={Boolean(errors.location)}
+                        errorMessage={errors.location?.message}
+                    >
+                        <Controller
+                            name="location"
+                            control={control}
+                            render={({ field }) => (
+                                <Input
+                                    type="text"
+                                    placeholder="City, Country"
+                                    className={inputClassName}
+                                    {...field}
+                                />
+                            )}
+                        />
+                    </FormItem>
+
+                    <FormItem
+                        label="Phone Number"
+                        invalid={Boolean(errors.phone_number)}
+                        errorMessage={errors.phone_number?.message}
+                    >
+                        <Controller
+                            name="phone_number"
+                            control={control}
+                            render={({ field }) => (
+                                <Input
+                                    type="text"
+                                    placeholder="Phone number"
+                                    className={inputClassName}
+                                    {...field}
+                                />
+                            )}
+                        />
+                    </FormItem>
+                </div>
+
+                <FormItem
+                    label="Business Email"
+                    invalid={Boolean(errors.email)}
+                    errorMessage={errors.email?.message}
+                >
+                    <Controller
+                        name="email"
+                        control={control}
+                        render={({ field }) => (
+                            <Input
+                                type="email"
+                                placeholder="email@company.com"
                                 className={inputClassName}
                                 {...field}
                             />

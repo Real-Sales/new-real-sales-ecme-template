@@ -1,5 +1,6 @@
 import classNames from '../utils/classNames'
 import { motion, AnimatePresence } from 'framer-motion'
+import { forwardRef } from 'react'
 import { useForm, FormItemContextProvider } from './context'
 import { useConfig } from '../ConfigProvider'
 import { CONTROL_SIZES, LAYOUT } from '../utils/constants'
@@ -20,7 +21,7 @@ export interface FormItemProps extends CommonProps {
     size?: TypeAttributes.ControlSize
 }
 
-const FormItem = (props: FormItemProps) => {
+const FormItem = forwardRef<HTMLDivElement, FormItemProps>((props, ref) => {
     const {
         asterisk,
         children,
@@ -33,7 +34,6 @@ const FormItem = (props: FormItemProps) => {
         labelClass,
         labelWidth,
         layout,
-        ref,
         style,
         size,
     } = props
@@ -131,6 +131,8 @@ const FormItem = (props: FormItemProps) => {
             </div>
         </FormItemContextProvider>
     )
-}
+})
+
+FormItem.displayName = 'FormItem'
 
 export default FormItem

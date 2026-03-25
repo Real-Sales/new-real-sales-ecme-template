@@ -1,19 +1,18 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import Card from '@/components/ui/Card'
 import Chart from '@/components/shared/Chart'
 import { COLORS } from '@/constants/chart.constant'
 import { TbTargetArrow } from 'react-icons/tb'
-import { NumericFormat } from 'react-number-format'
 import classNames from '@/utils/classNames'
-import { skillBreakdownData, type SkillBreakdownKey } from './performanceData'
+import type { PerformanceReportResponse } from '@/services/PerformanceService'
+
+type SkillBreakdownKey = 'prospecting' | 'discovering' | 'closing'
 
 const skills: { key: SkillBreakdownKey; label: string }[] = [
     { key: 'prospecting', label: 'Prospecting' },
     { key: 'discovering', label: 'Discovering' },
     { key: 'closing', label: 'Closing' },
 ]
-
-const donutColors = [COLORS[0], COLORS[6], COLORS[8]]
 
 const getAccentColor = (key: SkillBreakdownKey) => {
     switch (key) {
@@ -26,15 +25,59 @@ const getAccentColor = (key: SkillBreakdownKey) => {
     }
 }
 
-const SkillBreakdown = () => {
+const formatLabel = (key: string) => {
+    return key
+        .split('_')
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(' ')
+}
+
+type SkillBreakdownProps = {
+    data: PerformanceReportResponse | null
+    loading?: boolean
+}
+
+const SkillBreakdown = ({ data, loading }: SkillBreakdownProps) => {
     const [activeSkill, setActiveSkill] = useState<SkillBreakdownKey>('discovering')
 
-    const data = skillBreakdownData[activeSkill]
+    const skillDataMap = useMemo(() => {
+        if (!data?.mode_averages) return {}
+
+        const map: Record<string, any> = {}
+        data.mode_averages.forEach((mode) => {
+            const scores = { ...mode.average_scores }
+            const overallScore = scores.overall_score
+            delete (scores as any).overall_score
+
+            const labels = Object.keys(scores).map(formatLabel)
+            const series = Object.values(scores) as number[]
+
+            map[mode.mode_name.toLowerCase()] = {
+                labels,
+                series,
+                score: Math.round(overallScore),
+                totalSessions: mode.total_sessions
+            }
+        })
+        return map
+    }, [data])
+
+    const activeData = skillDataMap[activeSkill]
     
     const getGraphColor = (score: number) => {
         if (score >= 80) return '#22C55E' // green
         if (score < 40) return '#EF4444' // red
         return '#3B82F6' // primary blue
+    }
+
+    if (loading) {
+        return (
+            <Card className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 shadow-md">
+                <div className="h-[400px] flex items-center justify-center">
+                    <span className="text-gray-500">Loading skill breakdown...</span>
+                </div>
+            </Card>
+        )
     }
 
     return (
@@ -58,10 +101,11 @@ const SkillBreakdown = () => {
             <div className="grid grid-cols-3 gap-4 mb-8">
                 {skills.map((skill) => {
                     const isActive = activeSkill === skill.key
-                    const skillData = skillBreakdownData[skill.key]
+                    const skillData = skillDataMap[skill.key]
+                    const score = skillData?.score || 0
                     const accent = getAccentColor(skill.key)
                     const circumference = 2 * Math.PI * 18
-                    const offset = circumference - (skillData.score / 100) * circumference
+                    const offset = circumference - (score / 100) * circumference
                     return (
                         <div
                             key={skill.key}
@@ -100,7 +144,7 @@ const SkillBreakdown = () => {
                                         'absolute inset-0 flex items-center justify-center text-[10px] font-bold',
                                         accent.text,
                                     )}>
-                                        {skillData.score}%
+                                        {score}%
                                     </span>
                                 </div>
                                 {/* Label & meta */}
@@ -108,7 +152,7 @@ const SkillBreakdown = () => {
                                     <h5 className="font-semibold text-sm text-gray-900 dark:text-white truncate">
                                         {skill.label}
                                     </h5>
-                                    <p className="text-[11px] text-gray-400 mt-0.5">5 sessions</p>
+                                    <p className="text-[11px] text-gray-400 mt-0.5">{skillData?.totalSessions || 0} sessions</p>
                                 </div>
                             </div>
                         </div>
@@ -117,76 +161,83 @@ const SkillBreakdown = () => {
             </div>
 
             {/* Graph section - chart left, labels right */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-center">
-                {/* Left - Radar chart */}
-                <div>
-                    <Chart
-                        key={activeSkill}
-                        type="radar"
-                        height={300}
-                        series={[
-                            {
-                                name: 'Score',
-                                data: data.series,
-                            },
-                        ]}
-                        customOptions={{
-                            colors: [getGraphColor(data.score)],
-                            xaxis: {
-                                categories: data.labels,
-                                labels: {
-                                    formatter: (val: string) => {
-                                        return `${data.labels.indexOf(val) + 1}`
+            {activeData ? (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-center">
+                    {/* Left - Radar chart */}
+                    <div>
+                        <Chart
+                            key={activeSkill}
+                            type="radar"
+                            height={300}
+                            series={[
+                                {
+                                    name: 'Score',
+                                    data: activeData.series,
+                                },
+                            ]}
+                            customOptions={{
+                                colors: [getGraphColor(activeData.score)],
+                                xaxis: {
+                                    categories: activeData.labels,
+                                    labels: {
+                                        formatter: (val: string) => {
+                                            const index = activeData.labels.indexOf(val)
+                                            return index !== -1 ? `${index + 1}` : val
+                                        },
                                     },
                                 },
-                            },
-                            yaxis: { show: false, max: 100, min: 0 },
-                            tooltip: {
-                                custom: function ({ dataPointIndex }: { dataPointIndex: number }) {
-                                    return `
-                                        <div class="py-2 px-4 rounded-xl">
-                                            <div class="flex items-center gap-2">
-                                                <div class="h-[10px] w-[10px] rounded-full" style="background-color: ${getGraphColor(data.score)}"></div>
-                                                <div class="flex gap-2">${data.labels[dataPointIndex]}: <span class="font-bold">${data.series[dataPointIndex]}</span></div>
+                                yaxis: { show: false, max: 100, min: 0 },
+                                tooltip: {
+                                    custom: function ({ dataPointIndex }: { dataPointIndex: number }) {
+                                        return `
+                                            <div class="py-2 px-4 rounded-xl">
+                                                <div class="flex items-center gap-2">
+                                                    <div class="h-[10px] w-[10px] rounded-full" style="background-color: ${getGraphColor(activeData.score)}"></div>
+                                                    <div class="flex gap-2">${activeData.labels[dataPointIndex]}: <span class="font-bold">${activeData.series[dataPointIndex]}</span></div>
+                                                </div>
                                             </div>
-                                        </div>
-                                    `
+                                        `
+                                    },
                                 },
-                            },
-                        }}
-                    />
-                </div>
+                            }}
+                        />
+                    </div>
 
-                {/* Right - Numbered legend list */}
-                <div className="flex flex-col gap-4">
-                    {data.labels.map((label, index) => (
-                        <div
-                            key={label + index}
-                            className="flex items-center gap-4"
-                        >
-                            <div className="flex items-center gap-2">
-                                <div className="rounded-full h-8 w-8 border-2 border-gray-200 dark:border-gray-600 font-bold text-xs heading-text flex items-center justify-center">
-                                    {index + 1}
-                                </div>
-                                <div className="heading-text text-sm whitespace-nowrap">{label}</div>
-                            </div>
-                            <div className="border-dashed border-[1.5px] border-gray-300 dark:border-gray-500 flex-1" />
-                            <span
-                                className={classNames(
-                                    'rounded-full px-2 py-1 text-xs font-semibold text-white',
-                                    data.series[index] >= 75 && 'bg-success',
-                                    data.series[index] <= 30 && 'bg-error',
-                                    data.series[index] > 30 &&
-                                        data.series[index] < 75 &&
-                                        'bg-warning',
-                                )}
+                    {/* Right - Numbered legend list */}
+                    <div className="flex flex-col gap-4">
+                        {activeData.labels.map((label: string, index: number) => (
+                            <div
+                                key={label + index}
+                                className="flex items-center gap-4"
                             >
-                                {data.series[index]}%
-                            </span>
-                        </div>
-                    ))}
+                                <div className="flex items-center gap-2">
+                                    <div className="rounded-full h-8 w-8 border-2 border-gray-200 dark:border-gray-600 font-bold text-xs heading-text flex items-center justify-center">
+                                        {index + 1}
+                                    </div>
+                                    <div className="heading-text text-sm whitespace-nowrap">{label}</div>
+                                </div>
+                                <div className="border-dashed border-[1.5px] border-gray-300 dark:border-gray-500 flex-1" />
+                                <span
+                                    className={classNames(
+                                        'rounded-full px-2 py-1 text-xs font-semibold text-white',
+                                        activeData.series[index] >= 75 && 'bg-success',
+                                        activeData.series[index] <= 30 && 'bg-error',
+                                        activeData.series[index] > 30 &&
+                                            activeData.series[index] < 75 &&
+                                            'bg-warning',
+                                    )}
+                                >
+                                    {Math.round(activeData.series[index])}%
+                                </span>
+                            </div>
+                        ))}
+                    </div>
                 </div>
-            </div>
+            ) : (
+                <div className="h-[300px] flex items-center justify-center">
+                    <span className="text-gray-500">No data available for this skill mode</span>
+                </div>
+            )}
         </Card>
     )
 }

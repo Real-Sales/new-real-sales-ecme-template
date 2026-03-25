@@ -12,6 +12,7 @@ export type UserState = {
     role?: string
     authority?: string[]
     isNewUser?: boolean
+    companyId?: string
     companyName?: string
     industry?: string
     industryProducts?: string[]
@@ -28,6 +29,7 @@ const initialState: UserState = {
     role: '',
     authority: [],
     isNewUser: false,
+    companyId: '',
     companyName: '',
     industry: '',
     industryProducts: [],
@@ -48,6 +50,7 @@ const userSlice = createSlice({
             state.role = action.payload?.role
             state.authority = action.payload?.authority
             state.isNewUser = action.payload?.isNewUser
+            state.companyId = action.payload?.companyId
             state.companyName = action.payload?.companyName
             state.industry = action.payload?.industry
             state.industryProducts = action.payload?.industryProducts
@@ -55,12 +58,14 @@ const userSlice = createSlice({
         setOnboardingComplete(
             state,
             action: PayloadAction<{
+                companyId: string
                 companyName: string
                 industry: string
                 industryProducts: string[]
             }>,
         ) {
             state.isNewUser = false
+            state.companyId = action.payload.companyId
             state.companyName = action.payload.companyName
             state.industry = action.payload.industry
             state.industryProducts = action.payload.industryProducts

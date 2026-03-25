@@ -58,6 +58,7 @@ export type User = {
     lastName?: string | null
     phoneNumber?: string | null
     role?: string | null
+    companyId?: string | null
 }
 
 export type Token = {
@@ -66,6 +67,6 @@ export type Token = {
 }
 
 export type OauthSignInCallbackPayload = {
-    onSignIn: (tokens: Token, user?: User) => void
+    onSignIn: (tokens: Token, user?: User) => void | Promise<void>
     redirect: () => void
 }

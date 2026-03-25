@@ -68,7 +68,7 @@ const salesNavigationConfig: NavigationTree[] = [
         subMenu: [
             {
                 key: 'companyGroup.company',
-                path: '/company',
+                path: '/sales-division',
                 title: 'Sales Divisions',
                 translateKey: '',
                 icon: 'company',
