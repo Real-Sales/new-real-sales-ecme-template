@@ -19,6 +19,20 @@ export type SignInResponse = {
 
 export type SignUpResponse = SignInResponse
 
+/** Sign-up returns no token; user must verify OTP first */
+export type SignUpResponseNoToken = {
+    message: string
+    user: { email: string; user_id?: string; first_name?: string; last_name?: string }
+    subscription?: unknown
+}
+
+export type VerifyOtpCredential = {
+    email: string
+    otp_code: string
+}
+
+export type VerifyOtpResponse = SignInResponse
+
 export type SignUpCredential = {
     email: string
     first_name: string
