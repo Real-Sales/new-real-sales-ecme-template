@@ -17,7 +17,7 @@ const CompanyDetail = () => {
     const formRef = useRef<HTMLFormElement>(null)
 
     const handleBack = () => {
-        navigate('/company')
+        navigate('/sales-division')
     }
 
     const openDrawer = () => {

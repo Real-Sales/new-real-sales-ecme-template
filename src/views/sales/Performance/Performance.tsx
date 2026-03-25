@@ -1,9 +1,13 @@
+import { useState, useEffect } from 'react'
 import { Card } from '@/components/ui'
 import Container from '@/components/shared/Container'
 import PerformanceLineChart from './PerformanceLineChart'
 import SkillBreakdown from './SkillBreakdown'
 import SessionHistorySection from './SessionHistory'
 import { TbChartBar, TbTrendingUp } from 'react-icons/tb'
+import { useAppSelector } from '@/store'
+import { apiGetPerformanceReports } from '@/services/PerformanceService'
+import type { PerformanceReportResponse } from '@/services/PerformanceService'
 
 // Analytics card component
 type AnalyticsCardProps = {
@@ -34,9 +38,31 @@ const AnalyticsCard = ({ icon, value, label, iconBg }: AnalyticsCardProps) => {
 }
 
 const Performance = () => {
-    // Mock data - replace with actual data
-    const totalSessions = 125
-    const averageScore = 75.8
+    const [reportData, setReportData] = useState<PerformanceReportResponse | null>(null)
+    const [loading, setLoading] = useState(true)
+
+    const userId = useAppSelector((state) => state.auth.user.userId)
+
+    useEffect(() => {
+        const fetchPerformanceData = async () => {
+            if (userId) {
+                try {
+                    setLoading(true)
+                    const data = await apiGetPerformanceReports(userId)
+                    setReportData(data)
+                } catch (error) {
+                    console.error('Failed to fetch performance data:', error)
+                } finally {
+                    setLoading(false)
+                }
+            }
+        }
+
+        fetchPerformanceData()
+    }, [userId])
+
+    const totalSessions = reportData?.total_sessions_analyzed || 0
+    const averageScore = reportData?.overall_average_score || 0
 
     return (
         <div className="min-h-full">
@@ -52,13 +78,13 @@ const Performance = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                     <AnalyticsCard
                         icon={<TbChartBar />}
-                        value={totalSessions.toString()}
+                        value={loading ? '...' : totalSessions.toString()}
                         label="Total Sessions"
                         iconBg="bg-gray-100 dark:bg-gray-700/50"
                     />
                     <AnalyticsCard
                         icon={<TbTrendingUp />}
-                        value={averageScore.toFixed(1)}
+                        value={loading ? '...' : averageScore.toFixed(1)}
                         label="Average Score"
                         iconBg="bg-gray-100 dark:bg-gray-700/50"
                     />
@@ -69,7 +95,10 @@ const Performance = () => {
 
                 {/* Skill Breakdown Section */}
                 <div className="mt-6">
-                    <SkillBreakdown />
+                    <SkillBreakdown 
+                        data={reportData} 
+                        loading={loading}
+                    />
                 </div>
 
                 {/* Session History Section */}

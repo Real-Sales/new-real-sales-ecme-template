@@ -15,6 +15,19 @@ const endpointConfig = {
     documentsUpload: 'documents/upload',
     aiPersonas: 'ai-personas/',
     interactionModes: 'interaction-modes/',
+    performanceReports: (userId: string) => `performance-reports/manager/${userId}/average-by-modes`,
+    performanceMonthlyTrend: (userId: string) => `performance-reports/manager/${userId}/monthly-trend`,
+    sessionsByUser: (userId: string) => `sessions/by-user/${userId}`,
+    interactionModeById: (modeId: string) => `interaction-modes/${modeId}`,
+    aiPersonaById: (personaId: string) => `ai-personas/${personaId}`,
+    salesCompanies: 'sales-companies/',
+    salesCompanyByManager: (managerId: string) => `sales-companies/manager/${managerId}`,
+    salesCompanyDetail: (companyId: string) => `sales-companies/${companyId}`,
+    salesDivisions: (companyId: string) => `sales-divisions/company/${companyId}`,
+    salesDivisionsCreate: 'sales-divisions/',
+    salesDivisionsUpdate: (divisionId: string) => `sales-divisions/${divisionId}`,
+    salesDivisionsDelete: (divisionId: string) => `sales-divisions/${divisionId}`,
+    authMe: 'auth/me',
 }
 
 export default endpointConfig

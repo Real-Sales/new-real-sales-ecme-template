@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import type { ComponentType } from 'react'
 import Card from '@/components/ui/Card'
 import Badge from '@/components/ui/Badge'
@@ -17,7 +17,9 @@ import { useForm, Controller } from 'react-hook-form'
 import type { ColumnDef } from '@/components/shared/DataTable'
 import type { OptionProps, ControlProps } from 'react-select'
 import { components } from 'react-select'
-import { sessionHistoryData, type SessionHistory as SessionHistoryType } from './performanceData'
+import { type SessionHistory as SessionHistoryType } from './performanceData'
+import { apiGetSessionsByUser, apiGetInteractionMode, apiGetAiPersona } from '@/services/SessionService'
+import { useAppSelector } from '@/store'
 
 type Option = {
     value: string
@@ -32,20 +34,6 @@ type FilterSchema = {
     mode: string
     dateRange: [Date | null, Date | null]
 }
-
-const personaOptions: Option[] = [
-    { value: 'all', label: 'All Personas' },
-    ...Array.from(new Set(sessionHistoryData.map((s) => s.persona))).map(
-        (persona) => ({ value: persona, label: persona })
-    ),
-]
-
-const modeOptions: Option[] = [
-    { value: 'all', label: 'All Modes', className: 'bg-gray-400' },
-    { value: 'Prospecting', label: 'Prospecting', className: 'bg-blue-500' },
-    { value: 'Discovering', label: 'Discovering', className: 'bg-green-500' },
-    { value: 'Closing', label: 'Closing', className: 'bg-red-500' },
-]
 
 const CustomSelectOption = (props: OptionProps<Option>) => {
     return (
@@ -82,6 +70,8 @@ const defaultFilterValues: FilterSchema = {
 const FILTER_SESSIONS_FORM_ID = 'filter-sessions-form'
 
 const SessionHistorySection = () => {
+    const [sessions, setSessions] = useState<SessionHistoryType[]>([])
+    const [loading, setLoading] = useState(true)
     const [currentPage, setCurrentPage] = useState(1)
     const [pageSize, setPageSize] = useState(10)
     const [filterIsOpen, setFilterIsOpen] = useState(false)
@@ -89,9 +79,103 @@ const SessionHistorySection = () => {
     const [detailDrawerOpen, setDetailDrawerOpen] = useState(false)
     const [selectedSession, setSelectedSession] = useState<SessionHistoryType | null>(null)
 
+    const userId = useAppSelector((state) => state.auth.user.userId)
+
+    useEffect(() => {
+        const fetchSessions = async () => {
+            if (!userId) return
+            
+            try {
+                setLoading(true)
+                const sessionData = await apiGetSessionsByUser(userId)
+                
+                // Fetch personas and modes for all unique IDs
+                const uniquePersonaIds = Array.from(new Set(sessionData.map(s => s.persona_id)))
+                const uniqueModeIds = Array.from(new Set(sessionData.map(s => s.mode_id)))
+
+                const personaMap: Record<string, string> = {}
+                const modeMap: Record<string, string> = {}
+
+                await Promise.all([
+                    ...uniquePersonaIds.map(async (id) => {
+                        try {
+                            const details = await apiGetAiPersona(id)
+                            personaMap[id] = details.name
+                        } catch (e) {
+                            personaMap[id] = 'Unknown Persona'
+                        }
+                    }),
+                    ...uniqueModeIds.map(async (id) => {
+                        try {
+                            const details = await apiGetInteractionMode(id)
+                            modeMap[id] = details.name
+                        } catch (e) {
+                            modeMap[id] = 'Unknown Mode'
+                        }
+                    })
+                ])
+
+                const formattedSessions: SessionHistoryType[] = sessionData.map(s => ({
+                    id: s.session_id,
+                    persona: personaMap[s.persona_id],
+                    mode: modeMap[s.mode_id],
+                    date: s.start_time,
+                    duration: s.duration,
+                    overallScore: s.performance_report?.overall_score || 0,
+                    status: s.status,
+                    coachingSummary: s.performance_report?.coaching_summary,
+                    metrics: s.performance_report
+                }))
+
+                setSessions(formattedSessions)
+            } catch (error) {
+                console.error('Failed to fetch sessions:', error)
+            } finally {
+                setLoading(false)
+            }
+        }
+
+        fetchSessions()
+    }, [userId])
+
+    const personaOptions: Option[] = useMemo(() => [
+        { value: 'all', label: 'All Personas' },
+        ...Array.from(new Set(sessions.map((s) => s.persona))).map(
+            (persona) => ({ value: persona, label: persona })
+        ),
+    ], [sessions])
+
+    const modeOptions: Option[] = useMemo(() => [
+        { value: 'all', label: 'All Modes' },
+        ...Array.from(new Set(sessions.map((s) => s.mode))).map(
+            (mode) => ({ value: mode, label: mode })
+        ),
+    ], [sessions])
+
     const { handleSubmit, control, reset } = useForm<FilterSchema>({
         defaultValues: defaultFilterValues,
     })
+
+    const filteredData = useMemo(() => {
+        return sessions.filter((session) => {
+            const matchesPersona =
+                activeFilters.persona === 'all' || session.persona === activeFilters.persona
+            const matchesMode =
+                activeFilters.mode === 'all' || session.mode === activeFilters.mode
+            const [startDate, endDate] = activeFilters.dateRange
+            const sessionDate = new Date(session.date)
+            const matchesDate =
+                (!startDate || sessionDate >= startDate) &&
+                (!endDate || sessionDate <= endDate)
+
+            return matchesPersona && matchesMode && matchesDate
+        })
+    }, [activeFilters, sessions])
+
+    const paginatedData = useMemo(() => {
+        const start = (currentPage - 1) * pageSize
+        return filteredData.slice(start, start + pageSize)
+    }, [currentPage, pageSize, filteredData])
 
     const handlePaginationChange = (page: number) => {
         setCurrentPage(page)
@@ -162,27 +246,6 @@ const SessionHistorySection = () => {
         setSelectedSession(null)
         removeBodyScrollLock()
     }
-
-    const filteredData = useMemo(() => {
-        return sessionHistoryData.filter((session) => {
-            const matchesPersona =
-                activeFilters.persona === 'all' || session.persona === activeFilters.persona
-            const matchesMode =
-                activeFilters.mode === 'all' || session.mode === activeFilters.mode
-            const [startDate, endDate] = activeFilters.dateRange
-            const sessionDate = new Date(session.date)
-            const matchesDate =
-                (!startDate || sessionDate >= startDate) &&
-                (!endDate || sessionDate <= endDate)
-
-            return matchesPersona && matchesMode && matchesDate
-        })
-    }, [activeFilters])
-
-    const paginatedData = useMemo(() => {
-        const start = (currentPage - 1) * pageSize
-        return filteredData.slice(start, start + pageSize)
-    }, [currentPage, pageSize, filteredData])
 
     const activeFilterCount = useMemo(() => {
         let count = 0

@@ -35,11 +35,13 @@ export const performanceData: PerformanceData = {
 export type SessionHistory = {
     id: string
     persona: string
-    mode: 'Prospecting' | 'Discovering' | 'Closing'
+    mode: string
     date: string
     duration: number
     overallScore: number
-    status: 'completed' | 'in-progress'
+    status: string
+    coachingSummary?: string
+    metrics?: Record<string, number>
 }
 
 export const sessionHistoryData: SessionHistory[] = [

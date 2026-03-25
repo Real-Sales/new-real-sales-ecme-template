@@ -5,6 +5,8 @@ import Alert from '@/components/ui/Alert'
 import OnboardingForm from './components/OnboardingForm'
 import { useAppSelector, useAppDispatch } from '@/store'
 import { setOnboardingComplete } from '@/store/slices/auth/userSlice'
+import { apiCreateSalesCompany } from '@/services/SalesCompanyService'
+import { apiGetManagerMe } from '@/services/ManagerService'
 import type { OnboardingFormSchema } from './components/OnboardingForm'
 
 const Onboarding = () => {
@@ -17,23 +19,41 @@ const Onboarding = () => {
 
     const handleComplete = async (data: OnboardingFormSchema) => {
         setSubmitting(true)
+        setError('')
         try {
-            dispatch(
-                setOnboardingComplete({
-                    companyName: data.companyName,
-                    industry: data.industry,
-                    industryProducts: data.industryProducts,
-                }),
-            )
-            navigate('/overview')
-        } catch {
-            setError('Something went wrong. Please try again.')
+            const resp = await apiCreateSalesCompany({
+                name: data.companyName,
+                industry: data.industry,
+                location: data.location || 'N/A',
+                phone_number: data.phone_number || 'N/A',
+                email: data.email || 'N/A',
+            })
+
+            if (resp) {
+                // Fetch the updated user data to get the linked company_id
+                const authResp = await apiGetManagerMe()
+
+                if (authResp) {
+                    dispatch(
+                        setOnboardingComplete({
+                            companyId: authResp.company_id || resp.sales_company_id,
+                            companyName: resp.name,
+                            industry: resp.industry,
+                            industryProducts: data.industryProducts,
+                        }),
+                    )
+                    navigate('/overview')
+                }
+            }
+        } catch (err: any) {
+            console.error('Onboarding error:', err)
+            setError(err?.response?.data?.message || err?.response?.data?.detail || 'Something went wrong. Please try again.')
             setSubmitting(false)
         }
     }
 
     return (
-        <div className="flex flex-col items-center justify-center min-h-screen w-full bg-gray-50 dark:bg-gray-900">
+        <div className="flex flex-col items-center min-h-screen w-full bg-gray-50 dark:bg-gray-900 py-10 overflow-y-auto">
             <div className="w-full min-w-[320px] max-w-[400px] flex-shrink-0 px-4">
                 <div className="flex-shrink-0 mb-4 flex items-center gap-4">
                     <Logo

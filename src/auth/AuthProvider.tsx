@@ -9,6 +9,7 @@ import { apiSignIn, apiSignOut, apiSignUp, apiVerifyOtp } from '@/services/AuthS
 import { REDIRECT_URL_KEY } from '@/constants/app.constant'
 import { useNavigate } from 'react-router-dom'
 import Cookies from 'js-cookie'
+import { apiGetSalesCompanyByManager } from '@/services/SalesCompanyService'
 
 const AUTH_TOKEN_COOKIE = 'auth_token'
 const useCookies = appConfig.accessTokenPersistStrategy === 'cookies'
@@ -80,6 +81,31 @@ function AuthProvider({ children }: AuthProviderProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
 
+    // Ensure companyId is fetched if missing but user is authenticated
+    useEffect(() => {
+        if (authenticated && user.userId && !user.companyId) {
+            const fetchCompanyId = async () => {
+                try {
+                    console.log('AuthProvider: Background fetching companyId for:', user.userId)
+                    const companyResp = await apiGetSalesCompanyByManager(user.userId as string)
+                    let companyId = ''
+                    if (Array.isArray(companyResp) && companyResp.length > 0) {
+                        companyId = companyResp[0].sales_company_id
+                    } else if (companyResp && (companyResp as any).sales_company_id) {
+                        companyId = (companyResp as any).sales_company_id
+                    }
+                    
+                    if (companyId) {
+                        dispatch(setUser({ ...user, companyId }))
+                    }
+                } catch (error) {
+                    console.error('AuthProvider: Background fetch companyId failed:', error)
+                }
+            }
+            fetchCompanyId()
+        }
+    }, [authenticated, user.userId, user.companyId, dispatch])
+
     const redirect = () => {
         const search = window.location.search
         const params = new URLSearchParams(search)
@@ -90,11 +116,29 @@ function AuthProvider({ children }: AuthProviderProps) {
         )
     }
 
-    const handleSignIn = (tokens: Token, user?: User) => {
+    const handleSignIn = async (tokens: Token, user?: User) => {
         dispatch(signInSuccess(tokens.accessToken))
         setAuthCookie(tokens.accessToken)
 
         if (user) {
+            let companyId = user.companyId ?? ''
+
+            if (!companyId && user.userId) {
+                try {
+                    console.log('AuthProvider: Fetching company ID for manager:', user.userId)
+                    const companyResp = await apiGetSalesCompanyByManager(user.userId)
+                    console.log('AuthProvider: Company response:', companyResp)
+                    
+                    if (Array.isArray(companyResp) && companyResp.length > 0) {
+                        companyId = companyResp[0].sales_company_id
+                    } else if (companyResp && (companyResp as any).sales_company_id) {
+                        companyId = (companyResp as any).sales_company_id
+                    }
+                } catch (error) {
+                    console.error('AuthProvider: Failed to fetch company ID:', error)
+                }
+            }
+
             const userData = {
                 userId: user.userId ?? '',
                 avatar: user.avatar ?? '',
@@ -105,6 +149,7 @@ function AuthProvider({ children }: AuthProviderProps) {
                 phoneNumber: user.phoneNumber ?? '',
                 role: user.role ?? '',
                 authority: user.authority ?? (user.role ? [user.role] : []),
+                companyId: companyId,
                 isNewUser: (user as User & { isNewUser?: boolean }).isNewUser ?? false,
             }
             
@@ -131,13 +176,14 @@ function AuthProvider({ children }: AuthProviderProps) {
         try {
             const resp = await apiSignIn(values)
             if (resp) {
-                handleSignIn({ accessToken: resp.token }, {
+                await handleSignIn({ accessToken: resp.token }, {
                     userId: resp.user.user_id,
                     firstName: resp.user.first_name,
                     lastName: resp.user.last_name,
                     email: resp.user.email,
                     phoneNumber: resp.user.phone_number,
                     role: resp.user.role,
+                    companyId: (resp.user as any).sales_company_id || (resp.user as any).company_id,
                 })
                 redirect()
                 return {

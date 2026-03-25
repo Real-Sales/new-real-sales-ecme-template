@@ -19,6 +19,7 @@ export const SLICE_NAME = 'scenarioLibrary'
 
 export interface ScenarioLibraryState {
     scenarioLibraryLoading: boolean
+    initialized: boolean
     scenariosData: ScenarioLibraryItem[]
     personasData: AiPersonaListItem[]
     modesData: InteractionModeListItem[]
@@ -129,6 +130,7 @@ export const deleteScenario = createAsyncThunk(
 
 const initialState: ScenarioLibraryState = {
     scenarioLibraryLoading: false,
+    initialized: false,
     scenariosData: [],
     personasData: [],
     modesData: [],
@@ -157,6 +159,7 @@ const scenarioLibrarySlice = createSlice({
             state.scenarioLibraryLoading = false
             state.personasLoading = false
             state.modesLoading = false
+            state.initialized = false
         },
     },
     extraReducers: (builder) => {
@@ -167,11 +170,13 @@ const scenarioLibrarySlice = createSlice({
             .addCase(fetchScenarioLibrary.fulfilled, (state, action) => {
                 state.scenariosData = action.payload
                 state.scenarioLibraryLoading = false
+                state.initialized = true
             })
             .addCase(fetchScenarioLibrary.rejected, (state, action) => {
                 state.scenarioLibraryLoading = false
                 state.error = (action.payload as { detail?: string })?.detail ?? null
                 state.notification = { type: 'danger', message: 'Oops! Please try after sometime.' }
+                state.initialized = true
             })
             .addCase(fetchPersonas.pending, (state) => {
                 state.personasLoading = true

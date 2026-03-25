@@ -40,6 +40,7 @@ const ScenarioList = () => {
     const {
         scenariosData,
         scenarioLibraryLoading,
+        initialized,
         personasData,
         modesData,
         notification,
@@ -48,6 +49,7 @@ const ScenarioList = () => {
             state.scenarioLibrary?.data ?? {
                 scenariosData: [],
                 scenarioLibraryLoading: false,
+                initialized: false,
                 personasData: [],
                 modesData: [],
                 error: null,
@@ -56,10 +58,10 @@ const ScenarioList = () => {
     )
 
     useEffect(() => {
-        if (scenariosData.length === 0 && !scenarioLibraryLoading) {
+        if (!initialized && !scenarioLibraryLoading) {
             dispatch(fetchScenarioLibrary())
         }
-    }, [dispatch, scenariosData.length, scenarioLibraryLoading])
+    }, [dispatch, initialized, scenarioLibraryLoading])
 
     useEffect(() => {
         if (notification) {

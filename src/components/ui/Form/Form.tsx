@@ -8,14 +8,15 @@ export type FormProps = ComponentPropsWithoutRef<'form'> &
         ref?: Ref<HTMLFormElement>
     }
 
-export const Form = (props: FormProps) => {
+import { forwardRef } from 'react'
+
+export const Form = forwardRef<HTMLFormElement, FormProps>((props, ref) => {
     const {
         children,
         containerClassName,
         labelWidth,
         layout,
         size,
-        ref,
         ...rest
     } = props
 
@@ -31,6 +32,8 @@ export const Form = (props: FormProps) => {
             </FormContainer>
         </form>
     )
-}
+})
+
+Form.displayName = 'Form'
 
 export default Form
