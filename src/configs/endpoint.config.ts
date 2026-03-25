@@ -2,6 +2,8 @@ const endpointConfig = {
     signIn: 'auth/sign-in',
     signOut: 'sign-out',
     signUp: 'auth/sign-up',
+    verifyOtp: 'auth/verify-otp',
+    sendOtp: 'auth/send-otp',
     googleSignIn: 'auth/google',
     forgotPasswordRequest: 'auth/password-reset/request',
     forgotPasswordConfirm: 'auth/password-reset/confirm',

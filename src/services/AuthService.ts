@@ -7,7 +7,9 @@ import type {
     ForgotPasswordConfirm,
     ResetPassword,
     SignInResponse,
-    SignUpResponse,
+    SignUpResponseNoToken,
+    VerifyOtpCredential,
+    VerifyOtpResponse,
 } from '@/@types/auth'
 
 export async function apiSignIn(data: SignInCredential) {
@@ -19,8 +21,24 @@ export async function apiSignIn(data: SignInCredential) {
 }
 
 export async function apiSignUp(data: SignUpCredential) {
-    return ApiService.fetchDataWithAxios<SignUpResponse>({
+    return ApiService.fetchDataWithAxios<SignUpResponseNoToken>({
         url: endpointConfig.signUp,
+        method: 'post',
+        data,
+    })
+}
+
+export async function apiVerifyOtp(data: VerifyOtpCredential) {
+    return ApiService.fetchDataWithAxios<VerifyOtpResponse>({
+        url: endpointConfig.verifyOtp,
+        method: 'post',
+        data,
+    })
+}
+
+export async function apiSendOtp(data: { email: string }) {
+    return ApiService.fetchDataWithAxios<{ message: string }>({
+        url: endpointConfig.sendOtp,
         method: 'post',
         data,
     })

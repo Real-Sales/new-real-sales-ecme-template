@@ -5,7 +5,7 @@ import { useAppSelector, useAppDispatch } from '@/store/hook'
 import { signInSuccess, signOutSuccess } from '@/store/slices/auth/sessionSlice'
 import { setUser } from '@/store/slices/auth/userSlice'
 import { setProfile } from '@/views/profile/Settings/store/settingsSlice'
-import { apiSignIn, apiSignOut, apiSignUp } from '@/services/AuthService'
+import { apiSignIn, apiSignOut, apiSignUp, apiVerifyOtp } from '@/services/AuthService'
 import { REDIRECT_URL_KEY } from '@/constants/app.constant'
 import { useNavigate } from 'react-router-dom'
 import Cookies from 'js-cookie'
@@ -218,7 +218,30 @@ function AuthProvider({ children }: AuthProviderProps) {
         try {
             const resp = await apiSignUp(values)
             if (resp) {
-                await handleSignIn({ accessToken: resp.token }, {
+                navigatorRef.current?.navigate(`/verify-otp?email=${encodeURIComponent(resp.user.email)}`)
+                return {
+                    status: 'success',
+                    message: '',
+                }
+            }
+            return {
+                status: 'failed',
+                message: 'Unable to sign up',
+            }
+            // eslint-disable-next-line  @typescript-eslint/no-explicit-any
+        } catch (errors: any) {
+            return {
+                status: 'failed',
+                message: errors?.response?.data?.message || errors?.response?.data?.error || errors?.response?.data?.detail || errors.toString(),
+            }
+        }
+    }
+
+    const verifyOtp = async (values: { email: string; otp_code: string }): AuthResult => {
+        try {
+            const resp = await apiVerifyOtp(values)
+            if (resp?.token) {
+                handleSignIn({ accessToken: resp.token }, {
                     userId: resp.user.user_id,
                     firstName: resp.user.first_name,
                     lastName: resp.user.last_name,
@@ -235,13 +258,14 @@ function AuthProvider({ children }: AuthProviderProps) {
             }
             return {
                 status: 'failed',
-                message: 'Unable to sign up',
+                message: 'Unable to verify OTP',
             }
             // eslint-disable-next-line  @typescript-eslint/no-explicit-any
         } catch (errors: any) {
+            const msg = errors?.response?.data?.message || errors?.response?.data?.error || errors?.response?.data?.detail
             return {
                 status: 'failed',
-                message: errors?.response?.data?.message || errors?.response?.data?.error || errors?.response?.data?.detail || errors.toString(),
+                message: msg || 'Invalid or expired OTP',
             }
         }
     }
@@ -270,6 +294,7 @@ function AuthProvider({ children }: AuthProviderProps) {
                 user,
                 signIn,
                 signUp,
+                verifyOtp,
                 signOut,
                 oAuthSignIn,
             }}

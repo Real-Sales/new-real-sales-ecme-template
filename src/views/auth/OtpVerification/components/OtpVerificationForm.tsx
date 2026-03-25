@@ -2,14 +2,15 @@ import { useState } from 'react'
 import Button from '@/components/ui/Button'
 import { FormItem, Form } from '@/components/ui/Form'
 import OtpInput from '@/components/shared/OtpInput'
-import sleep from '@/utils/sleep'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import type { ZodType } from 'zod'
 import type { CommonProps } from '@/@types/common'
+import { useAuth } from '@/auth'
 
 interface OtpVerificationFormProps extends CommonProps {
+    email: string
     setOtpVerified?: (message: string) => void
     setMessage?: (message: string) => void
 }
@@ -26,8 +27,8 @@ const validationSchema: ZodType<ForgotPasswordFormSchema> = z.object({
 
 const OtpVerificationForm = (props: OtpVerificationFormProps) => {
     const [isSubmitting, setSubmitting] = useState<boolean>(false)
-
-    const { className, setMessage, setOtpVerified } = props
+    const { className, email, setMessage, setOtpVerified } = props
+    const { verifyOtp } = useAuth()
 
     const {
         handleSubmit,
@@ -38,22 +39,19 @@ const OtpVerificationForm = (props: OtpVerificationFormProps) => {
     })
 
     const onOtpSend = async (values: ForgotPasswordFormSchema) => {
-        const { otp } = values
         setSubmitting(true)
         try {
-            /** simulate api call with sleep */
-            await sleep(1000)
-            setSubmitting(false)
-            setOtpVerified?.('OTP verified!')
-        } catch (errors) {
-            setMessage?.(
-                typeof errors === 'string' ? errors : 'Some error occured!',
-            )
+            const result = await verifyOtp({ email, otp_code: values.otp })
+            if (result?.status === 'success') {
+                setOtpVerified?.('OTP verified!')
+            } else {
+                setMessage?.(result?.message || 'Invalid or expired OTP')
+            }
+        } catch {
+            setMessage?.('Some error occurred!')
+        } finally {
             setSubmitting(false)
         }
-
-        console.log('otp', otp)
-        setSubmitting(false)
     }
 
     return (
