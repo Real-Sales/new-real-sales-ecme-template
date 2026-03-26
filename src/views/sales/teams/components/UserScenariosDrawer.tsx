@@ -17,7 +17,8 @@ type UserScenariosDrawerProps = {
         userEmail: string
         userImg?: string
     } | null
-    scenarios: ScenarioSession[]
+    scenarios: any[]
+    onUnassignScenario?: (sessionId: string) => void
 }
 
 type AccordionItemProps = {
@@ -26,12 +27,12 @@ type AccordionItemProps = {
     icon: React.ReactNode
     iconBgColor: string
     borderColor: string
-    scenarios: ScenarioSession[]
+    scenarios: any[]
     defaultOpen?: boolean
     showDeleteButton?: boolean
     showDownloadButton?: boolean
-    onDeleteScenario?: (scenarioId: string) => void
-    onDownloadReport?: (scenarioId: string) => void
+    onDeleteScenario?: (sessionId: string) => void
+    onDownloadReport?: (sessionId: string) => void
 }
 
 const AccordionItem = ({ 
@@ -129,9 +130,9 @@ const AccordionItem = ({
                                                         variant="solid"
                                                         icon={<TbTrash />}
                                                         className="bg-red-500 hover:bg-red-600 text-white border-0"
-                                                        onClick={() => onDeleteScenario(scenario.scenario_id)}
+                                                        onClick={() => onDeleteScenario(scenario.sessionId)}
                                                     >
-                                                        Delete Assignment
+                                                        Unassign Scenario
                                                     </Button>
                                                 )}
                                                 {showDownloadButton && onDownloadReport && (
@@ -158,7 +159,7 @@ const AccordionItem = ({
     )
 }
 
-const UserScenariosDrawer = ({ isOpen, onClose, user, scenarios }: UserScenariosDrawerProps) => {
+const UserScenariosDrawer = ({ isOpen, onClose, user, scenarios, onUnassignScenario }: UserScenariosDrawerProps) => {
     const getInitials = (name: string) => {
         return name
             .split(' ')
@@ -173,15 +174,14 @@ const UserScenariosDrawer = ({ isOpen, onClose, user, scenarios }: UserScenarios
     const completedScenarios = scenarios.filter(s => s.is_completed)
 
     // Handlers for scenario actions
-    const handleDeleteScenario = (scenarioId: string) => {
-        console.log('Delete scenario assignment:', scenarioId)
-        // In real app: API call to delete assignment
-        // Then refresh the data or close drawer
+    const handleDeleteScenario = (sessionId: string) => {
+        if (onUnassignScenario) {
+            onUnassignScenario(sessionId)
+        }
     }
 
-    const handleDownloadReport = (scenarioId: string) => {
-        console.log('Download performance report for scenario:', scenarioId)
-        // In real app: API call to generate and download report
+    const handleDownloadReport = (sessionId: string) => {
+        console.log('Download performance report for session:', sessionId)
     }
 
     const DrawerTitle = user ? (

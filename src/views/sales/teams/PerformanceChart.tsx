@@ -1,12 +1,28 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import Card from '@/components/ui/Card'
 import Select from '@/components/ui/Select'
 import Chart from '@/components/shared/Chart'
+import Spinner from '@/components/ui/Spinner'
 import { useAppSelector } from '@/store'
 import { TbChartLine } from 'react-icons/tb'
-import { teamPerformanceData, type SkillType } from './teamPerformanceData'
+import { apiGetTeamMembersPerformance, type TeamMembersPerformanceResponse } from '@/services/TeamService'
+import dayjs from 'dayjs'
 
-const PerformanceChart = () => {
+type PerformanceChartProps = {
+    teamId: string
+}
+
+type SkillType = 'prospecting' | 'discovering' | 'closing'
+
+const MODE_ID_MAP: Record<SkillType, string> = {
+    closing: '1d4a466b-fd19-4286-b70e-48f707629ef6',
+    discovering: 'bd9e102b-f018-4d61-adc2-9948d95e8078',
+    prospecting: 'cefc24a0-c580-4114-9fc9-99fbda469e17'
+}
+
+const PerformanceChart = ({ teamId }: PerformanceChartProps) => {
+    const [performanceData, setPerformanceData] = useState<TeamMembersPerformanceResponse | null>(null)
+    const [isLoading, setIsLoading] = useState(true)
     const [showChart, setShowChart] = useState(true)
     const [selectedSkill, setSelectedSkill] = useState<SkillType>('closing')
     
@@ -14,24 +30,37 @@ const PerformanceChart = () => {
         (state) => state.theme.layout.sideNavCollapse,
     )
 
-    // Handle chart resize when sidebar collapses/expands
+    const fetchPerformance = async () => {
+        if (!teamId) return
+        setIsLoading(true)
+        try {
+            const data = await apiGetTeamMembersPerformance(teamId, MODE_ID_MAP[selectedSkill])
+            if (data) {
+                setPerformanceData(data)
+            }
+        } catch (error) {
+            console.error('Failed to fetch team chart performance:', error)
+        } finally {
+            setIsLoading(false)
+        }
+    }
+
+    useEffect(() => {
+        fetchPerformance()
+    }, [teamId, selectedSkill])
+
     useEffect(() => {
         setShowChart(false)
         const timer = setTimeout(() => {
             setShowChart(true)
         }, 400)
         return () => clearTimeout(timer)
-    }, [sideNavCollapse, selectedSkill])
+    }, [sideNavCollapse])
 
-    // Get chart data based on selected skill
-    const data = teamPerformanceData[selectedSkill]
-
-    // Skill options for dropdown
     const skillOptions = [
+        { value: 'prospecting', label: 'Prospecting' },
+        { value: 'discovering', label: 'Discovering' },
         { value: 'closing', label: 'Closing' },
-        { value: 'discovery', label: 'Discovery' },
-        { value: 'objection', label: 'Objection Handling' },
-        { value: 'presentation', label: 'Presentation' },
     ]
 
     const handleSkillChange = (option: { value: string; label: string } | null) => {
@@ -40,28 +69,61 @@ const PerformanceChart = () => {
         }
     }
 
-    // Safety check
-    if (!data || !data.members || !data.months || !Array.isArray(data.members) || data.members.length === 0) {
-        return null
+    const chartData = useMemo(() => {
+        if (!performanceData || performanceData.members.length === 0) return null
+
+        // Get sorted months from the first member's performance (latest 6)
+        const firstMember = performanceData.members[0]
+        const sortedMonths = Object.keys(firstMember.monthly_performance).sort().slice(-6)
+        
+        // Format months for x-axis (e.g., '2025-09' -> 'Sep')
+        const monthNames = sortedMonths.map(m => dayjs(m).format('MMM'))
+
+        const colors = ['#3B82F6', '#22C55E', '#EF4444', '#F59E0B', '#8B5CF6', '#EC4899', '#06B6D4', '#F97316']
+
+        const members = performanceData.members.map((member, index) => {
+            const dataPoints = sortedMonths.map(month => {
+                const perf = member.monthly_performance[month]
+                return perf?.average_overall_score || 0
+            })
+
+            return {
+                name: `${member.first_name} ${member.last_name}`,
+                data: dataPoints,
+                color: colors[index % colors.length]
+            }
+        })
+
+        return {
+            members,
+            months: monthNames,
+            sufficiencyLevel: 70,
+            proficiencyLevel: 85
+        }
+    }, [performanceData])
+
+    if (isLoading) {
+        return (
+            <Card className="flex items-center justify-center p-20 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
+                <Spinner size={40} />
+            </Card>
+        )
     }
 
-    // Prepare series data for ApexCharts with additional validation
-    const series = data.members
-        .filter((member) => member && member.name && Array.isArray(member.data))
-        .map((member) => ({
-            name: member.name,
-            data: member.data,
-        }))
-
-    // Get colors from members
-    const colors = data.members
-        .filter((member) => member && member.color)
-        .map((member) => member.color)
-
-    // Additional safety check for series
-    if (!series || series.length === 0) {
-        return null
+    if (!chartData || chartData.members.length === 0) {
+        return (
+            <Card className="flex items-center justify-center p-10 text-gray-500 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
+                No performance data available for this skill.
+            </Card>
+        )
     }
+
+    const series = chartData.members.map(member => ({
+        name: member.name,
+        data: member.data
+    }))
+
+    const colors = chartData.members.map(member => member.color)
 
     return (
         <Card className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 shadow-md hover:shadow-xl transition-all duration-300">
@@ -92,17 +154,16 @@ const PerformanceChart = () => {
             </div>
 
             {/* Chart */}
-            {showChart && series.length > 0 && data.months && data.months.length > 0 && (
+            {showChart && series.length > 0 && chartData.months && chartData.months.length > 0 && (
                 <div>
                     <Chart
                         key={`${selectedSkill}-${sideNavCollapse}`}
                         type="line"
                         series={series}
-                        xAxis={data.months}
+                        xAxis={chartData.months}
                         height="350px"
                         customOptions={{
-                            colors: colors.length > 0 ? colors : undefined,
-  
+                            colors: colors,
                             yaxis: {
                                 min: 0,
                                 max: 100,
@@ -111,12 +172,12 @@ const PerformanceChart = () => {
                             annotations: {
                                 yaxis: [
                                     {
-                                        y: data.sufficiencyLevel,
+                                        y: chartData.sufficiencyLevel,
                                         borderColor: '#F59E0B',
                                         borderWidth: 2,
                                         strokeDashArray: 5,
                                         label: {
-                                            text: String(data.sufficiencyLevel),
+                                            text: 'Sufficiency',
                                             position: 'left',
                                             offsetX: -10,
                                             offsetY: 6,
@@ -126,22 +187,16 @@ const PerformanceChart = () => {
                                                 background: 'transparent',
                                                 fontSize: '11px',
                                                 fontWeight: 500,
-                                                padding: {
-                                                    left: 0,
-                                                    right: 0,
-                                                    top: 0,
-                                                    bottom: 0,
-                                                },
                                             },
                                         },
                                     },
                                     {
-                                        y: data.proficiencyLevel,
+                                        y: chartData.proficiencyLevel,
                                         borderColor: '#22C55E',
                                         borderWidth: 2,
                                         strokeDashArray: 5,
                                         label: {
-                                            text: String(data.proficiencyLevel),
+                                            text: 'Proficiency',
                                             position: 'left',
                                             offsetX: -10,
                                             offsetY: 6,
@@ -151,12 +206,6 @@ const PerformanceChart = () => {
                                                 background: 'transparent',
                                                 fontSize: '11px',
                                                 fontWeight: 500,
-                                                padding: {
-                                                    left: 0,
-                                                    right: 0,
-                                                    top: 0,
-                                                    bottom: 0,
-                                                },
                                             },
                                         },
                                     },
@@ -165,13 +214,6 @@ const PerformanceChart = () => {
                             legend: {
                                 show: false,
                             },
-                            tooltip: {
-                           
-                                marker: {
-                                    show: true,
-                                },
-                            },
-                         
                         }}
                     />
                 </div>
@@ -211,7 +253,7 @@ const PerformanceChart = () => {
 
             {/* Team Members Legend */}
             <div className="flex flex-wrap justify-center gap-6 mt-4">
-                {data.members.map((member) => (
+                {chartData.members.map((member) => (
                     <div
                         key={member.name}
                         className="flex items-center gap-2"

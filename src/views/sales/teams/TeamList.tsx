@@ -1,8 +1,11 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Card, Button, Badge, Drawer } from '@/components/ui'
+import { Card, Button, Badge, Drawer, toast, Notification, Spinner } from '@/components/ui'
 import Container from '@/components/shared/Container'
+import { useAppSelector } from '@/store'
 import TeamForm, { type TeamFormSchema } from './TeamForm'
+import { apiCreateTeam, apiGetTeamPerformance, type TeamPerformanceResponse } from '@/services/TeamService'
+import dayjs from 'dayjs'
 import {
     HiUserGroup,
     HiChartBar,
@@ -208,7 +211,29 @@ const TeamCard = ({
 
 const TeamList = () => {
     const [isDrawerOpen, setIsDrawerOpen] = useState(false)
+    const [performanceData, setPerformanceData] = useState<TeamPerformanceResponse[]>([])
+    const [isLoading, setIsLoading] = useState(true)
     const formRef = useRef<HTMLFormElement>(null)
+    const { userId, companyId } = useAppSelector((state) => state.auth.user)
+
+    const fetchPerformanceData = async () => {
+        if (!companyId) return
+        setIsLoading(true)
+        try {
+            const data = await apiGetTeamPerformance(companyId)
+            if (data) {
+                setPerformanceData(data)
+            }
+        } catch (error) {
+            console.error('Failed to fetch team performance:', error)
+        } finally {
+            setIsLoading(false)
+        }
+    }
+
+    useEffect(() => {
+        fetchPerformanceData()
+    }, [companyId])
 
     const openDrawer = () => {
         setIsDrawerOpen(true)
@@ -226,11 +251,40 @@ const TeamList = () => {
         }
     }
 
-    const onTeamSubmit = (values: TeamFormSchema) => {
-        console.log('Team form submitted:', values)
-        // Add your API call here
-        window.alert(JSON.stringify(values, null, 2))
-        onDrawerClose()
+    const onTeamSubmit = async (values: TeamFormSchema) => {
+        if (!companyId || !userId) {
+            toast.push(
+                <Notification title="Error" type="danger">
+                    Missing company or user information.
+                </Notification>
+            )
+            return
+        }
+
+        try {
+            const response = await apiCreateTeam({
+                name: values.teamName,
+                sales_company_id: companyId,
+                sales_division_id: values.sales_division_id,
+                manager_id: userId,
+            })
+
+            if (response) {
+                toast.push(
+                    <Notification title="Success" type="success">
+                        Team created successfully!
+                    </Notification>
+                )
+                onDrawerClose()
+                fetchPerformanceData()
+            }
+        } catch (error: any) {
+            toast.push(
+                <Notification title="Error" type="danger">
+                    {error.response?.data?.message || 'Failed to create team'}
+                </Notification>
+            )
+        }
     }
 
     const DrawerFooter = (
@@ -262,64 +316,64 @@ const TeamList = () => {
         </div>
     )
 
-    const stats = [
-        {
-            icon: <HiUserGroup />,
-            value: 3,
-            label: 'Total Teams',
-        },
-        {
-            icon: <HiUserGroup />,
-            value: 11,
-            label: 'Team Members',
-        },
-        {
-            icon: <HiTrendingUp />,
-            value: 61.4,
-            label: 'Avg Performance',
-        },
-        {
-            icon: <HiChartBar />,
-            value: 161,
-            label: 'Total Sessions',
-        },
-    ]
+    const stats = useMemo(() => {
+        const totalTeams = performanceData.length
+        const totalMembers = performanceData.reduce((acc, team) => acc + team.members.length, 0)
+        
+        const teamsWithScores = performanceData.filter(team => team.team_average_score !== null)
+        const avgPerformance = teamsWithScores.length > 0 
+            ? (teamsWithScores.reduce((acc, team) => acc + (team.team_average_score || 0), 0) / teamsWithScores.length).toFixed(1)
+            : 0
 
-    const teams = [
-        {
-            id: 'healthcare-sales',
-            name: 'Healthcare Sales',
-            company: 'Division "B"',
-            members: 5,
-            avgScore: 54.7,
-            sessions: 71,
-            performance: 55,
-            status: 'Focus' as const,
-            createdAt: 'Jan 15, 2024',
-        },
-        {
-            id: 'full-sales-team',
-            name: 'Full Sales Team',
-            company: 'Division "A"',
-            members: 4,
-            avgScore: 61.7,
-            sessions: 60,
-            performance: 62,
-            status: 'Stable' as const,
-            createdAt: 'Jan 28, 2024',
-        },
-        {
-            id: 'bd-team',
-            name: 'BD Team',
-            company: 'Division "A"',
-            members: 2,
-            avgScore: 67.8,
-            sessions: 30,
-            performance: 68,
-            status: 'New' as const,
-            createdAt: 'Feb 20, 2024',
-        },
-    ]
+        const totalSessions = performanceData.reduce((acc, team) => {
+            return acc + team.members.reduce((mAcc, member) => {
+                return mAcc + member.performance_by_mode.reduce((pAcc, mode) => pAcc + mode.session_count, 0)
+            }, 0)
+        }, 0)
+
+        return [
+            {
+                icon: <HiUserGroup />,
+                value: totalTeams,
+                label: 'Total Teams',
+            },
+            {
+                icon: <HiUserGroup />,
+                value: totalMembers,
+                label: 'Team Members',
+            },
+            {
+                icon: <HiTrendingUp />,
+                value: avgPerformance,
+                label: 'Avg Performance',
+            },
+            {
+                icon: <HiChartBar />,
+                value: totalSessions,
+                label: 'Total Sessions',
+            },
+        ]
+    }, [performanceData])
+
+    const teams = useMemo(() => {
+        return performanceData.map(team => {
+            const teamSessions = team.members.reduce((acc, member) => {
+                return acc + member.performance_by_mode.reduce((pAcc, mode) => pAcc + mode.session_count, 0)
+            }, 0)
+
+            return {
+                id: team.company_team_id,
+                name: team.name,
+                company: `Division ID: ${team.sales_division_id.split('-')[0]}...`, // Shorten ID as fallback
+                members: team.members.length,
+                avgScore: team.team_average_score || 0,
+                sessions: teamSessions,
+                performance: team.team_average_score || 0,
+                status: (team.team_average_score && team.team_average_score > 80 ? 'Stable' : 'Focus') as 'Stable' | 'Focus' | 'New',
+                createdAt: 'Recently', // Assuming created_at is not in the team top-level response
+            }
+        })
+    }, [performanceData])
 
     return (
         <div className="min-h-full">
@@ -351,13 +405,18 @@ const TeamList = () => {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                    {teams.map((team, index) => (
-                        <TeamCard key={index} {...team} />
-                    ))}
+                    {isLoading ? (
+                        <div className="col-span-full flex justify-center py-20">
+                            <Spinner size={40} />
+                        </div>
+                    ) : (
+                        teams.map((team, index) => (
+                            <TeamCard key={index} {...team} />
+                        ))
+                    )}
                 </div>
             </Container>
 
-            {/* Create Team Drawer */}
             <Drawer
                 title={DrawerTitle}
                 isOpen={isDrawerOpen}
@@ -369,12 +428,12 @@ const TeamList = () => {
                 onRequestClose={onDrawerClose}
             >
                 <div className="px-2">
-                    <form ref={formRef}>
-                        <TeamForm
-                            onSubmit={onTeamSubmit}
-                            onCancel={onDrawerClose}
-                        />
-                    </form>
+                    <TeamForm
+                        companyId={companyId || ''}
+                        formRef={formRef}
+                        onSubmit={onTeamSubmit}
+                        onCancel={onDrawerClose}
+                    />
                 </div>
             </Drawer>
         </div>

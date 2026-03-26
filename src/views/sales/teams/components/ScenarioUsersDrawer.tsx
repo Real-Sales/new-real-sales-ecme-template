@@ -19,13 +19,15 @@ type UserAssignment = {
     completedAt?: string
     daysRemaining?: number
     assignedAt?: string
+    sessionId: string
 }
 
 type ScenarioUsersDrawerProps = {
     isOpen: boolean
     onClose: () => void
-    scenario: ScenarioSession | null
+    scenario: any | null
     users: UserAssignment[]
+    onUnassignScenario?: (sessionId: string) => void
 }
 
 type AccordionItemProps = {
@@ -38,8 +40,8 @@ type AccordionItemProps = {
     defaultOpen?: boolean
     showDeleteButton?: boolean
     showDownloadButton?: boolean
-    onDeleteUser?: (userId: string) => void
-    onDownloadReport?: (userId: string) => void
+    onDeleteUser?: (sessionId: string) => void
+    onDownloadReport?: (sessionId: string) => void
 }
 
 const AccordionItem = ({ 
@@ -176,9 +178,9 @@ const AccordionItem = ({
                                                             variant="solid"
                                                             icon={<TbTrash />}
                                                             className="bg-red-500 hover:bg-red-600 text-white border-0"
-                                                            onClick={() => onDeleteUser(user.userId)}
+                                                            onClick={() => onDeleteUser(user.sessionId)}
                                                         >
-                                                            Remove User
+                                                            Unassign
                                                         </Button>
                                                     )}
                                                     {showDownloadButton && onDownloadReport && (
@@ -206,20 +208,20 @@ const AccordionItem = ({
     )
 }
 
-const ScenarioUsersDrawer = ({ isOpen, onClose, scenario, users }: ScenarioUsersDrawerProps) => {
+const ScenarioUsersDrawer = ({ isOpen, onClose, scenario, users, onUnassignScenario }: ScenarioUsersDrawerProps) => {
     // Separate users into pending/overdue and completed
     const pendingUsers = users.filter(u => !u.isCompleted)
     const completedUsers = users.filter(u => u.isCompleted)
 
     // Handlers for user actions
-    const handleDeleteUser = (userId: string) => {
-        console.log('Remove user from scenario:', userId)
-        // In real app: API call to remove user assignment
+    const handleDeleteUser = (sessionId: string) => {
+        if (onUnassignScenario) {
+            onUnassignScenario(sessionId)
+        }
     }
 
-    const handleDownloadReport = (userId: string) => {
-        console.log('Download performance report for user:', userId)
-        // In real app: API call to generate and download report
+    const handleDownloadReport = (sessionId: string) => {
+        console.log('Download performance report for session:', sessionId)
     }
 
     const DrawerTitle = scenario ? (

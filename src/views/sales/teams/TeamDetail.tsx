@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Card, Button, Dialog, Progress } from '@/components/ui'
+import { Card, Button, Dialog, Progress, Spinner, toast, Notification } from '@/components/ui'
 import Container from '@/components/shared/Container'
 import PerformanceChart from './PerformanceChart'
 import AddTeamMemberContent from './components/AddTeamMemberContent'
@@ -9,7 +9,9 @@ import MemberDetailDrawer from './components/MemberDetailDrawer'
 import TeamScenariosSection from './components/TeamScenariosSection'
 import { allSalesReps } from './mockTeamData'
 import { HiArrowLeft } from 'react-icons/hi'
-import { TbUserPlus, TbChartLine, TbUsers } from 'react-icons/tb'
+import { TbUserPlus, TbUsers } from 'react-icons/tb'
+import { apiGetCompanyTeamPerformance, type TeamPerformanceResponse, apiDeleteTeamMember } from '@/services/TeamService'
+import dayjs from 'dayjs'
 
 type TeamMember = {
     id: string
@@ -18,6 +20,20 @@ type TeamMember = {
     score: number
     sessions: number
     img?: string
+    performance_by_mode?: {
+        mode_name: string
+        session_count: number
+        average_overall_score: number | null
+        average_relationship_building?: number | null
+        average_communication_excellence?: number | null
+        average_objection_handling_and_value_selling?: number | null
+        average_negotiation?: number | null
+        average_qualifying_lead?: number | null
+        average_needs_discovery?: number | null
+        average_solution_matching?: number | null
+        average_cross_selling?: number | null
+        average_sales_closing?: number | null
+    }[]
 }
 
 type Member = {
@@ -35,23 +51,51 @@ const TeamDetail = () => {
     const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null)
     const [currentPage, setCurrentPage] = useState(1)
     const [pageSize, setPageSize] = useState(10)
+    const [isLoading, setIsLoading] = useState(true)
+    const [data, setData] = useState<TeamPerformanceResponse | null>(null)
 
-    // Mock data - replace with actual data fetching based on team id
-    const teamName = 
-        id === 'healthcare-sales' ? 'HealthCare Sales' :
-        id === 'full-sales-team' ? 'Full Sales Team' :
-        id === 'bd-team' ? 'BD Team' : 'Team'
-    
-    const [teamMembers, setTeamMembers] = useState<TeamMember[]>([
-        { id: '1', name: 'Clara Ca', email: 'sarah1@gmail.com', score: 75.5, sessions: 18, img: '/img/avatars/thumb-1.jpg' },
-        { id: '2', name: 'Christian Cn', email: 'mike1@gmail.com', score: 69.0, sessions: 15, img: '/img/avatars/thumb-2.jpg' },
-        { id: '3', name: 'Ruben Rn', email: 'john1@gmail.com', score: 61.1, sessions: 15, img: '/img/avatars/thumb-3.jpg' },
-        { id: '4', name: 'Mika Ma', email: 'linda1@gmail.com', score: 55.1, sessions: 15, img: '/img/avatars/thumb-4.jpg' },
-        { id: '5', name: 'Ryan McFarlin', email: 'ryan.mcfarlin@gogomedia.com', score: 18.6, sessions: 8, img: '/img/avatars/thumb-5.jpg' },
-    ])
+    const fetchTeamData = async () => {
+        if (!id) return
+        setIsLoading(true)
+        try {
+            const response = await apiGetCompanyTeamPerformance(id)
+            if (response) {
+                setData(response)
+            }
+        } catch (error) {
+            console.error('Failed to fetch team data:', error)
+            toast.push(
+                <Notification title="Error" type="danger">
+                    Failed to fetch team details
+                </Notification>
+            )
+        } finally {
+            setIsLoading(false)
+        }
+    }
 
-    // Fixed team performance score for progress bar
-    const teamAvgScore = 54.7
+    useEffect(() => {
+        fetchTeamData()
+    }, [id])
+
+    const teamMembers = useMemo(() => {
+        if (!data) return []
+        return data.members.map(member => {
+            const teamSessions = member.performance_by_mode.reduce((acc, mode) => acc + mode.session_count, 0)
+            return {
+                id: member.user_id,
+                name: `${member.user.first_name} ${member.user.last_name}`,
+                email: member.user.email,
+                score: member.overall_average_score || 0,
+                sessions: teamSessions,
+                img: `/img/avatars/thumb-${Math.floor(Math.random() * 5) + 1}.jpg`, // Random placeholder avatar
+                performance_by_mode: member.performance_by_mode
+            }
+        })
+    }, [data])
+
+    const teamAvgScore = data?.team_average_score || 0
+    const teamName = data?.name || 'Team'
 
     // Pagination handlers
     const handlePaginationChange = (page: number) => {
@@ -81,29 +125,29 @@ const TeamDetail = () => {
     }
 
     const handleUpdateTeamMembers = (members: Member[]) => {
-        // Update team members with the new list
-        // For now, we'll just update the basic member info
-        // In a real app, you'd fetch the full member details including score and sessions
-        const updatedMembers = members.map((member) => {
-            const existing = teamMembers.find((tm) => tm.id === member.id)
-            if (existing) {
-                return existing
-            }
-            // New member - add with default values
-            return {
-                id: member.id,
-                name: member.name,
-                email: member.email,
-                score: 0,
-                sessions: 0,
-                img: member.img,
-            }
-        })
-        setTeamMembers(updatedMembers)
+        // This would typically involve an API call to add members to the team
+        // After successful API call, we should refresh the team data
+        fetchTeamData()
     }
 
-    const handleRemoveMember = (memberId: string) => {
-        setTeamMembers((prev) => prev.filter((member) => member.id !== memberId))
+    const handleRemoveMember = async (memberId: string) => {
+        if (!id) return
+        try {
+            await apiDeleteTeamMember(memberId, id)
+            toast.push(
+                <Notification title="Success" type="success">
+                    Member removed from team successfully
+                </Notification>
+            )
+            fetchTeamData()
+        } catch (error) {
+            console.error('Failed to remove member:', error)
+            toast.push(
+                <Notification title="Error" type="danger">
+                    Failed to remove member from team
+                </Notification>
+            )
+        }
     }
 
     const handleRowClick = (member: TeamMember) => {
@@ -173,7 +217,7 @@ const TeamDetail = () => {
 
                 {/* Performance Analytics Chart */}
                 <div className="mb-6">
-                    <PerformanceChart />
+                    <PerformanceChart teamId={id || ''} />
                 </div>
 
                 {/* Team Members Section */}
@@ -188,22 +232,28 @@ const TeamDetail = () => {
                             </h2>
                         </div>
                     </div>
-                    <TeamMembersTable 
-                        members={paginatedMembers}
-                        onRemoveMember={handleRemoveMember}
-                        onRowClick={handleRowClick}
-                        pagingData={{
-                            total: teamMembers.length,
-                            pageIndex: currentPage,
-                            pageSize: pageSize,
-                        }}
-                        onPaginationChange={handlePaginationChange}
-                        onSelectChange={handleSelectChange}
-                    />
+                    {isLoading ? (
+                        <div className="flex justify-center py-10">
+                            <Spinner size={30} />
+                        </div>
+                    ) : (
+                        <TeamMembersTable 
+                            members={paginatedMembers}
+                            onRemoveMember={handleRemoveMember}
+                            onRowClick={handleRowClick}
+                            pagingData={{
+                                total: teamMembers.length,
+                                pageIndex: currentPage,
+                                pageSize: pageSize,
+                            }}
+                            onPaginationChange={handlePaginationChange}
+                            onSelectChange={handleSelectChange}
+                        />
+                    )}
                 </Card>
 
                 {/* Scenarios Section */}
-                <TeamScenariosSection teamMembers={teamMembers} />
+                <TeamScenariosSection teamId={id || ''} teamMembers={teamMembers} />
             </Container>
 
             {/* Add Team Member Dialog */}
@@ -213,9 +263,9 @@ const TeamDetail = () => {
                 onRequestClose={onDialogClose}
             >
                 <AddTeamMemberContent
-                    allMembers={allSalesReps}
-                    teamMembers={teamMembers}
-                    onUpdateTeamMembers={handleUpdateTeamMembers}
+                    salesCompanyId={data?.sales_company_id || ''}
+                    companyTeamId={id || ''}
+                    onUpdate={fetchTeamData}
                     onClose={onDialogClose}
                 />
             </Dialog>
@@ -225,6 +275,7 @@ const TeamDetail = () => {
                 isOpen={memberDrawerOpen}
                 onClose={handleMemberDrawerClose}
                 member={selectedMember}
+                teamId={id || ''}
             />
         </div>
     )

@@ -1,166 +1,283 @@
-import { useState, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Card, Button, Drawer } from '@/components/ui'
+import { useState, useEffect } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
+import { Card, Button, Badge, Spinner, Input } from '@/components/ui'
 import Container from '@/components/shared/Container'
-import SalesRepForm, { type SalesRepFormSchema } from './SalesRepForm'
-import { HiArrowLeft, HiPlus, HiUser } from 'react-icons/hi'
+import Avatar from '@/components/ui/Avatar'
+import DataTable from '@/components/shared/DataTable'
+import { HiArrowLeft, HiUser } from 'react-icons/hi'
+import { TbSearch, TbUsers, TbUsersGroup, TbBuildingCommunity } from 'react-icons/tb'
+import {
+    apiGetSalesDivisionInfo,
+    type DivisionUser,
+    type SalesDivisionInfoResponse,
+} from '@/services/SalesCompanyService'
+import type { ColumnDef } from '@/components/shared/DataTable'
 
-type SalesRepresentative = {
-    id: string
-    name: string
-    email: string
+const deduplicateUsers = (users: DivisionUser[]): DivisionUser[] => {
+    const seen = new Set<string>()
+    return users.filter((u) => {
+        if (seen.has(u.user_id)) return false
+        seen.add(u.user_id)
+        return true
+    })
 }
+
+const getInitials = (firstName: string, lastName: string) =>
+    `${firstName[0] ?? ''}${lastName[0] ?? ''}`.toUpperCase()
 
 const CompanyDetail = () => {
     const navigate = useNavigate()
-    const [isDrawerOpen, setIsDrawerOpen] = useState(false)
-    const formRef = useRef<HTMLFormElement>(null)
+    const { id } = useParams<{ id: string }>()
 
-    const handleBack = () => {
-        navigate('/sales-division')
-    }
+    const [division, setDivision] = useState<SalesDivisionInfoResponse | null>(null)
+    const [isLoading, setIsLoading] = useState(true)
+    const [searchTerm, setSearchTerm] = useState('')
+    const [currentPage, setCurrentPage] = useState(1)
+    const [pageSize, setPageSize] = useState(10)
 
-    const openDrawer = () => {
-        setIsDrawerOpen(true)
-    }
-
-    const onDrawerClose = () => {
-        setIsDrawerOpen(false)
-    }
-
-    const handleSubmitClick = () => {
-        if (formRef.current) {
-            formRef.current.dispatchEvent(
-                new Event('submit', { cancelable: true, bubbles: true })
-            )
+    const fetchDivisionInfo = async () => {
+        if (!id) return
+        setIsLoading(true)
+        try {
+            const data = await apiGetSalesDivisionInfo(id)
+            setDivision(data)
+        } catch (error) {
+            console.error('Failed to fetch division info:', error)
+        } finally {
+            setIsLoading(false)
         }
     }
 
-    const onSalesRepSubmit = (values: SalesRepFormSchema) => {
-        console.log('Sales Rep form submitted:', values)
-        // Add your API call here
-        window.alert(JSON.stringify(values, null, 2))
-        onDrawerClose()
-    }
+    useEffect(() => {
+        fetchDivisionInfo()
+    }, [id])
 
-    const DrawerFooter = (
-        <div className="flex justify-between items-center w-full gap-3 px-2">
-            <Button 
-                size="sm" 
-                className="flex-1 bg-gray-800 dark:bg-gray-800 hover:bg-gray-700 dark:hover:bg-gray-700 text-gray-300 border border-gray-600 dark:border-gray-600" 
-                onClick={onDrawerClose}
-            >
-                Cancel
-            </Button>
-            <Button
-                size="sm"
-                variant="solid"
-                className="flex-1 bg-primary hover:bg-primary-deep text-neutral border-none"
-                onClick={handleSubmitClick}
-            >
-                Create
-            </Button>
-        </div>
-    )
+    const members = division ? deduplicateUsers(division.users) : []
 
-    const DrawerTitle = (
-        <div>
-            <h4 className="mb-2 text-lg font-bold">Create New Sales Representative</h4>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-                Fill in the details to create a new sales representative
-            </p>
-        </div>
-    )
+    const filteredMembers = members.filter((m) => {
+        const fullName = `${m.first_name} ${m.last_name}`.toLowerCase()
+        const q = searchTerm.toLowerCase()
+        return (
+            fullName.includes(q) ||
+            m.email.toLowerCase().includes(q) ||
+            m.team_name?.toLowerCase().includes(q)
+        )
+    })
 
-    // Mock data - replace with actual data fetching
-    const salesReps: SalesRepresentative[] = [
-        { id: '1', name: 'Linda Ld', email: 'linda@gmail.com' },
-        { id: '2', name: 'Mike Qc', email: 'mike@gmail.com' },
-        { id: '3', name: 'John Jh', email: 'john@gmail.com' },
-        { id: '4', name: 'Sarah sh', email: 'sarah@gmail.com' },
+    const teamCount = new Set(members.map((m) => m.team_id).filter(Boolean)).size
+
+    // Pagination
+    const startIndex = (currentPage - 1) * pageSize
+    const paginatedData = filteredMembers.slice(startIndex, startIndex + pageSize)
+
+    const columns: ColumnDef<DivisionUser>[] = [
+        {
+            header: 'Member',
+            accessorKey: 'first_name',
+            enableSorting: true,
+            cell: (props) => {
+                const row = props.row.original
+                return (
+                    <div className="flex items-center gap-3">
+                        <Avatar
+                            size={40}
+                            shape="circle"
+                            className="bg-primary/10 text-primary font-semibold text-sm"
+                        >
+                            {getInitials(row.first_name, row.last_name)}
+                        </Avatar>
+                        <div>
+                            <p className="font-semibold text-gray-900 dark:text-white">
+                                {row.first_name} {row.last_name}
+                            </p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                                {row.email}
+                            </p>
+                        </div>
+                    </div>
+                )
+            },
+        },
+        {
+            header: 'Team',
+            accessorKey: 'team_name',
+            enableSorting: true,
+            cell: (props) => {
+                const row = props.row.original
+                return row.team_name ? (
+                    <span className="font-bold text-gray-900 dark:text-white">
+                        {row.team_name}
+                    </span>
+                ) : (
+                    <span className="text-gray-400 text-sm">—</span>
+                )
+            },
+        },
+        {
+            header: 'Role',
+            accessorKey: 'role',
+            enableSorting: false,
+            cell: (props) => {
+                const row = props.row.original
+                const roleName = row.role?.name?.replace(/_/g, ' ')
+                return (
+                    <span className="text-sm text-gray-600 dark:text-gray-400 capitalize">
+                        {roleName || '—'}
+                    </span>
+                )
+            },
+        },
+        {
+            header: 'Status',
+            accessorKey: 'status_active',
+            enableSorting: false,
+            cell: (props) => {
+                const row = props.row.original
+                return (
+                    <Badge
+                        innerClass={`px-2.5 py-1 text-xs font-medium rounded-full ${
+                            row.status_active
+                                ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
+                                : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+                        }`}
+                        content={row.status_active ? 'Active' : 'Inactive'}
+                    />
+                )
+            },
+        },
     ]
 
     return (
         <div className="min-h-full">
-            <Container className="pb-6">
-                {/* Header Section */}
+            <Container className="pb-6 px-4">
+                {/* Back Button */}
                 <div className="mb-6">
                     <Button
                         variant="plain"
                         size="sm"
                         icon={<HiArrowLeft />}
-                        onClick={handleBack}
+                        onClick={() => navigate('/sales-division')}
                         className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
                     >
-                        Back to Company
+                        Back to Sales Divisions
                     </Button>
                 </div>
 
-                {/* Sales Representatives Section */}
-                <div className="mb-6">
-                    <div className="flex items-center justify-between mb-6">
-                        <div className="flex items-center gap-2">
-                            <HiUser className="text-2xl text-gray-600 dark:text-gray-400" />
-                            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-                                Sales Representative ({salesReps.length})
-                            </h2>
-                        </div>
-                        <Button
-                            variant="solid"
-                            size="sm"
-                            icon={<HiPlus />}
-                            className="bg-primary hover:bg-primary-deep text-neutral border-none whitespace-nowrap rounded-md"
-                            onClick={openDrawer}
-                        >
-                            Create Sales Representative
-                        </Button>
+                {isLoading ? (
+                    <div className="flex justify-center items-center py-40">
+                        <Spinner size={40} />
                     </div>
+                ) : (
+                    <>
+                        {/* Division Header */}
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                                <TbBuildingCommunity className="text-xl" />
+                            </div>
+                            <div>
+                                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                                    {division?.name}
+                                </h1>
+                                <p className="text-sm text-gray-500 dark:text-gray-400">
+                                    {division?.division_category}
+                                </p>
+                            </div>
+                            <Badge
+                                innerClass={`ml-2 px-2.5 py-0.5 text-xs font-medium ${
+                                    division?.is_active
+                                        ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                                        : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
+                                }`}
+                                content={division?.is_active ? 'Active' : 'Inactive'}
+                            />
+                        </div>
 
-                    <div className="space-y-4">
-                        {salesReps.map((rep) => (
+                        {/* Stats */}
+                        <div className="grid grid-cols-2 gap-4 mb-6">
                             <Card
-                                key={rep.id}
-                                className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 shadow-md hover:shadow-xl transition-all duration-300"
+                                className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 shadow-md"
+                                bodyClass="!p-4"
                             >
-                                <div className="flex items-center gap-4 p-2">
-                                    <div className="bg-primary/10 rounded-full p-3 text-primary">
-                                        <HiUser className="text-2xl" />
+                                <div className="flex items-center gap-3">
+                                    <div className="bg-primary/10 rounded-xl p-2 text-primary text-3xl">
+                                        <TbUsers />
                                     </div>
-                                    <div className="flex-1">
-                                        <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">
-                                            {rep.name}
-                                        </h3>
-                                        <p className="text-sm text-gray-600 dark:text-gray-400">
-                                            {rep.email}
+                                    <div>
+                                        <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                                            {members.length}
+                                        </p>
+                                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                                            Total Members
                                         </p>
                                     </div>
                                 </div>
                             </Card>
-                        ))}
-                    </div>
-                </div>
-            </Container>
+                            <Card
+                                className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 shadow-md"
+                                bodyClass="!p-4"
+                            >
+                                <div className="flex items-center gap-3">
+                                    <div className="bg-blue-500/10 rounded-xl p-2 text-blue-500 text-3xl">
+                                        <TbUsersGroup />
+                                    </div>
+                                    <div>
+                                        <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                                            {teamCount}
+                                        </p>
+                                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                                            Teams
+                                        </p>
+                                    </div>
+                                </div>
+                            </Card>
+                        </div>
 
-            {/* Create Sales Representative Drawer */}
-            <Drawer
-                title={DrawerTitle}
-                isOpen={isDrawerOpen}
-                footer={DrawerFooter}
-                headerClass="!items-start !bg-gray-100 dark:!bg-gray-900"
-                footerClass="!bg-gray-100 dark:!bg-gray-900 !p-3"
-                bodyClass="!p-4 !bg-gray-100 dark:!bg-gray-900 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
-                onClose={onDrawerClose}
-                onRequestClose={onDrawerClose}
-            >
-                <div className="px-2">
-                    <form ref={formRef}>
-                    <SalesRepForm
-                        onSubmit={onSalesRepSubmit}
-                            onCancel={onDrawerClose}
-                        />
-                    </form>
-                </div>
-            </Drawer>
+                        {/* Members Table */}
+                        <Card
+                            className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 shadow-md"
+                            bodyClass="!p-5"
+                        >
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-5">
+                                <div className="flex items-center gap-2">
+                                    <HiUser className="text-xl text-gray-500 dark:text-gray-400" />
+                                    <h2 className="text-lg font-bold text-gray-900 dark:text-white">
+                                        Members ({members.length})
+                                    </h2>
+                                </div>
+                                <div className="w-full sm:w-64">
+                                    <Input
+                                        prefix={<TbSearch className="text-gray-400" />}
+                                        placeholder="Search by name, email or team..."
+                                        value={searchTerm}
+                                        onChange={(e) => {
+                                            setSearchTerm(e.target.value)
+                                            setCurrentPage(1)
+                                        }}
+                                        size="sm"
+                                    />
+                                </div>
+                            </div>
+
+                            <DataTable
+                                columns={columns}
+                                data={paginatedData}
+                                noData={filteredMembers.length === 0}
+                                hoverable
+                                pagingData={{
+                                    total: filteredMembers.length,
+                                    pageIndex: currentPage,
+                                    pageSize,
+                                }}
+                                onPaginationChange={(page) => setCurrentPage(page)}
+                                onSelectChange={(val) => {
+                                    setPageSize(val)
+                                    setCurrentPage(1)
+                                }}
+                            />
+                        </Card>
+                    </>
+                )}
+            </Container>
         </div>
     )
 }
