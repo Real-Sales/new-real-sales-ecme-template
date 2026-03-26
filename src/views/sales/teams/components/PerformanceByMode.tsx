@@ -9,6 +9,7 @@ import type { ModeType } from './memberPerformanceData'
 type ModeData = {
     score: number
     sessions: number
+    metrics?: Record<string, number | null>
 }
 
 type PerformanceByModeProps = {
@@ -24,7 +25,6 @@ type ModeItemProps = {
 
 const ModeItem = ({ mode, label, data, defaultExpand = false }: ModeItemProps) => {
     const [expanded, setExpanded] = useState(defaultExpand)
-
 
     const getProgressColor = (mode: ModeType) => {
         switch (mode) {
@@ -105,10 +105,11 @@ const ModeItem = ({ mode, label, data, defaultExpand = false }: ModeItemProps) =
                         transition={{ duration: 0.2 }}
                     >
                         <div className="px-4 pb-4 pt-2">
-                            <div className="mb-3">
+                            {/* Main Performance Progress */}
+                            <div className="mb-4">
                                 <div className="flex items-center justify-between mb-2">
-                                    <span className="text-sm text-gray-600 dark:text-gray-400">
-                                        Performance
+                                    <span className="text-sm text-gray-600 dark:text-gray-400 font-medium">
+                                        Overall Performance
                                     </span>
                                     <span className="text-sm font-bold text-gray-900 dark:text-white">
                                         <NumericFormat
@@ -126,9 +127,45 @@ const ModeItem = ({ mode, label, data, defaultExpand = false }: ModeItemProps) =
                                     customColorClass={getProgressColor(mode)}
                                 />
                             </div>
-                            <div className="flex items-center justify-between pt-2 border-t border-gray-200 dark:border-gray-700">
+
+                            {/* Detailed Metrics */}
+                            {data.metrics && Object.entries(data.metrics).length > 0 && (
+                                <div className="space-y-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                                    {Object.entries(data.metrics).map(([key, value]) => {
+                                        // Format key: "average_relationship_building" -> "Relationship Building"
+                                        const displayKey = key
+                                            .replace('average_', '')
+                                            .split('_')
+                                            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                                            .join(' ');
+                                        
+                                        const scoreValue = value || 0;
+
+                                        return (
+                                            <div key={key}>
+                                                <div className="flex items-center justify-between mb-1.5">
+                                                    <span className="text-xs text-gray-600 dark:text-gray-400">
+                                                        {displayKey}
+                                                    </span>
+                                                    <span className="text-xs font-bold text-gray-900 dark:text-white">
+                                                        {scoreValue}/100
+                                                    </span>
+                                                </div>
+                                                <Progress
+                                                    size="sm"
+                                                    percent={scoreValue}
+                                                    showInfo={false}
+                                                    customColorClass={getProgressColor(mode)}
+                                                />
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+
+                            <div className="flex items-center justify-between pt-4 mt-4 border-t border-gray-200 dark:border-gray-700">
                                 <span className="text-sm text-gray-600 dark:text-gray-400">
-                                    Sessions Completed
+                                    Total Sessions Completed
                                 </span>
                                 <span className="text-sm font-bold text-gray-900 dark:text-white">
                                     {data.sessions}
@@ -145,13 +182,11 @@ const ModeItem = ({ mode, label, data, defaultExpand = false }: ModeItemProps) =
 const PerformanceByMode = ({ modeData }: PerformanceByModeProps) => {
     return (
         <>
-            {/* Header Section - Outside Card */}
             <div className="mb-4">
                 <h4 className="text-lg font-bold mb-1">Performance by Mode</h4>
                 <p className="text-sm text-gray-600 dark:text-gray-400">Detailed breakdown of performance across different interaction modes.</p>
             </div>
 
-            {/* Performance Cards */}
             <div className="mb-6">
                 <ModeItem
                     mode="prospecting"

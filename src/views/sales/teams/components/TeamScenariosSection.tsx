@@ -1,13 +1,13 @@
-import { useState } from 'react'
-import { Card, Button, Progress } from '@/components/ui'
+import { useState, useEffect, useMemo } from 'react'
+import { Card, Button, Progress, Spinner, toast, Notification } from '@/components/ui'
 import DataTable from '@/components/shared/DataTable'
 import Avatar from '@/components/ui/Avatar'
 import UserScenariosDrawer from './UserScenariosDrawer'
 import ScenarioUsersDrawer from './ScenarioUsersDrawer'
 import classNames from '@/utils/classNames'
 import { TbUsers, TbListDetails, TbChecks, TbClock, TbPercentage } from 'react-icons/tb'
+import { apiGetTeamScenariosDashboard, apiUnassignScenario, type TeamScenariosDashboardResponse } from '@/services/TeamService'
 import type { ColumnDef } from '@/components/shared/DataTable'
-import type { ScenarioSession } from '@/views/sales/ScenarioList/types'
 import { NumericFormat } from 'react-number-format'
 import dayjs from 'dayjs'
 
@@ -28,13 +28,14 @@ type ScenarioAssignment = {
     daysRemaining: number
     totalDays: number
     createdAt: string
-    status: 'completed' | 'in-progress' | 'overdue'
+    status: 'completed' | 'active' | 'overdue'
     totalUsers: number
     completedUsers: number
     pendingUsers: number
 }
 
 type TeamScenariosSectionProps = {
+    teamId: string
     teamMembers: {
         id: string
         name: string
@@ -43,12 +44,18 @@ type TeamScenariosSectionProps = {
     }[]
 }
 
-const TeamScenariosSection = ({ teamMembers }: TeamScenariosSectionProps) => {
+const TeamScenariosSection = ({ teamId, teamMembers }: TeamScenariosSectionProps) => {
     const [viewMode, setViewMode] = useState<'users' | 'scenarios'>('users')
+    const [isLoading, setIsLoading] = useState(false)
+    const [data, setData] = useState<TeamScenariosDashboardResponse | null>(null)
+    
+    // UI Local state
     const [currentPage, setCurrentPage] = useState(1)
     const [pageSize, setPageSize] = useState(10)
     const [scenarioCurrentPage, setScenarioCurrentPage] = useState(1)
     const [scenarioPageSize, setScenarioPageSize] = useState(10)
+    
+    // Drawers state
     const [userDrawerOpen, setUserDrawerOpen] = useState(false)
     const [selectedUser, setSelectedUser] = useState<{
         userId: string
@@ -56,207 +63,165 @@ const TeamScenariosSection = ({ teamMembers }: TeamScenariosSectionProps) => {
         userEmail: string
         userImg?: string
     } | null>(null)
-    const [selectedUserScenarios, setSelectedUserScenarios] = useState<ScenarioSession[]>([])
+    const [selectedUserScenarios, setSelectedUserScenarios] = useState<any[]>([])
+    
     const [scenarioDrawerOpen, setScenarioDrawerOpen] = useState(false)
-    const [selectedScenario, setSelectedScenario] = useState<ScenarioSession | null>(null)
+    const [selectedScenario, setSelectedScenario] = useState<any | null>(null)
     const [selectedScenarioUsers, setSelectedScenarioUsers] = useState<any[]>([])
 
-    // Mock scenario templates
-    const scenarioTemplates = [
-        {
-            title: 'Enterprise Software Sales Challenge',
-            mode: 'Role Play',
-            persona: 'Enterprise CTO',
-            scenario_text: 'You are meeting with a CTO of a Fortune 500 company to discuss our enterprise software solution. They are concerned about security and integration with existing systems.',
-            message: 'Focus on demonstrating ROI and addressing security concerns',
-            document_name: 'Product_Specs.pdf',
-            document_url: '/documents/product-specs.pdf',
-        },
-        {
-            title: 'Cold Call to SMB Owner',
-            mode: 'Practice',
-            persona: 'SMB Owner',
-            scenario_text: 'Make a cold call to a small business owner who has shown interest in productivity tools. Build rapport and identify their key pain points.',
-            message: 'Practice building rapport quickly and identifying pain points',
-        },
-        {
-            title: 'Handling Price Objections',
-            mode: 'Coaching',
-            persona: 'Budget-Conscious Manager',
-            scenario_text: 'Practice handling price objections from a budget-conscious buyer who is comparing your solution with competitors.',
-            message: 'Address common pricing objections with confidence',
-            document_name: 'Pricing_Objections_Guide.docx',
-            document_url: '/documents/pricing-guide.docx',
-        },
-    ]
+    const fetchData = async () => {
+        if (!teamId) return
+        setIsLoading(true)
+        try {
+            const response = await apiGetTeamScenariosDashboard(teamId)
+            setData(response)
+        } catch (error) {
+            console.error('Failed to fetch team scenarios dashboard:', error)
+        } finally {
+            setIsLoading(false)
+        }
+    }
 
-    // Mock scenario data for each user with full scenario details
-    const userScenariosMap = new Map<string, ScenarioSession[]>()
-    teamMembers.forEach((member) => {
-        const numScenarios = Math.floor(Math.random() * 3) + 1
-        const scenarios: ScenarioSession[] = []
+    useEffect(() => {
+        fetchData()
+    }, [teamId])
+
+    // Derived: Group scenarios by user
+    const scenarioData: ScenarioStats[] = useMemo(() => {
+        if (!data) return []
         
-        for (let i = 0; i < numScenarios; i++) {
-            const template = scenarioTemplates[i % scenarioTemplates.length]
-            const timeLimitDays = [5, 7, 10][Math.floor(Math.random() * 3)]
-            const daysRemaining = Math.floor(Math.random() * (timeLimitDays + 3)) - 2
-            const isCompleted = Math.random() > 0.6
-            const createdDaysAgo = Math.floor(Math.random() * 20) + 1
+        // Use teamMembers as base to show members even if they have no scenarios
+        return teamMembers.map(member => {
+            const userScenarios = data.assigned_scenarios.filter(s => s.user_id === member.id)
+            const completed = userScenarios.filter(s => s.is_completed).length
+            const total = userScenarios.length
             
-            scenarios.push({
-                scenario_id: `sc-${member.id}-${i}`,
-                session_id: `sess-${member.id}-${i}`,
-                manager_id: 'mgr-001',
-                title: template.title,
-                time_limit_days: timeLimitDays,
-                message: template.message,
-                created_at: dayjs().subtract(createdDaysAgo, 'day').toISOString(),
-                updated_at: dayjs().subtract(createdDaysAgo, 'day').toISOString(),
-                is_completed: isCompleted,
-                session_status: 'active' as const,
-                user_name: member.name,
-                user_email: member.email,
-                days_remaining: daysRemaining,
-                mode: template.mode,
-                persona: template.persona,
-                scenario_text: template.scenario_text,
-                document_name: template.document_name,
-                document_url: template.document_url,
-                total_users: 1,
-                completed_users: isCompleted ? 1 : 0,
-                completion_percentage: isCompleted ? 100 : 0,
-            })
-        }
+            return {
+                userId: member.id,
+                userName: member.name,
+                userEmail: member.email,
+                userImg: member.img,
+                completed,
+                pending: total - completed,
+                total
+            }
+        })
+    }, [data, teamMembers])
+
+    // Derived: Group users by scenario
+    const scenarioAssignments: ScenarioAssignment[] = useMemo(() => {
+        if (!data) return []
         
-        userScenariosMap.set(member.id, scenarios)
-    })
-
-    // Mock scenario data for each user (summary)
-    const scenarioData: ScenarioStats[] = teamMembers.map((member) => {
-        const scenarios = userScenariosMap.get(member.id) || []
-        const completed = scenarios.filter(s => s.is_completed).length
-        const pending = scenarios.filter(s => !s.is_completed).length
-        const total = scenarios.length
-
-        return {
-            userId: member.id,
-            userName: member.name,
-            userEmail: member.email,
-            userImg: member.img,
-            completed,
-            pending,
-            total,
-        }
-    })
-
-    // Mock scenario titles pool
-    const scenarioTitles = [
-        'Enterprise Software Sales Challenge',
-        'Cold Call to SMB Owner',
-        'Handling Price Objections',
-        'Product Demo for Tech Startup',
-        'Negotiation Skills Workshop',
-        'Customer Retention Strategy',
-        'Upselling Premium Features',
-        'Discovery Call Best Practices',
-    ]
-
-    // Create full scenario objects for drawer
-    const fullScenariosMap = new Map<string, Scenario>()
-    const scenarioUsersMap = new Map<string, any[]>()
-
-    scenarioTitles.forEach((title, index) => {
-        const scenarioId = `scenario-${index}`
-        const template = scenarioTemplates[index % scenarioTemplates.length]
-        const totalDays = [5, 7, 10, 14][Math.floor(Math.random() * 4)]
-        const createdDaysAgo = Math.floor(Math.random() * 20) + 1
-
-        // Create full scenario object
-        fullScenariosMap.set(scenarioId, {
-            scenario_id: scenarioId,
-            session_id: `sess-${scenarioId}`,
-            manager_id: 'mgr-001',
-            title: title,
-            time_limit_days: totalDays,
-            message: template.message,
-            created_at: dayjs().subtract(createdDaysAgo, 'day').toISOString(),
-            updated_at: dayjs().subtract(createdDaysAgo, 'day').toISOString(),
-            is_completed: false,
-            session_status: 'active' as const,
-            user_name: '',
-            user_email: '',
-            days_remaining: Math.floor(Math.random() * totalDays),
-            mode: template.mode,
-            persona: template.persona,
-            scenario_text: template.scenario_text,
-            document_name: template.document_name,
-            document_url: template.document_url,
-            total_users: 0,
-            completed_users: 0,
-            completion_percentage: 0,
+        const scenarioGroups = new Map<string, any[]>()
+        data.assigned_scenarios.forEach(item => {
+            if (!scenarioGroups.has(item.scenario_id)) {
+                scenarioGroups.set(item.scenario_id, [])
+            }
+            scenarioGroups.get(item.scenario_id)?.push(item)
         })
 
-        // Assign random users to this scenario
-        const numUsers = Math.floor(Math.random() * Math.min(teamMembers.length, 5)) + 1
-        const assignedUsers = teamMembers
-            .sort(() => 0.5 - Math.random())
-            .slice(0, numUsers)
-            .map(member => {
-                const isCompleted = Math.random() > 0.5
-                const daysRemaining = isCompleted ? undefined : Math.floor(Math.random() * (totalDays + 3)) - 2
-                const assignedDaysAgo = Math.floor(Math.random() * 15) + 1
-                return {
-                    userId: member.id,
-                    userName: member.name,
-                    userEmail: member.email,
-                    userImg: member.img,
-                    isCompleted,
-                    score: Math.floor(Math.random() * 40) + 60,
-                    completedAt: isCompleted ? dayjs().subtract(Math.floor(Math.random() * 10), 'day').toISOString() : undefined,
-                    daysRemaining,
-                    assignedAt: dayjs().subtract(assignedDaysAgo, 'day').toISOString()
-                }
-            })
+        return Array.from(scenarioGroups.entries()).map(([scenarioId, items]) => {
+            const first = items[0]
+            const totalUsers = items.length
+            const completedUsers = items.filter(i => i.is_completed).length
+            
+            let status: ScenarioAssignment['status'] = 'active'
+            if (first.days_remaining !== undefined && first.days_remaining < 0) status = 'overdue'
+            else if (items.every(i => i.is_completed)) status = 'completed'
 
-        scenarioUsersMap.set(scenarioId, assignedUsers)
-    })
+            return {
+                id: scenarioId,
+                scenarioId: scenarioId,
+                scenarioTitle: first.title,
+                daysRemaining: first.days_remaining || 0,
+                totalDays: first.time_limit_days || 0,
+                createdAt: first.created_at,
+                status,
+                totalUsers,
+                completedUsers,
+                pendingUsers: totalUsers - completedUsers
+            }
+        })
+    }, [data])
 
-    // Mock scenario assignments (By Scenarios view) - Group by scenario
-    const scenarioAssignments: ScenarioAssignment[] = scenarioTitles.map((title, index) => {
-        const scenarioId = `scenario-${index}`
-        const totalDays = [5, 7, 10, 14][Math.floor(Math.random() * 4)]
-        const daysRemaining = Math.floor(Math.random() * (totalDays + 3)) - 2
-        const createdDaysAgo = Math.floor(Math.random() * 20) + 1
+    // Derived: Map user_id to their scenarios (for drawer)
+    const userScenariosMap = useMemo(() => {
+        const map = new Map<string, any[]>()
+        if (!data) return map
         
-        let status: ScenarioAssignment['status'] = 'in-progress'
-        if (daysRemaining < 0) status = 'overdue'
-        else if (Math.random() > 0.7) status = 'completed'
+        data.assigned_scenarios.forEach(s => {
+            if (!map.has(s.user_id)) map.set(s.user_id, [])
+            map.get(s.user_id)?.push({
+                ...s,
+                mode: s.mode.name,
+                persona: s.persona.name,
+                sessionId: s.session_id
+            })
+        })
+        return map
+    }, [data])
 
-        // Get user count from map
-        const users = scenarioUsersMap.get(scenarioId) || []
-        const totalUsers = users.length
-        const completedUsers = users.filter(u => u.isCompleted).length
-        const pendingUsers = totalUsers - completedUsers
+    // Derived: Map scenario_id to their users (for drawer)
+    const scenarioUsersMap = useMemo(() => {
+        const map = new Map<string, any[]>()
+        if (!data) return map
+        
+        data.assigned_scenarios.forEach(s => {
+            if (!map.has(s.scenario_id)) map.set(s.scenario_id, [])
+            map.get(s.scenario_id)?.push({
+                userId: s.user_id,
+                userName: s.user_name,
+                userEmail: s.user_email,
+                isCompleted: s.is_completed,
+                completedAt: s.end_time,
+                daysRemaining: s.days_remaining,
+                assignedAt: s.created_at,
+                sessionId: s.session_id
+            })
+        })
+        return map
+    }, [data])
 
-        return {
-            id: `scenario-assignment-${index}`,
-            scenarioId,
-            scenarioTitle: title,
-            daysRemaining,
-            totalDays,
-            createdAt: dayjs().subtract(createdDaysAgo, 'day').toISOString(),
-            status,
-            totalUsers,
-            completedUsers,
-            pendingUsers,
+    // Derived: Map scenario_id to scenario data (for drawer)
+    const fullScenariosMap = useMemo(() => {
+        const map = new Map<string, any>()
+        if (!data) return map
+        
+        data.assigned_scenarios.forEach(s => {
+            if (!map.has(s.scenario_id)) {
+                map.set(s.scenario_id, {
+                    ...s,
+                    mode: s.mode.name,
+                    persona: s.persona.name
+                })
+            }
+        })
+        return map
+    }, [data])
+
+    const handleUnassign = async (sessionId: string) => {
+        try {
+            await apiUnassignScenario(sessionId)
+            toast.push(
+                <Notification title="Success" type="success">
+                    Scenario unassigned successfully
+                </Notification>
+            )
+            fetchData()
+        } catch (error) {
+            console.error('Failed to unassign scenario:', error)
+            toast.push(
+                <Notification title="Error" type="danger">
+                    Failed to unassign scenario
+                </Notification>
+            )
         }
-    })
+    }
 
-    // Calculate totals
-    const totalAssigned = scenarioData.reduce((sum, item) => sum + item.total, 0)
-    const totalCompleted = scenarioData.reduce((sum, item) => sum + item.completed, 0)
-    const totalPending = scenarioData.reduce((sum, item) => sum + item.pending, 0)
-    const completionRate = totalAssigned > 0 ? (totalCompleted / totalAssigned) * 100 : 0
+    const totalAssigned = data?.total_assigned || 0
+    const totalCompleted = data?.completed_count || 0
+    const totalPending = data?.pending_count || 0
+    const completionRate = data?.completion_rate || 0
 
     // Pagination handlers for users view
     const handlePaginationChange = (page: number) => {
@@ -585,36 +550,44 @@ const TeamScenariosSection = ({ teamMembers }: TeamScenariosSectionProps) => {
             </div>
 
             {/* Table */}
-            {viewMode === 'users' && (
-                <DataTable
-                    columns={columns}
-                    data={paginatedData}
-                    noData={scenarioData.length === 0}
-                    hoverable
-                    pagingData={{
-                        total: scenarioData.length,
-                        pageIndex: currentPage,
-                        pageSize: pageSize,
-                    }}
-                    onPaginationChange={handlePaginationChange}
-                    onSelectChange={handleSelectChange}
-                />
-            )}
+            {isLoading ? (
+                <div className="flex justify-center py-20">
+                    <Spinner size={40} />
+                </div>
+            ) : (
+                <>
+                    {viewMode === 'users' && (
+                        <DataTable
+                            columns={columns}
+                            data={paginatedData}
+                            noData={scenarioData.length === 0}
+                            hoverable
+                            pagingData={{
+                                total: scenarioData.length,
+                                pageIndex: currentPage,
+                                pageSize: pageSize,
+                            }}
+                            onPaginationChange={handlePaginationChange}
+                            onSelectChange={handleSelectChange}
+                        />
+                    )}
 
-            {viewMode === 'scenarios' && (
-                <DataTable
-                    columns={scenarioColumns}
-                    data={paginatedScenarios}
-                    noData={scenarioAssignments.length === 0}
-                    hoverable
-                    pagingData={{
-                        total: scenarioAssignments.length,
-                        pageIndex: scenarioCurrentPage,
-                        pageSize: scenarioPageSize,
-                    }}
-                    onPaginationChange={handleScenarioPaginationChange}
-                    onSelectChange={handleScenarioSelectChange}
-                />
+                    {viewMode === 'scenarios' && (
+                        <DataTable
+                            columns={scenarioColumns}
+                            data={paginatedScenarios}
+                            noData={scenarioAssignments.length === 0}
+                            hoverable
+                            pagingData={{
+                                total: scenarioAssignments.length,
+                                pageIndex: scenarioCurrentPage,
+                                pageSize: scenarioPageSize,
+                            }}
+                            onPaginationChange={handleScenarioPaginationChange}
+                            onSelectChange={handleScenarioSelectChange}
+                        />
+                    )}
+                </>
             )}
         </Card>
 
@@ -624,6 +597,7 @@ const TeamScenariosSection = ({ teamMembers }: TeamScenariosSectionProps) => {
             onClose={handleUserDrawerClose}
             user={selectedUser}
             scenarios={selectedUserScenarios}
+            onUnassignScenario={handleUnassign}
         />
 
         {/* Scenario Users Drawer */}
@@ -632,6 +606,7 @@ const TeamScenariosSection = ({ teamMembers }: TeamScenariosSectionProps) => {
             onClose={handleScenarioDrawerClose}
             scenario={selectedScenario}
             users={selectedScenarioUsers}
+            onUnassignScenario={handleUnassign}
         />
     </>
     )

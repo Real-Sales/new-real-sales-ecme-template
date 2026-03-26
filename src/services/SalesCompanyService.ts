@@ -98,3 +98,43 @@ export async function apiDeleteSalesDivision(divisionId: string) {
         method: 'delete',
     })
 }
+
+export type DivisionUser = {
+    user_id: string
+    first_name: string
+    last_name: string
+    email: string
+    phone_number: string | null
+    company_id: string
+    status_active: boolean
+    is_verified: boolean
+    team_id: string
+    team_name: string
+    role: {
+        name: string
+        role_id: string
+    }
+    manager_info: {
+        manager_id: string
+        manager_name: string
+        manager_email: string
+        company_name: string
+    }
+}
+
+export type SalesDivisionInfoResponse = {
+    name: string
+    division_category: string
+    sales_company_id: string
+    is_active: boolean
+    sales_division_id: string
+    created_at: string
+    users: DivisionUser[]
+}
+
+export async function apiGetSalesDivisionInfo(divisionId: string) {
+    return ApiService.fetchDataWithAxios<SalesDivisionInfoResponse>({
+        url: endpointConfig.salesDivisionInfo(divisionId),
+        method: 'get',
+    })
+}
