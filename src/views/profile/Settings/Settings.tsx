@@ -9,6 +9,7 @@ const Profile = lazy(() => import('./components/SettingsProfile'))
 const Security = lazy(() => import('./components/SettingsSecurity'))
 const Notification = lazy(() => import('./components/SettingsNotification'))
 const Billing = lazy(() => import('./components/SettingsBilling'))
+const Invites = lazy(() => import('./components/SettingsInvites'))
 
 const Settings = () => {
     const currentView = useAppSelector((state) => state.settings.currentView)
@@ -34,6 +35,7 @@ const Settings = () => {
                         {currentView === 'security' && <Security />}
                         {currentView === 'notification' && <Notification />}
                         {currentView === 'billing' && <Billing />}
+                        {currentView === 'invites' && <Invites />}
                     </Suspense>
                 </div>
             </div>

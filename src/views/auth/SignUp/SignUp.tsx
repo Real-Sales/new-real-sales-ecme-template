@@ -4,6 +4,10 @@ import SignUpForm from './components/SignUpForm'
 import ActionLink from '@/components/shared/ActionLink'
 import useTimeOutMessage from '@/utils/hooks/useTimeOutMessage'
 import { useAppSelector } from '@/store'
+import { useEffect, useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { apiValidateInvite } from '@/services/InviteService'
+import type { ValidateInviteResponse } from '@/services/InviteService'
 
 type SignUpProps = {
     disableSubmit?: boolean
@@ -15,8 +19,46 @@ export const SignUpBase = ({
     disableSubmit,
 }: SignUpProps) => {
     const [message, setMessage] = useTimeOutMessage()
+    const [searchParams] = useSearchParams()
+    const navigate = useNavigate()
+    const inviteToken = searchParams.get('invite') ?? ''
+    const [inviteInfo, setInviteInfo] = useState<ValidateInviteResponse | null>(
+        null,
+    )
+    const [isInviteLoading, setInviteLoading] = useState(false)
 
     const mode = useAppSelector((state) => state.theme.mode)
+
+    useEffect(() => {
+        if (!inviteToken) {
+            setInviteInfo(null)
+            return
+        }
+        const loadInvite = async () => {
+            try {
+                setInviteLoading(true)
+                const resp = await apiValidateInvite(inviteToken)
+                if (resp?.valid) {
+                    setInviteInfo(resp)
+                } else {
+                    setInviteInfo(null)
+                    setMessage('Invite expired or invalid')
+                    navigate('/sign-in', { replace: true })
+                }
+            } catch (error: any) {
+                setInviteInfo(null)
+                setMessage(
+                    error?.response?.data?.message ||
+                        error?.response?.data?.detail ||
+                        'Invite expired or invalid',
+                )
+                navigate('/sign-in', { replace: true })
+            } finally {
+                setInviteLoading(false)
+            }
+        }
+        loadInvite()
+    }, [inviteToken, setMessage, navigate])
 
     return (
         <div className="flex flex-col h-full min-h-0 justify-center">
@@ -29,7 +71,9 @@ export const SignUpBase = ({
                 <div>
                     <h3 className="mb-1">Sign Up</h3>
                     <p className="font-semibold heading-text">
-                        And lets get started with your free trial
+                        {inviteInfo
+                            ? `You're invited to join ${inviteInfo.company_name} as ${inviteInfo.role}`
+                            : 'And lets get started with your free trial'}
                     </p>
                 </div>
             </div>
@@ -40,7 +84,12 @@ export const SignUpBase = ({
                     </Alert>
                 </div>
             )}
-            <SignUpForm disableSubmit={disableSubmit} setMessage={setMessage} />
+            <SignUpForm
+                disableSubmit={disableSubmit || isInviteLoading}
+                setMessage={setMessage}
+                inviteToken={inviteToken}
+                inviteInfo={inviteInfo}
+            />
             <div className="flex-shrink-0 pt-2 text-center">
                 <span>Already have an account? </span>
                 <ActionLink

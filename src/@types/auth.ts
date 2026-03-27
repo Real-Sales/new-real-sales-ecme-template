@@ -14,6 +14,8 @@ export type SignInResponse = {
         last_name: string
         phone_number: string
         role: string
+        company_id?: string
+        sales_company_id?: string
     }
 }
 
@@ -38,6 +40,14 @@ export type SignUpCredential = {
     first_name: string
     last_name: string
     phone_number: string
+    password: string
+}
+
+export type InviteSignUpCredential = {
+    invite_token: string
+    email: string
+    first_name: string
+    last_name: string
     password: string
 }
 

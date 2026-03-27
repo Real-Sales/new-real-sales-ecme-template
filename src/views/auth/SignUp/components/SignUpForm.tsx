@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
 import { FormItem, Form } from '@/components/ui/Form'
@@ -9,10 +9,13 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import type { ZodType } from 'zod'
 import type { CommonProps } from '@/@types/common'
+import type { ValidateInviteResponse } from '@/services/InviteService'
 
 interface SignUpFormProps extends CommonProps {
     disableSubmit?: boolean
     setMessage?: (message: string) => void
+    inviteToken?: string
+    inviteInfo?: ValidateInviteResponse | null
 }
 
 type SignUpFormSchema = {
@@ -23,29 +26,54 @@ type SignUpFormSchema = {
     password: string
 }
 
-const validationSchema: ZodType<SignUpFormSchema> = z.object({
-    email: z.string().min(1, { message: 'Please enter your email' }).email({ message: 'Invalid email' }),
-    first_name: z.string().min(1, { message: 'Please enter your first name' }),
-    last_name: z.string().min(1, { message: 'Please enter your last name' }),
-    phone_number: z.string().min(1, { message: 'Please enter your phone number' }).regex(/^\d{10}$/, { message: 'Phone number must be exactly 10 digits' }),
-    password: z.string().min(1, { message: 'Password Required' }),
-})
-
 const SignUpForm = (props: SignUpFormProps) => {
-    const { disableSubmit = false, className, setMessage } = props
+    const {
+        disableSubmit = false,
+        className,
+        setMessage,
+        inviteToken = '',
+        inviteInfo = null,
+    } = props
 
     const [isSubmitting, setSubmitting] = useState<boolean>(false)
 
-    const { signUp } = useAuth()
+    const { signUp, inviteSignUp } = useAuth()
+    const isInviteFlow = Boolean(inviteToken)
+    const validationSchema: ZodType<SignUpFormSchema> = useMemo(
+        () =>
+            z.object({
+                email: z
+                    .string()
+                    .min(1, { message: 'Please enter your email' })
+                    .email({ message: 'Invalid email' }),
+                first_name: z
+                    .string()
+                    .min(1, { message: 'Please enter your first name' }),
+                last_name: z
+                    .string()
+                    .min(1, { message: 'Please enter your last name' }),
+                phone_number: isInviteFlow
+                    ? z.string().optional().default('')
+                    : z
+                        .string()
+                        .min(1, { message: 'Please enter your phone number' })
+                        .regex(/^\d{10}$/, {
+                            message: 'Phone number must be exactly 10 digits',
+                        }),
+                password: z.string().min(1, { message: 'Password Required' }),
+            }),
+        [isInviteFlow],
+    )
 
     const {
         handleSubmit,
         formState: { errors },
         control,
+        setValue,
     } = useForm<SignUpFormSchema>({
         resolver: zodResolver(validationSchema),
         defaultValues: {
-            email: '',
+            email: inviteInfo?.email ?? '',
             first_name: '',
             last_name: '',
             phone_number: '',
@@ -53,18 +81,32 @@ const SignUpForm = (props: SignUpFormProps) => {
         }
     })
 
+    useEffect(() => {
+        if (inviteInfo?.email) {
+            setValue('email', inviteInfo.email)
+        }
+    }, [inviteInfo?.email, setValue])
+
     const onSignUp = async (values: SignUpFormSchema) => {
         const { email, first_name, last_name, phone_number, password } = values
 
         if (!disableSubmit) {
             setSubmitting(true)
-            const result = await signUp({
-                email,
-                first_name,
-                last_name,
-                phone_number,
-                password
-            })
+            const result = isInviteFlow
+                ? await inviteSignUp({
+                    invite_token: inviteToken,
+                    email: inviteInfo?.email || email,
+                    first_name,
+                    last_name,
+                    password,
+                })
+                : await signUp({
+                    email,
+                    first_name,
+                    last_name,
+                    phone_number,
+                    password,
+                })
 
             if (result?.status === 'failed') {
                 setMessage?.(result.message)
@@ -131,30 +173,35 @@ const SignUpForm = (props: SignUpFormProps) => {
                                 placeholder="Email"
                                 autoComplete="off"
                                 className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-200 shadow-md"
+                                readOnly={isInviteFlow}
+                                disabled={isInviteFlow}
                                 {...field}
+                                value={isInviteFlow ? inviteInfo?.email || field.value : field.value}
                             />
                         )}
                     />
                 </FormItem>
-                <FormItem
-                    label="Phone Number"
-                    invalid={Boolean(errors.phone_number)}
-                    errorMessage={errors.phone_number?.message}
-                >
-                    <Controller
-                        name="phone_number"
-                        control={control}
-                        render={({ field }) => (
-                            <Input
-                                type="text"
-                                placeholder="Phone Number"
-                                autoComplete="off"
-                                className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-200 shadow-md"
-                                {...field}
-                            />
-                        )}
-                    />
-                </FormItem>
+                {!isInviteFlow && (
+                    <FormItem
+                        label="Phone Number"
+                        invalid={Boolean(errors.phone_number)}
+                        errorMessage={errors.phone_number?.message}
+                    >
+                        <Controller
+                            name="phone_number"
+                            control={control}
+                            render={({ field }) => (
+                                <Input
+                                    type="text"
+                                    placeholder="Phone Number"
+                                    autoComplete="off"
+                                    className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-200 shadow-md"
+                                    {...field}
+                                />
+                            )}
+                        />
+                    </FormItem>
+                )}
                 <FormItem
                     label="Password"
                     invalid={Boolean(errors.password)}
@@ -180,7 +227,11 @@ const SignUpForm = (props: SignUpFormProps) => {
                     variant="solid"
                     type="submit"
                 >
-                    {isSubmitting ? 'Creating Account...' : 'Sign Up'}
+                    {isSubmitting
+                        ? 'Creating Account...'
+                        : isInviteFlow
+                            ? 'Accept Invite'
+                            : 'Sign Up'}
                 </Button>
             </Form>
         </div>

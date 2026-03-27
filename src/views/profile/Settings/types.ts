@@ -3,6 +3,7 @@ export type View =
     | 'security'
     | 'notification'
     | 'billing'
+    | 'invites'
 
 export type CreditCard = {
     cardHolderName: string
