@@ -197,6 +197,25 @@ function AuthProvider({ children }: AuthProviderProps) {
             }
             // eslint-disable-next-line  @typescript-eslint/no-explicit-any
         } catch (errors: any) {
+            const detailMessage =
+                errors?.response?.data?.detail ||
+                errors?.response?.data?.message ||
+                errors?.response?.data?.error
+
+            if (
+                errors?.response?.status === 403 &&
+                typeof detailMessage === 'string' &&
+                detailMessage.includes('Email not verified')
+            ) {
+                navigatorRef.current?.navigate(
+                    `/verify-otp?email=${encodeURIComponent(values.email)}`,
+                )
+                return {
+                    status: 'failed',
+                    message: detailMessage,
+                }
+            }
+
             if (
                 errors?.response?.status === 404 ||
                 errors?.response?.status === 401 ||
@@ -209,7 +228,10 @@ function AuthProvider({ children }: AuthProviderProps) {
             }
             return {
                 status: 'failed',
-                message: errors?.response?.data?.message || errors?.response?.data?.error || errors?.response?.data?.detail || errors.toString(),
+                message:
+                    detailMessage ||
+                    errors?.response?.data?.detail ||
+                    errors.toString(),
             }
         }
     }

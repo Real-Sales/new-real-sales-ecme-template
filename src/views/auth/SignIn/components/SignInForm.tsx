@@ -63,7 +63,7 @@ const SignInForm = (props: SignInFormProps) => {
 
             const result = await signIn({ email, password, remember_me })
 
-            if (result?.status === 'failed') {
+            if (result?.status === 'failed' && result.message) {
                 setMessage?.(result.message)
             }
         }
