@@ -5,7 +5,13 @@ import { useAppSelector, useAppDispatch } from '@/store/hook'
 import { signInSuccess, signOutSuccess } from '@/store/slices/auth/sessionSlice'
 import { setUser } from '@/store/slices/auth/userSlice'
 import { setProfile } from '@/views/profile/Settings/store/settingsSlice'
-import { apiSignIn, apiSignOut, apiSignUp, apiVerifyOtp } from '@/services/AuthService'
+import {
+    apiSignIn,
+    apiSignOut,
+    apiSignUp,
+    apiVerifyOtp,
+    apiInviteSignUp,
+} from '@/services/AuthService'
 import { REDIRECT_URL_KEY } from '@/constants/app.constant'
 import { useNavigate } from 'react-router-dom'
 import Cookies from 'js-cookie'
@@ -28,6 +34,7 @@ const clearAuthCookie = () => {
 import type {
     SignInCredential,
     SignUpCredential,
+    InviteSignUpCredential,
     AuthResult,
     OauthSignInCallbackPayload,
     User,
@@ -259,20 +266,59 @@ function AuthProvider({ children }: AuthProviderProps) {
         }
     }
 
+    const inviteSignUp = async (values: InviteSignUpCredential): AuthResult => {
+        try {
+            const resp = await apiInviteSignUp(values)
+            if (resp) {
+                navigatorRef.current?.navigate(
+                    `/verify-otp?email=${encodeURIComponent(resp.user.email)}&flow=invite`,
+                )
+                return {
+                    status: 'success',
+                    message: '',
+                }
+            }
+            return {
+                status: 'failed',
+                message: 'Unable to sign up with invite',
+            }
+            // eslint-disable-next-line  @typescript-eslint/no-explicit-any
+        } catch (errors: any) {
+            return {
+                status: 'failed',
+                message:
+                    errors?.response?.data?.message ||
+                    errors?.response?.data?.error ||
+                    errors?.response?.data?.detail ||
+                    errors.toString(),
+            }
+        }
+    }
+
     const verifyOtp = async (values: { email: string; otp_code: string }): AuthResult => {
         try {
             const resp = await apiVerifyOtp(values)
             if (resp?.token) {
-                handleSignIn({ accessToken: resp.token }, {
+                await handleSignIn({ accessToken: resp.token }, {
                     userId: resp.user.user_id,
                     firstName: resp.user.first_name,
                     lastName: resp.user.last_name,
                     email: resp.user.email,
                     phoneNumber: resp.user.phone_number,
                     role: resp.user.role,
+                    companyId: (resp.user as any).sales_company_id || (resp.user as any).company_id,
                     isNewUser: true,
                 } as User)
-                navigatorRef.current?.navigate('/onboarding')
+                const hasCompanyContext = Boolean(
+                    (resp.user as any).sales_company_id || (resp.user as any).company_id,
+                )
+                const flow = new URLSearchParams(window.location.search).get('flow')
+                const shouldSkipOnboarding =
+                    flow === 'invite' ||
+                    hasCompanyContext ||
+                    resp.user.role !== 'company_owner'
+
+                navigatorRef.current?.navigate(shouldSkipOnboarding ? '/overview' : '/onboarding')
                 return {
                     status: 'success',
                     message: '',
@@ -316,6 +362,7 @@ function AuthProvider({ children }: AuthProviderProps) {
                 user,
                 signIn,
                 signUp,
+                inviteSignUp,
                 verifyOtp,
                 signOut,
                 oAuthSignIn,

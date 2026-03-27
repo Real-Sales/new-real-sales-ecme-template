@@ -2,6 +2,7 @@ import { createContext } from 'react'
 import type {
     SignInCredential,
     SignUpCredential,
+    InviteSignUpCredential,
     AuthResult,
     User,
     OauthSignInCallbackPayload,
@@ -13,6 +14,7 @@ type Auth = {
     user: User
     signIn: (values: SignInCredential) => AuthResult
     signUp: (values: SignUpCredential) => AuthResult
+    inviteSignUp: (values: InviteSignUpCredential) => AuthResult
     verifyOtp: (values: VerifyOtpCredential) => AuthResult
     signOut: () => void
     oAuthSignIn: (
@@ -42,6 +44,7 @@ const AuthContext = createContext<Auth>({
     user: {},
     signIn: async () => defaultFunctionPlaceHolder(),
     signUp: async () => defaultFunctionPlaceHolder(),
+    inviteSignUp: async () => defaultFunctionPlaceHolder(),
     verifyOtp: async () => defaultFunctionPlaceHolder(),
     signOut: () => {},
     oAuthSignIn: defaultOAuthSignInPlaceHolder,

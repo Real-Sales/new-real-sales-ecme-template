@@ -3,6 +3,7 @@ import endpointConfig from '@/configs/endpoint.config'
 import type {
     SignInCredential,
     SignUpCredential,
+    InviteSignUpCredential,
     ForgotPassword,
     ForgotPasswordConfirm,
     ResetPassword,
@@ -28,6 +29,14 @@ export async function apiSignUp(data: SignUpCredential) {
     })
 }
 
+export async function apiInviteSignUp(data: InviteSignUpCredential) {
+    return ApiService.fetchDataWithAxios<SignUpResponseNoToken>({
+        url: endpointConfig.inviteSignUp,
+        method: 'post',
+        data,
+    })
+}
+
 export async function apiVerifyOtp(data: VerifyOtpCredential) {
     return ApiService.fetchDataWithAxios<VerifyOtpResponse>({
         url: endpointConfig.verifyOtp,
@@ -47,7 +56,7 @@ export async function apiSendOtp(data: { email: string }) {
 export async function apiSignOut() {
     return ApiService.fetchDataWithAxios({
         url: endpointConfig.signOut,
-        method: 'post',
+        method: 'get',
     })
 }
 

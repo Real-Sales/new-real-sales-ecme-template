@@ -7,6 +7,7 @@ import {
     TbLock,
     TbBell,
     TbFileDollar,
+    TbUsers,
 } from 'react-icons/tb'
 import type { View } from '../types'
 import type { ReactNode } from 'react'
@@ -18,11 +19,16 @@ const menuList: { label: string; value: View; icon: ReactNode }[] = [
     { label: 'Security', value: 'security', icon: <TbLock /> },
     { label: 'Notification', value: 'notification', icon: <TbBell /> },
     { label: 'Billing', value: 'billing', icon: <TbFileDollar /> },
+    { label: 'Team Invites', value: 'invites', icon: <TbUsers /> },
 ]
 
 export const SettingsMenu = ({ onChange }: { onChange?: () => void }) => {
     const dispatch = useAppDispatch()
     const currentView = useAppSelector((state) => state.settings.currentView)
+    const userRole = useAppSelector((state) => state.auth.user.role)
+    const visibleMenu = menuList.filter(
+        (menu) => !(menu.value === 'invites' && userRole === 'sales_person'),
+    )
 
     const handleSelect = (value: View) => {
         dispatch(setCurrentView(value))
@@ -33,7 +39,7 @@ export const SettingsMenu = ({ onChange }: { onChange?: () => void }) => {
         <div className="flex flex-col justify-between h-full">
             <ScrollBar className="h-full overflow-y-auto">
                 <Menu className="mx-2 mb-10">
-                    {menuList.map((menu) => (
+                    {visibleMenu.map((menu) => (
                         <MenuItem
                             key={menu.value}
                             eventKey={menu.value}
