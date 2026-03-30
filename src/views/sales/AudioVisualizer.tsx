@@ -1,4 +1,4 @@
-import React, { useRef, useMemo, useState, Suspense, useEffect } from 'react';
+import React, { useRef, useMemo, useState, Suspense, useEffect, useCallback } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, PerspectiveCamera } from '@react-three/drei';
 import { EffectComposer, Bloom } from '@react-three/postprocessing';
@@ -6,7 +6,8 @@ import * as THREE from 'three';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLocation } from 'react-router-dom';
 import { HiMicrophone, HiStop, HiPaperAirplane, HiPaperClip, HiPlus, HiLightBulb, HiSparkles } from 'react-icons/hi2';
-
+import '@/liveAudio/GdmLiveAudio';
+import { getRangeVolumeFromAnalyser } from '@/liveAudio/utils/frequencyRange';
 
 // --- 1. CONFIGURATION: "Kilo Herz 2" ---
 const CONFIG = [
@@ -78,7 +79,14 @@ const useAudioAnalyzer = () => {
   const startAudio = async () => {
     if (context) return;
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          channelCount: 1,
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      });
       const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
       const ctx = new AudioContext();
       const analyzer = ctx.createAnalyser();
@@ -100,34 +108,21 @@ const useAudioAnalyzer = () => {
     }
   };
 
-  const getRangeVolume = (minHz: number, maxHz: number) => {
-    if (!analyzerRef.current || !dataArrayRef.current || !context) return 0;
-    
-    const sampleRate = context.ctx.sampleRate;
-    const binCount = analyzerRef.current.frequencyBinCount;
-    const nyquist = sampleRate / 2;
-    
-    const startIndex = Math.floor((minHz / nyquist) * binCount);
-    const endIndex = Math.floor((maxHz / nyquist) * binCount);
-    
-    const start = Math.max(0, startIndex);
-    const end = Math.min(binCount - 1, endIndex);
-    
-    let sum = 0;
-    let count = 0;
-    
-    analyzerRef.current.getByteFrequencyData(dataArrayRef.current as any);
+  const getMicRangeVolume = useCallback(
+    (minHz: number, maxHz: number) => {
+      if (!analyzerRef.current || !dataArrayRef.current || !context) return 0;
+      return getRangeVolumeFromAnalyser(
+        analyzerRef.current,
+        dataArrayRef.current,
+        context.ctx.sampleRate,
+        minHz,
+        maxHz,
+      );
+    },
+    [context],
+  );
 
-    for (let i = start; i <= end; i++) {
-      sum += dataArrayRef.current[i];
-      count++;
-    }
-    
-    if (count === 0) return 0;
-    return (sum / count) / 255;
-  };
-
-  return { startAudio, getRangeVolume, isReady: !!context };
+  return { startAudio, getMicRangeVolume, isReady: !!context };
 };
 
 // --- 3. Shader Material (GPU Logic) ---
@@ -458,7 +453,69 @@ export default function KiloHerzVisualizer() {
     files?: File[]
   };
 
-  const { startAudio, getRangeVolume, isReady } = useAudioAnalyzer();
+  const { startAudio, getMicRangeVolume, isReady } = useAudioAnalyzer();
+  const liveAudioRef = useRef<
+    HTMLElement & {
+      getGeminiOutputAnalyser?: () => { analyser: AnalyserNode; sampleRate: number } | null;
+      resumeOutputAudio?: () => Promise<void>;
+    }
+  >(null);
+  const geminiAnalyserRef = useRef<AnalyserNode | null>(null);
+  const geminiDataArrayRef = useRef<Uint8Array | null>(null);
+  const geminiSampleRateRef = useRef(24000);
+
+  const syncGeminiAnalyserFromElement = useCallback(() => {
+    const el = liveAudioRef.current;
+    const got = el?.getGeminiOutputAnalyser?.();
+    if (got?.analyser && got.analyser.context.state !== 'closed') {
+      if (geminiAnalyserRef.current !== got.analyser) {
+        geminiAnalyserRef.current = got.analyser;
+        geminiDataArrayRef.current = new Uint8Array(got.analyser.frequencyBinCount);
+      }
+      geminiSampleRateRef.current = got.sampleRate;
+    }
+  }, []);
+
+  useEffect(() => {
+    syncGeminiAnalyserFromElement();
+  }, [syncGeminiAnalyserFromElement]);
+
+  useEffect(() => {
+    const onSessionOpened = () => syncGeminiAnalyserFromElement();
+    window.addEventListener('liveAudioSessionOpened', onSessionOpened);
+    return () => window.removeEventListener('liveAudioSessionOpened', onSessionOpened);
+  }, [syncGeminiAnalyserFromElement]);
+
+  useEffect(() => {
+    const clear = () => {
+      geminiAnalyserRef.current = null;
+      geminiDataArrayRef.current = null;
+    };
+    window.addEventListener('liveAudioGeminiAnalyserEnded', clear);
+    return () => window.removeEventListener('liveAudioGeminiAnalyserEnded', clear);
+  }, []);
+
+  const getRangeVolume = useCallback(
+    (minHz: number, maxHz: number) => {
+      const g = geminiAnalyserRef.current;
+      const buf = geminiDataArrayRef.current;
+      if (!g || !buf || g.context.state === 'closed') {
+        syncGeminiAnalyserFromElement();
+      }
+      const g2 = geminiAnalyserRef.current;
+      const buf2 = geminiDataArrayRef.current;
+      if (g2 && buf2 && g2.context.state !== 'closed') {
+        try {
+          return getRangeVolumeFromAnalyser(g2, buf2, geminiSampleRateRef.current, minHz, maxHz);
+        } catch {
+          return getMicRangeVolume(minHz, maxHz);
+        }
+      }
+      return getMicRangeVolume(minHz, maxHz);
+    },
+    [getMicRangeVolume, syncGeminiAnalyserFromElement],
+  );
+
   const [isMicActive, setIsMicActive] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
@@ -542,10 +599,17 @@ export default function KiloHerzVisualizer() {
     if (!isReady) {
       await startAudio();
     }
+    await liveAudioRef.current?.resumeOutputAudio?.();
+    if (isMicActive) {
+      document.dispatchEvent(new CustomEvent('liveAudioStopMic'));
+    } else {
+      document.dispatchEvent(new CustomEvent('liveAudioStartMic'));
+    }
     setIsMicActive(!isMicActive);
   };
 
   const endSession = () => {
+    document.dispatchEvent(new CustomEvent('liveAudioStopMic'));
     setMessages([]);
     setIsMicActive(false);
     setSessionStarted(false);
@@ -556,6 +620,8 @@ export default function KiloHerzVisualizer() {
 
   const handleStartSession = async () => {
     await startAudio();
+    await liveAudioRef.current?.resumeOutputAudio?.();
+    document.dispatchEvent(new CustomEvent('liveAudioStartMic'));
     setIsMicActive(true);
     setSessionStarted(true);
   };
@@ -605,6 +671,15 @@ export default function KiloHerzVisualizer() {
 
   return (
     <div className="flex h-screen w-screen bg-gray-950 overflow-hidden fixed inset-0">
+      <div
+        className="pointer-events-none absolute overflow-hidden w-px h-px opacity-0 -z-10"
+        aria-hidden
+      >
+        {React.createElement('gdm-live-audio', {
+          ref: liveAudioRef,
+          'hide-built-in-visuals': true,
+        })}
+      </div>
       {/* LEFT: Audio Visualizer - Increased to 65% */}
       <div className="relative flex-shrink-0 w-[65%] h-full border-r border-gray-800/50 bg-black">
         {/* Canvas Animation - Always visible */}
@@ -1014,11 +1089,14 @@ export default function KiloHerzVisualizer() {
                   <motion.button
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    onClick={() => {
+                    onClick={async () => {
                       if (isMicActive) {
+                        document.dispatchEvent(new CustomEvent('liveAudioStopMic'));
                         setIsMicActive(false);
                       } else {
-                        startAudio();
+                        await startAudio();
+                        await liveAudioRef.current?.resumeOutputAudio?.();
+                        document.dispatchEvent(new CustomEvent('liveAudioStartMic'));
                         setIsMicActive(true);
                       }
                     }}
