@@ -15,6 +15,7 @@ import { useRecording } from './hooks/useRecording';
 import { useSessionManager } from './hooks/useSessionManager';
 import { useEventListeners } from './hooks/useEventListeners';
 import { MediaHandler } from './hooks/mediaHandler';
+import { apiGetGeminiEphemeralToken } from '@/services/GeminiService';
 
 
 
@@ -552,24 +553,23 @@ export class GdmLiveAudio extends LitElement {
 		this.nextStartTime = this.outputAudioContext.currentTime;
 	}
 
+	private async fetchEphemeralToken(): Promise<{ token: string } | null> {
+		try {
+			return await apiGetGeminiEphemeralToken();
+		} catch (err) {
+			this.updateError('Failed to get Gemini session token. Please sign in and retry.');
+			console.error('Ephemeral token fetch failed:', err);
+			return null;
+		}
+	}
+
 	private async initClient() {
 		this.initAudio();
-
-		const apiKey = import.meta.env.VITE_GEMINI_API_KEY as string | undefined;
-		if (!apiKey) {
-			this.updateError('Missing VITE_GEMINI_API_KEY. Please set it in your .env file.');
-			return;
-		}
-
-		this.client = new GoogleGenAI({
-			apiKey,
-		});
 
 		this.outputNode.connect(this.outputAudioContext.destination);
 
 		this.geminiOutputAnalyser = this.outputAudioContext.createAnalyser();
 		this.geminiOutputAnalyser.fftSize = 2048;
-		// Lower than mic path so TTS motion reads clearly (0.95 feels laggy on short chunks).
 		this.geminiOutputAnalyser.smoothingTimeConstant = 0.95;
 		this.outputNode.connect(this.geminiOutputAnalyser);
 
@@ -578,6 +578,11 @@ export class GdmLiveAudio extends LitElement {
 
 	private async initSession() {
 		const model = 'gemini-3.1-flash-live-preview';
+
+		// Each ephemeral token is single-use; re-fetch for every new session.
+		const tokenData = await this.fetchEphemeralToken();
+		if (!tokenData) return;
+		this.client = new GoogleGenAI({ apiKey: tokenData.token, httpOptions: { apiVersion: 'v1alpha' } });
 
 		try {
 			this.isSessionOpen = false;

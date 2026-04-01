@@ -33,6 +33,7 @@ const endpointConfig = {
     salesDivisionsUpdate: (divisionId: string) => `sales-divisions/${divisionId}`,
     salesDivisionsDelete: (divisionId: string) => `sales-divisions/${divisionId}`,
     authMe: 'auth/me',
+    geminiEphemeralToken: 'gemini/ephemeral-token',
 }
 
 export default endpointConfig
