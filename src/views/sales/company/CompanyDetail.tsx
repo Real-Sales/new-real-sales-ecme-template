@@ -7,10 +7,11 @@ import DataTable from '@/components/shared/DataTable'
 import { HiArrowLeft, HiUser } from 'react-icons/hi'
 import { TbSearch, TbUsers, TbUsersGroup, TbBuildingCommunity } from 'react-icons/tb'
 import {
-    apiGetSalesDivisionInfo,
-    type DivisionUser,
-    type SalesDivisionInfoResponse,
-} from '@/services/SalesCompanyService'
+    useAppSelector,
+    useAppDispatch,
+    fetchDivisionInfo,
+} from '@/store/slices/salesDivisions'
+import type { DivisionUser, SalesDivisionInfoResponse } from '@/services/SalesCompanyService'
 import type { ColumnDef } from '@/components/shared/DataTable'
 
 const deduplicateUsers = (users: DivisionUser[]): DivisionUser[] => {
@@ -26,31 +27,38 @@ const getInitials = (firstName: string, lastName: string) =>
     `${firstName[0] ?? ''}${lastName[0] ?? ''}`.toUpperCase()
 
 const CompanyDetail = () => {
+    const dispatch = useAppDispatch()
     const navigate = useNavigate()
     const { id } = useParams<{ id: string }>()
 
-    const [division, setDivision] = useState<SalesDivisionInfoResponse | null>(null)
-    const [isLoading, setIsLoading] = useState(true)
     const [searchTerm, setSearchTerm] = useState('')
     const [currentPage, setCurrentPage] = useState(1)
     const [pageSize, setPageSize] = useState(10)
 
-    const fetchDivisionInfo = async () => {
-        if (!id) return
-        setIsLoading(true)
-        try {
-            const data = await apiGetSalesDivisionInfo(id)
-            setDivision(data)
-        } catch (error) {
-            console.error('Failed to fetch division info:', error)
-        } finally {
-            setIsLoading(false)
-        }
-    }
+    const {
+        divisionInfo,
+        infoLoading,
+    } = useAppSelector(
+        (state) =>
+            state.salesDivisions?.data ?? {
+                divisionsData: [],
+                divisionsLoading: false,
+                initialized: false,
+                divisionInfo: {},
+                infoLoading: false,
+                error: null,
+                notification: null,
+            }
+    )
+
+    const division = id ? divisionInfo[id] : null
+    const isLoading = infoLoading
 
     useEffect(() => {
-        fetchDivisionInfo()
-    }, [id])
+        if (id && !divisionInfo[id]) {
+            dispatch(fetchDivisionInfo(id))
+        }
+    }, [id, dispatch, divisionInfo])
 
     const members = division ? deduplicateUsers(division.users) : []
 

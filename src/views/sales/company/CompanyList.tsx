@@ -11,15 +11,21 @@ import {
     HiTrash,
     HiPlus,
 } from 'react-icons/hi'
-import { useAppSelector } from '@/store'
-import {
-    apiGetSalesDivisions,
-    apiCreateSalesDivision,
-    apiUpdateSalesDivision,
-    apiDeleteSalesDivision
-} from '@/services/SalesCompanyService'
-import type { SalesDivisionResponse } from '@/services/SalesCompanyService'
+import { injectReducer } from '@/store'
+import salesDivisionsReducer, {
+    useAppSelector,
+    useAppDispatch,
+    fetchSalesDivisions,
+    createDivision,
+    updateDivision,
+    deleteDivision,
+    resetNotification,
+} from '@/store/slices/salesDivisions'
+import type { SalesDivision } from '@/services/SalesDivisionsService'
 import dayjs from 'dayjs'
+
+// Inject reducer when component mounts (lazy-loaded)
+injectReducer('salesDivisions', salesDivisionsReducer)
 
 console.log('DEBUG: CompanyList.tsx file loaded')
 
@@ -188,17 +194,56 @@ const CompanyCard = ({
 
 const CompanyList = () => {
     console.log('CompanyList component rendering...')
+    const dispatch = useAppDispatch()
     const navigate = useNavigate()
     const [isDrawerOpen, setIsDrawerOpen] = useState(false)
     const [drawerMode, setDrawerMode] = useState<'create' | 'edit'>('create')
-    const [selectedDivision, setSelectedDivision] = useState<SalesDivisionResponse | null>(null)
+    const [selectedDivision, setSelectedDivision] = useState<SalesDivision | null>(null)
     const formRef = useRef<HTMLFormElement>(null)
 
     useEffect(() => {
         console.log('CompanyList component mounted')
     }, [])
 
-    const openDrawer = (mode: 'create' | 'edit', division?: SalesDivisionResponse) => {
+    const companyId = useAppSelector((state) => state.auth.user.companyId)
+
+    const {
+        divisionsData,
+        divisionsLoading,
+        initialized,
+        notification,
+    } = useAppSelector(
+        (state) =>
+            state.salesDivisions?.data ?? {
+                divisionsData: [],
+                divisionsLoading: false,
+                initialized: false,
+                divisionInfo: {},
+                infoLoading: false,
+                error: null,
+                notification: null,
+            }
+    )
+
+    useEffect(() => {
+        if (companyId && !initialized && !divisionsLoading) {
+            dispatch(fetchSalesDivisions(companyId))
+        }
+    }, [dispatch, companyId, initialized, divisionsLoading])
+
+    useEffect(() => {
+        if (notification) {
+            const type = (notification.type || 'info') as 'success' | 'warning' | 'danger' | 'info'
+            toast.push(
+                <Notification title={type.charAt(0).toUpperCase() + type.slice(1)} type={type}>
+                    {notification.message}
+                </Notification>
+            )
+            dispatch(resetNotification())
+        }
+    }, [notification, dispatch])
+
+    const openDrawer = (mode: 'create' | 'edit', division?: SalesDivision) => {
         setDrawerMode(mode)
         if (mode === 'edit' && division) {
             setSelectedDivision(division)
@@ -213,32 +258,8 @@ const CompanyList = () => {
         setSelectedDivision(null)
     }
 
-    const [divisions, setDivisions] = useState<SalesDivisionResponse[]>([])
-    const [loading, setLoading] = useState(true)
-    const companyId = useAppSelector((state) => state.auth.user.companyId)
-
-    const fetchDivisions = async () => {
-        console.log('CompanyList: companyId from store:', companyId)
-        if (companyId) {
-            try {
-                setLoading(true)
-                console.log('CompanyList: Fetching divisions for company:', companyId)
-                const data = await apiGetSalesDivisions(companyId)
-                console.log('CompanyList: Divisions data received:', data)
-                setDivisions(data)
-            } catch (error) {
-                console.error('CompanyList: Failed to fetch divisions:', error)
-            } finally {
-                setLoading(false)
-            }
-        } else {
-            console.warn('CompanyList: No companyId found in store')
-        }
-    }
-
-    useEffect(() => {
-        fetchDivisions()
-    }, [companyId])
+    const divisions = divisionsData
+    const loading = divisionsLoading
 
     const handleCompanyClick = (companyId: string) => {
         navigate(`/sales-division/${companyId}`)
@@ -263,66 +284,36 @@ const CompanyList = () => {
         }
 
         try {
-            setLoading(true)
             if (drawerMode === 'create') {
-                await apiCreateSalesDivision({
+                await dispatch(createDivision({
                     name: values.companyName,
                     division_category: values.category,
                     sales_company_id: companyId,
                     is_active: true
-                })
-                toast.push(
-                    <Notification title="Success" type="success">
-                        Sales division created successfully
-                    </Notification>
-                )
+                }))
             } else if (drawerMode === 'edit' && selectedDivision) {
-                await apiUpdateSalesDivision(selectedDivision.sales_division_id, {
-                    name: values.companyName,
-                    division_category: values.category,
-                    sales_company_id: companyId,
-                    is_active: selectedDivision.is_active
-                })
-                toast.push(
-                    <Notification title="Success" type="success">
-                        Sales division updated successfully
-                    </Notification>
-                )
+                await dispatch(updateDivision({
+                    divisionId: selectedDivision.sales_division_id,
+                    payload: {
+                        name: values.companyName,
+                        division_category: values.category,
+                        sales_company_id: companyId,
+                        is_active: selectedDivision.is_active
+                    }
+                }))
             }
             onDrawerClose()
-            fetchDivisions()
         } catch (error) {
             console.error('Failed to save division:', error)
-            toast.push(
-                <Notification title="Error" type="danger">
-                    Failed to {drawerMode === 'create' ? 'create' : 'update'} sales division
-                </Notification>
-            )
-        } finally {
-            setLoading(false)
         }
     }
 
-    const handleDelete = async (division: SalesDivisionResponse) => {
+    const handleDelete = async (division: SalesDivision) => {
         if (confirm(`Are you sure you want to delete "${division.name}"?`)) {
             try {
-                setLoading(true)
-                await apiDeleteSalesDivision(division.sales_division_id)
-                toast.push(
-                    <Notification title="Success" type="success">
-                        Sales division deleted successfully
-                    </Notification>
-                )
-                fetchDivisions()
+                await dispatch(deleteDivision(division.sales_division_id))
             } catch (error) {
                 console.error('Failed to delete division:', error)
-                toast.push(
-                    <Notification title="Error" type="danger">
-                        Failed to delete sales division
-                    </Notification>
-                )
-            } finally {
-                setLoading(false)
             }
         }
     }

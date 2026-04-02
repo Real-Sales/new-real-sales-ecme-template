@@ -1,53 +1,53 @@
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import Card from '@/components/ui/Card'
 import Chart from '@/components/shared/Chart'
-import { useAppSelector } from '@/store'
 import { TbChartLine } from 'react-icons/tb'
-import { apiGetPerformanceMonthlyTrend } from '@/services/PerformanceService'
-import type { PerformanceMonthlyTrendResponse } from '@/services/PerformanceService'
+import {
+    useAppSelector,
+    useAppDispatch,
+    fetchMonthlyTrend,
+} from '@/store/slices/performance'
+import type { MonthlyTrend } from '@/services/PerformanceService'
 import dayjs from 'dayjs'
 
 const PerformanceLineChart = () => {
-    const [trendData, setTrendData] = useState<PerformanceMonthlyTrendResponse | null>(null)
-    const [loading, setLoading] = useState(true)
-    const [showChart, setShowChart] = useState(true)
-    
+    const dispatch = useAppDispatch()
     const userId = useAppSelector((state) => state.auth.user.userId)
     const sideNavCollapse = useAppSelector(
         (state) => state.theme.layout.sideNavCollapse,
     )
 
-    useEffect(() => {
-        const fetchTrendData = async () => {
-            if (userId) {
-                try {
-                    setLoading(true)
-                    const data = await apiGetPerformanceMonthlyTrend(userId)
-                    setTrendData(data)
-                } catch (error) {
-                    console.error('Failed to fetch monthly trend data:', error)
-                } finally {
-                    setLoading(false)
-                }
+    const {
+        monthlyTrend,
+        trendLoading,
+    } = useAppSelector(
+        (state) =>
+            state.performance?.data ?? {
+                performanceByMode: [],
+                performanceReport: null,
+                monthlyTrend: null,
+                performanceLoading: false,
+                trendLoading: false,
+                initialized: false,
+                error: null,
+                notification: null,
             }
-        }
+    )
 
-        fetchTrendData()
-    }, [userId])
-
-    // Handle chart resize when sidebar collapses/expands
     useEffect(() => {
-        setShowChart(false)
-        const timer = setTimeout(() => {
-            setShowChart(true)
-        }, 400)
-        return () => clearTimeout(timer)
-    }, [sideNavCollapse])
+        if (userId && !monthlyTrend) {
+            dispatch(fetchMonthlyTrend(userId))
+        }
+    }, [dispatch, userId, monthlyTrend])
+
+    const trendData = monthlyTrend
+    const loading = trendLoading
+    const showChart = true
 
     const chartData = useMemo(() => {
         if (!trendData) return { series: [], months: [], metrics: [] }
 
-        const months = trendData.monthly_trends.map(t => dayjs(t.month).format('MMM'))
+        const months = trendData.monthly_trends.map((t: MonthlyTrend) => dayjs(t.month).format('MMM'))
         
         const metrics = [
             { name: 'Discovering', key: 'discovering', color: '#3B82F6' },
@@ -57,7 +57,7 @@ const PerformanceLineChart = () => {
 
         const series = metrics.map((m) => ({
             name: m.name,
-            data: trendData.monthly_trends.map((t) => (t.modes as any)[m.key]?.average_score || 0),
+            data: trendData.monthly_trends.map((t: MonthlyTrend) => (t.modes as any)[m.key]?.average_score || 0),
         }))
 
         return { series, months, metrics }
