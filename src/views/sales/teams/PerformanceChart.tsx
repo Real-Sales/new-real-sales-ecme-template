@@ -3,9 +3,12 @@ import Card from '@/components/ui/Card'
 import Select from '@/components/ui/Select'
 import Chart from '@/components/shared/Chart'
 import Spinner from '@/components/ui/Spinner'
-import { useAppSelector } from '@/store'
 import { TbChartLine } from 'react-icons/tb'
-import { apiGetTeamMembersPerformance, type TeamMembersPerformanceResponse } from '@/services/TeamService'
+import {
+    useAppSelector,
+    useAppDispatch,
+    fetchTeamMembersPerformance,
+} from '@/store/slices/teams'
 import dayjs from 'dayjs'
 
 type PerformanceChartProps = {
@@ -21,41 +24,40 @@ const MODE_ID_MAP: Record<SkillType, string> = {
 }
 
 const PerformanceChart = ({ teamId }: PerformanceChartProps) => {
-    const [performanceData, setPerformanceData] = useState<TeamMembersPerformanceResponse | null>(null)
-    const [isLoading, setIsLoading] = useState(true)
-    const [showChart, setShowChart] = useState(true)
+    const dispatch = useAppDispatch()
     const [selectedSkill, setSelectedSkill] = useState<SkillType>('closing')
+    const showChart = true
     
     const sideNavCollapse = useAppSelector(
         (state) => state.theme.layout.sideNavCollapse,
     )
 
-    const fetchPerformance = async () => {
-        if (!teamId) return
-        setIsLoading(true)
-        try {
-            const data = await apiGetTeamMembersPerformance(teamId, MODE_ID_MAP[selectedSkill])
-            if (data) {
-                setPerformanceData(data)
+    const {
+        teamMembersPerformance,
+        performanceLoading,
+    } = useAppSelector(
+        (state) =>
+            state.teams?.data ?? {
+                teamsData: [],
+                teamsLoading: false,
+                initialized: false,
+                teamPerformance: {},
+                teamMembersPerformance: {},
+                performanceLoading: false,
+                error: null,
+                notification: null,
             }
-        } catch (error) {
-            console.error('Failed to fetch team chart performance:', error)
-        } finally {
-            setIsLoading(false)
+    )
+
+    const cacheKey = `${teamId}-${MODE_ID_MAP[selectedSkill]}`
+    const performanceData = teamMembersPerformance[cacheKey]
+    const isLoading = performanceLoading && !performanceData
+
+    useEffect(() => {
+        if (!performanceData) {
+            dispatch(fetchTeamMembersPerformance({ teamId, modeId: MODE_ID_MAP[selectedSkill] }))
         }
-    }
-
-    useEffect(() => {
-        fetchPerformance()
-    }, [teamId, selectedSkill])
-
-    useEffect(() => {
-        setShowChart(false)
-        const timer = setTimeout(() => {
-            setShowChart(true)
-        }, 400)
-        return () => clearTimeout(timer)
-    }, [sideNavCollapse])
+    }, [dispatch, teamId, selectedSkill, performanceData])
 
     const skillOptions = [
         { value: 'prospecting', label: 'Prospecting' },

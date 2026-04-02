@@ -2,9 +2,15 @@ import { useState, useRef, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Card, Button, Badge, Drawer, toast, Notification, Spinner } from '@/components/ui'
 import Container from '@/components/shared/Container'
-import { useAppSelector } from '@/store'
+import { injectReducer } from '@/store'
 import TeamForm, { type TeamFormSchema } from './TeamForm'
-import { apiCreateTeam, apiGetTeamPerformance, type TeamPerformanceResponse } from '@/services/TeamService'
+import { apiCreateTeam } from '@/services/TeamService'
+import teamsReducer, {
+    useAppSelector,
+    useAppDispatch,
+    fetchTeams,
+    resetNotification,
+} from '@/store/slices/teams'
 import dayjs from 'dayjs'
 import {
     HiUserGroup,
@@ -15,6 +21,9 @@ import {
     HiTrash,
     HiPlus,
 } from 'react-icons/hi'
+
+// Inject reducer when component mounts (lazy-loaded)
+injectReducer('teams', teamsReducer)
 
 type StatCardProps = {
     icon: React.ReactNode
@@ -210,30 +219,49 @@ const TeamCard = ({
 }
 
 const TeamList = () => {
+    const dispatch = useAppDispatch()
     const [isDrawerOpen, setIsDrawerOpen] = useState(false)
-    const [performanceData, setPerformanceData] = useState<TeamPerformanceResponse[]>([])
-    const [isLoading, setIsLoading] = useState(true)
     const formRef = useRef<HTMLFormElement>(null)
     const { userId, companyId } = useAppSelector((state) => state.auth.user)
-
-    const fetchPerformanceData = async () => {
-        if (!companyId) return
-        setIsLoading(true)
-        try {
-            const data = await apiGetTeamPerformance(companyId)
-            if (data) {
-                setPerformanceData(data)
+    
+    const {
+        teamsData,
+        teamsLoading,
+        initialized,
+        notification,
+    } = useAppSelector(
+        (state) =>
+            state.teams?.data ?? {
+                teamsData: [],
+                teamsLoading: false,
+                initialized: false,
+                teamPerformance: {},
+                teamMembersPerformance: {},
+                performanceLoading: false,
+                error: null,
+                notification: null,
             }
-        } catch (error) {
-            console.error('Failed to fetch team performance:', error)
-        } finally {
-            setIsLoading(false)
-        }
-    }
+    )
 
     useEffect(() => {
-        fetchPerformanceData()
-    }, [companyId])
+        if (companyId && !initialized && !teamsLoading) {
+            dispatch(fetchTeams(companyId))
+        }
+    }, [dispatch, companyId, initialized, teamsLoading])
+
+    useEffect(() => {
+        if (notification) {
+            const type = (notification.type || 'info') as 'success' | 'warning' | 'danger' | 'info'
+            toast.push(
+                <Notification title={type.charAt(0).toUpperCase() + type.slice(1)} type={type}>
+                    {notification.message}
+                </Notification>
+            )
+            dispatch(resetNotification())
+        }
+    }, [notification, dispatch])
+
+    const performanceData = teamsData
 
     const openDrawer = () => {
         setIsDrawerOpen(true)
@@ -276,7 +304,9 @@ const TeamList = () => {
                     </Notification>
                 )
                 onDrawerClose()
-                fetchPerformanceData()
+                if (companyId) {
+                    dispatch(fetchTeams(companyId))
+                }
             }
         } catch (error: any) {
             toast.push(
@@ -405,7 +435,7 @@ const TeamList = () => {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                    {isLoading ? (
+                    {teamsLoading ? (
                         <div className="col-span-full flex justify-center py-20">
                             <Spinner size={40} />
                         </div>
