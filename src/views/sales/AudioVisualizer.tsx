@@ -580,19 +580,10 @@ export default function KiloHerzVisualizer() {
 
     setMessages(prev => [...prev, userMessage]);
     setInputValue('');
-    setIsGenerating(true);
 
-    // Simulate AI response
-    setTimeout(() => {
-      const aiMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: 'Based on your sales data, I\'ve identified three key opportunities for growth. **First**, your Q4 conversion rates show a 23% increase in the enterprise segment. **Second**, mobile traffic has doubled, suggesting we should optimize for mobile-first experiences.',
-        timestamp: new Date(),
-      };
-      setMessages(prev => [...prev, aiMessage]);
-      setIsGenerating(false);
-    }, 2000);
+    document.dispatchEvent(new CustomEvent('sendLiveText', {
+      detail: { text: inputValue },
+    }));
   };
 
   const toggleMic = async () => {
