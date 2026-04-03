@@ -32,6 +32,16 @@ const endpointConfig = {
     salesDivisionsCreate: 'sales-divisions/',
     salesDivisionsUpdate: (divisionId: string) => `sales-divisions/${divisionId}`,
     salesDivisionsDelete: (divisionId: string) => `sales-divisions/${divisionId}`,
+    salesDivisionInfo: (divisionId: string) => `sales-divisions/${divisionId}/info`,
+    companyTeams: 'company-teams/',
+    teamPerformance: (companyId: string) => `company-teams/sales-company/${companyId}/performance`,
+    companyTeamPerformance: (teamId: string) => `company-teams/${teamId}/performance`,
+    teamMembersPerformance: (teamId: string, modeId: string) => `company-teams/${teamId}/mode/${modeId}/members-performance`,
+    deleteTeamMember: (userId: string, teamId: string) => `company-teams-members/user/${userId}/team/${teamId}`,
+    companyUsers: (companyId: string) => `sales-companies/${companyId}`,
+    addTeamMember: 'company-teams-members/',
+    teamScenariosDashboard: 'scenarios/dashboard/manager',
+    unassignScenario: (sessionId: string) => `scenarios/unassign/${sessionId}`,
     authMe: 'auth/me',
 }
 
