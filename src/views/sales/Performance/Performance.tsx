@@ -1,13 +1,21 @@
-import { useState, useEffect } from 'react'
-import { Card } from '@/components/ui'
+import { useEffect } from 'react'
+import { Card, toast, Notification } from '@/components/ui'
 import Container from '@/components/shared/Container'
 import PerformanceLineChart from './PerformanceLineChart'
 import SkillBreakdown from './SkillBreakdown'
 import SessionHistorySection from './SessionHistory'
 import { TbChartBar, TbTrendingUp } from 'react-icons/tb'
-import { useAppSelector } from '@/store'
-import { apiGetPerformanceReports } from '@/services/PerformanceService'
+import { injectReducer } from '@/store'
+import performanceReducer, {
+    useAppSelector,
+    useAppDispatch,
+    fetchPerformanceByMode,
+    resetNotification,
+} from '@/store/slices/performance'
 import type { PerformanceReportResponse } from '@/services/PerformanceService'
+
+// Inject reducer when component mounts (lazy-loaded)
+injectReducer('performance', performanceReducer)
 
 // Analytics card component
 type AnalyticsCardProps = {
@@ -38,31 +46,50 @@ const AnalyticsCard = ({ icon, value, label, iconBg }: AnalyticsCardProps) => {
 }
 
 const Performance = () => {
-    const [reportData, setReportData] = useState<PerformanceReportResponse | null>(null)
-    const [loading, setLoading] = useState(true)
-
+    const dispatch = useAppDispatch()
     const userId = useAppSelector((state) => state.auth.user.userId)
 
-    useEffect(() => {
-        const fetchPerformanceData = async () => {
-            if (userId) {
-                try {
-                    setLoading(true)
-                    const data = await apiGetPerformanceReports(userId)
-                    setReportData(data)
-                } catch (error) {
-                    console.error('Failed to fetch performance data:', error)
-                } finally {
-                    setLoading(false)
-                }
+    const {
+        performanceReport,
+        performanceLoading,
+        initialized,
+        notification,
+    } = useAppSelector(
+        (state) =>
+            state.performance?.data ?? {
+                performanceByMode: [],
+                performanceReport: null,
+                monthlyTrend: null,
+                performanceLoading: false,
+                trendLoading: false,
+                initialized: false,
+                error: null,
+                notification: null,
             }
+    )
+
+    useEffect(() => {
+        if (userId && !initialized && !performanceLoading) {
+            dispatch(fetchPerformanceByMode(userId))
         }
+    }, [dispatch, userId, initialized, performanceLoading])
 
-        fetchPerformanceData()
-    }, [userId])
+    useEffect(() => {
+        if (notification) {
+            const type = (notification.type || 'info') as 'success' | 'warning' | 'danger' | 'info'
+            toast.push(
+                <Notification title={type.charAt(0).toUpperCase() + type.slice(1)} type={type}>
+                    {notification.message}
+                </Notification>
+            )
+            dispatch(resetNotification())
+        }
+    }, [notification, dispatch])
 
+    const reportData = performanceReport
     const totalSessions = reportData?.total_sessions_analyzed || 0
     const averageScore = reportData?.overall_average_score || 0
+    const loading = performanceLoading
 
     return (
         <div className="min-h-full">

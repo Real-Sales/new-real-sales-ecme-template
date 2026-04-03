@@ -1,11 +1,15 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import Input from '@/components/ui/Input'
 import { FormItem, Form } from '@/components/ui/Form'
 import Select from '@/components/ui/Select'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { apiGetSalesDivisions } from '@/services/SalesCompanyService'
+import {
+    useAppSelector,
+    useAppDispatch,
+    fetchSalesDivisions,
+} from '@/store/slices/salesDivisions'
 
 type TeamFormSchema = {
     teamName: string
@@ -32,8 +36,39 @@ type TeamFormProps = {
 }
 
 const TeamForm = ({ companyId, formRef, onSubmit, onCancel }: TeamFormProps) => {
-    const [divisions, setDivisions] = useState<DivisionOption[]>([])
-    const [isLoading, setIsLoading] = useState(false)
+    const dispatch = useAppDispatch()
+
+    const {
+        divisionsData,
+        divisionsLoading,
+        initialized,
+    } = useAppSelector(
+        (state) =>
+            state.salesDivisions?.data ?? {
+                divisionsData: [],
+                divisionsLoading: false,
+                initialized: false,
+                divisionInfo: {},
+                infoLoading: false,
+                error: null,
+                notification: null,
+            }
+    )
+
+    useEffect(() => {
+        if (companyId && !initialized && !divisionsLoading) {
+            dispatch(fetchSalesDivisions(companyId))
+        }
+    }, [dispatch, companyId, initialized, divisionsLoading])
+
+    const divisions = useMemo(() => {
+        return divisionsData.map((div) => ({
+            label: div.name,
+            value: div.sales_division_id,
+        }))
+    }, [divisionsData])
+
+    const isLoading = divisionsLoading
 
     const {
         handleSubmit,
@@ -47,30 +82,6 @@ const TeamForm = ({ companyId, formRef, onSubmit, onCancel }: TeamFormProps) => 
         },
         resolver: zodResolver(validationSchema),
     })
-
-    useEffect(() => {
-        const fetchDivisions = async () => {
-            if (!companyId) return
-            
-            setIsLoading(true)
-            try {
-                const response = await apiGetSalesDivisions(companyId)
-                if (response) {
-                    const options = response.map((div: any) => ({
-                        label: div.name,
-                        value: div.sales_division_id,
-                    }))
-                    setDivisions(options)
-                }
-            } catch (error) {
-                console.error('Failed to fetch divisions:', error)
-            } finally {
-                setIsLoading(false)
-            }
-        }
-
-        fetchDivisions()
-    }, [companyId])
 
     return (
         <Form ref={formRef} onSubmit={handleSubmit(onSubmit)}>

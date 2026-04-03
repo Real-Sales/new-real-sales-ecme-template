@@ -10,7 +10,12 @@ import TeamScenariosSection from './components/TeamScenariosSection'
 import { allSalesReps } from './mockTeamData'
 import { HiArrowLeft } from 'react-icons/hi'
 import { TbUserPlus, TbUsers } from 'react-icons/tb'
-import { apiGetCompanyTeamPerformance, type TeamPerformanceResponse, apiDeleteTeamMember } from '@/services/TeamService'
+import { apiDeleteTeamMember } from '@/services/TeamService'
+import {
+    useAppSelector,
+    useAppDispatch,
+    fetchTeamPerformance,
+} from '@/store/slices/teams'
 import dayjs from 'dayjs'
 
 type TeamMember = {
@@ -44,6 +49,7 @@ type Member = {
 }
 
 const TeamDetail = () => {
+    const dispatch = useAppDispatch()
     const navigate = useNavigate()
     const { id } = useParams<{ id: string }>()
     const [dialogOpen, setDialogOpen] = useState(false)
@@ -51,32 +57,38 @@ const TeamDetail = () => {
     const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null)
     const [currentPage, setCurrentPage] = useState(1)
     const [pageSize, setPageSize] = useState(10)
-    const [isLoading, setIsLoading] = useState(true)
-    const [data, setData] = useState<TeamPerformanceResponse | null>(null)
 
-    const fetchTeamData = async () => {
-        if (!id) return
-        setIsLoading(true)
-        try {
-            const response = await apiGetCompanyTeamPerformance(id)
-            if (response) {
-                setData(response)
+    const {
+        teamPerformance,
+        performanceLoading,
+    } = useAppSelector(
+        (state) =>
+            state.teams?.data ?? {
+                teamsData: [],
+                teamsLoading: false,
+                initialized: false,
+                teamPerformance: {},
+                teamMembersPerformance: {},
+                performanceLoading: false,
+                error: null,
+                notification: null,
             }
-        } catch (error) {
-            console.error('Failed to fetch team data:', error)
-            toast.push(
-                <Notification title="Error" type="danger">
-                    Failed to fetch team details
-                </Notification>
-            )
-        } finally {
-            setIsLoading(false)
-        }
-    }
+    )
+
+    const data = id ? teamPerformance[id] : null
+    const isLoading = performanceLoading
 
     useEffect(() => {
-        fetchTeamData()
-    }, [id])
+        if (id && !teamPerformance[id]) {
+            dispatch(fetchTeamPerformance(id))
+        }
+    }, [id, dispatch, teamPerformance])
+
+    const fetchTeamData = () => {
+        if (id) {
+            dispatch(fetchTeamPerformance(id))
+        }
+    }
 
     const teamMembers = useMemo(() => {
         if (!data) return []
