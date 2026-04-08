@@ -13,6 +13,8 @@ import { TbSearch } from 'react-icons/tb'
 import debounce from 'lodash/debounce'
 import { apiGetCompanyUsers } from '@/services/TeamService'
 import { apiManagerCreateSession } from '@/services/SessionService'
+import { apiAssignScenario, apiGetScenarioAssignmentStatus } from '@/services/ScenarioLibraryService'
+import { apiGetCompanyTeams } from '@/services/TeamsService'
 import type { Scenario } from '../types'
 import type { ChangeEvent } from 'react'
 import { useAppSelector } from '@/store'
@@ -43,11 +45,13 @@ const ShareScenarioDialog = ({
     const [isLoading, setIsLoading] = useState(false)
     const [isAssigning, setIsAssigning] = useState<string | null>(null)
     const [searchQuery, setSearchQuery] = useState('')
+    const [assignmentMap, setAssignmentMap] = useState<Record<string, boolean>>({})
 
     const fetchData = async () => {
-        if (!companyId || !isOpen) return
+        if (!companyId || !isOpen || !scenario) return
         setIsLoading(true)
         try {
+            // Fetch users
             const companyData = await apiGetCompanyUsers(companyId)
             const members = companyData.users.map(user => ({
                 id: user.user_id,
@@ -57,6 +61,26 @@ const ShareScenarioDialog = ({
             }))
             setAllCompanyMembers(members)
             setMemberList(members)
+
+            // Fetch status map for all available teams and merge them
+            const teams = await apiGetCompanyTeams(companyId)
+            
+            if (teams && teams.length > 0) {
+                const statusResponses = await Promise.all(
+                    teams.map(t => apiGetScenarioAssignmentStatus(scenario.scenario_id, t.company_team_id))
+                )
+                
+                // Merge all members from all teams into one status map
+                const mergedMap: Record<string, boolean> = {}
+                statusResponses.forEach(response => {
+                    response.members.forEach(member => {
+                        if (member.is_assigned) {
+                            mergedMap[member.user_id] = true
+                        }
+                    })
+                })
+                setAssignmentMap(mergedMap)
+            }
         } catch (error) {
             console.error('Failed to fetch data for share scenario:', error)
         } finally {
@@ -65,8 +89,15 @@ const ShareScenarioDialog = ({
     }
 
     useEffect(() => {
-        fetchData()
-    }, [companyId, isOpen])
+        if (isOpen) {
+            fetchData()
+        } else {
+            // Reset state when dialog is closed
+            setAssignmentMap({})
+            setMemberList(allCompanyMembers)
+            setSearchQuery('')
+        }
+    }, [companyId, isOpen, scenario?.scenario_id])
 
     const handleDebounceFn = (query: string) => {
         setSearchQuery(query)
@@ -85,7 +116,7 @@ const ShareScenarioDialog = ({
         
         setIsAssigning(member.id)
         try {
-            await apiManagerCreateSession({
+            const resp = await apiManagerCreateSession({
                 user_id: member.id,
                 persona_id: scenario.persona.persona_id,
                 mode_id: scenario.mode.mode_id,
@@ -93,6 +124,15 @@ const ShareScenarioDialog = ({
                 scenario_text: scenario.scenario_text,
                 document_content: scenario.document_content
             })
+
+            if (resp && resp.session_id) {
+                await apiAssignScenario(scenario.scenario_id, resp.session_id)
+                // Update local assignment map
+                setAssignmentMap(prev => ({
+                    ...prev,
+                    [member.id]: true
+                }))
+            }
             
             toast.push(
                 <Notification title="Success" type="success">
@@ -175,11 +215,14 @@ const ShareScenarioDialog = ({
                                         size="sm"
                                         variant="solid"
                                         loading={isAssigning === member.id}
-                                        disabled={isAssigning !== null && isAssigning !== member.id}
-                                        className="bg-primary hover:bg-primary-deep text-white font-semibold"
+                                        disabled={assignmentMap[member.id] || (isAssigning !== null && isAssigning !== member.id)}
+                                        className={classNames(
+                                            "font-semibold",
+                                            assignmentMap[member.id] ? "bg-gray-100 dark:bg-gray-700 text-gray-500" : "bg-primary hover:bg-primary-deep text-white"
+                                        )}
                                         onClick={() => onAssignScenario(member)}
                                     >
-                                        Assign
+                                        {assignmentMap[member.id] ? 'Assigned' : 'Assign'}
                                     </Button>
                                 </div>
                             ))}

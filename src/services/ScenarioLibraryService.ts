@@ -68,3 +68,31 @@ export async function apiGetAiPersonas() {
         method: 'get',
     })
 }
+
+export async function apiAssignScenario(scenarioId: string, sessionId: string) {
+    return ApiService.fetchDataWithAxios<unknown>({
+        url: endpointConfig.assignScenario(scenarioId, sessionId),
+        method: 'post',
+    })
+}
+
+export type AssignmentStatusResponse = {
+    scenario_id: string
+    team_id: string
+    members: Array<{
+        user_id: string
+        first_name: string
+        last_name: string
+        email: string
+        is_assigned: boolean
+        session_id: string | null
+        session_status: string | null
+    }>
+}
+
+export async function apiGetScenarioAssignmentStatus(scenarioId: string, teamId: string) {
+    return ApiService.fetchDataWithAxios<AssignmentStatusResponse>({
+        url: endpointConfig.scenarioAssignmentStatus(scenarioId, teamId),
+        method: 'get',
+    })
+}

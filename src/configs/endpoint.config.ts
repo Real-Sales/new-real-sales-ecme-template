@@ -43,6 +43,8 @@ const endpointConfig = {
     teamScenariosDashboard: 'scenarios/dashboard/manager',
     unassignScenario: (sessionId: string) => `scenarios/unassign/${sessionId}`,
     sessionsManagerCreate: 'sessions/manager-create',
+    assignScenario: (scenarioId: string, sessionId: string) => `scenarios/${scenarioId}/assign/${sessionId}`,
+    scenarioAssignmentStatus: (scenarioId: string, teamId: string) => `scenarios/${scenarioId}/team/${teamId}/assignment-status`,
     authMe: 'auth/me',
 }
 
