@@ -5,8 +5,9 @@ import DataTable from '@/components/shared/DataTable'
 import Progress from '@/components/ui/Progress'
 import ConfirmDialog from '@/components/shared/ConfirmDialog'
 import classNames from '@/utils/classNames'
-import { TbTrash, TbPencil } from 'react-icons/tb'
+import { TbTrash, TbPencil, TbUserPlus } from 'react-icons/tb'
 import { FiShare2 } from 'react-icons/fi'
+import Button from '@/components/ui/Button'
 import { NumericFormat } from 'react-number-format'
 import dayjs from 'dayjs'
 import type { ColumnDef } from '@/components/shared/DataTable'
@@ -40,30 +41,36 @@ const ActionColumn = ({
 
     return (
         <div className={classNames(
-            "flex justify-end text-lg gap-1",
+            "flex justify-center items-center gap-2 w-[150px] mx-auto",
             isInactive && "text-gray-500 dark:text-gray-500"
         )}>
-            <Tooltip wrapperClass="flex" title="Share">
-                <span className="cursor-pointer p-2" onClick={onShare}>
-                    <FiShare2 />
-                </span>
-            </Tooltip>
-            <Tooltip wrapperClass="flex" title="Edit">
-                <span className="cursor-pointer p-2" onClick={onEdit}>
-                    <TbPencil />
-                </span>
-            </Tooltip>
-            <Tooltip wrapperClass="flex" title="Delete">
-                <span
-                    className={classNames(
-                        "cursor-pointer p-2",
-                        !isInactive && "hover:text-red-500"
-                    )}
-                    onClick={onDelete}
-                >
-                    <TbTrash />
-                </span>
-            </Tooltip>
+            <Button
+                size="xs"
+                variant="solid"
+                className="bg-primary hover:bg-primary-deep text-white px-3 rounded-lg text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 shadow-sm transition-all hover:scale-105 active:scale-95 border-none h-8"
+                onClick={onShare}
+            >
+                <TbUserPlus className="text-sm" />
+                <span>Assign</span>
+            </Button>
+            <div className="flex gap-1 ml-1 text-lg">
+                <Tooltip wrapperClass="flex" title="Edit">
+                    <span className="cursor-pointer p-2 hover:text-primary transition-colors" onClick={onEdit}>
+                        <TbPencil />
+                    </span>
+                </Tooltip>
+                <Tooltip wrapperClass="flex" title="Delete">
+                    <span
+                        className={classNames(
+                            "cursor-pointer p-2 transition-colors",
+                            !isInactive && "hover:text-red-500 text-gray-400"
+                        )}
+                        onClick={onDelete}
+                    >
+                        <TbTrash />
+                    </span>
+                </Tooltip>
+            </div>
         </div>
     )
 }
@@ -252,6 +259,7 @@ const ScenarioListTable = ({
             {
                 header: 'Action',
                 id: 'action',
+                width: 150,
                 cell: (props) => (
                     <ActionColumn 
                         row={props.row.original} 
