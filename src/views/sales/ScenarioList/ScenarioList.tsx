@@ -10,6 +10,7 @@ import ScenarioListTableTools from './components/ScenarioListTableTools'
 import ScenarioListSelected from './components/ScenarioListSelected'
 import ScenarioForm, { type ScenarioFormSchema } from './components/ScenarioForm'
 import ScenarioDetail from './components/ScenarioDetail'
+import ShareScenarioDialog from './components/ShareScenarioDialog'
 import scenarioLibraryReducer, {
     useAppSelector,
     useAppDispatch,
@@ -82,6 +83,7 @@ const ScenarioList = () => {
     const [searchQuery, setSearchQuery] = useState('')
     const [isDrawerOpen, setIsDrawerOpen] = useState(false)
     const [isViewDrawerOpen, setIsViewDrawerOpen] = useState(false)
+    const [isShareDialogOpen, setIsShareDialogOpen] = useState(false)
     const [selectedScenario, setSelectedScenario] = useState<Scenario | null>(null)
     const [selectedScenarios, setSelectedScenarios] = useState<Scenario[]>([])
     const [editingScenario, setEditingScenario] = useState<Scenario | null>(null)
@@ -149,6 +151,11 @@ const ScenarioList = () => {
         setIsEditMode(true)
         setEditingScenario(scenario)
         setIsDrawerOpen(true)
+    }
+
+    const handleShare = (scenario: Scenario) => {
+        setSelectedScenario(scenario)
+        setIsShareDialogOpen(true)
     }
 
     const onDrawerClose = () => {
@@ -240,6 +247,11 @@ const ScenarioList = () => {
         setSelectedScenario(null)
     }
 
+    const onShareDialogClose = () => {
+        setIsShareDialogOpen(false)
+        setSelectedScenario(null)
+    }
+
     const handlePaginationChange = (page: number) => {
         setTableData({
             ...tableData,
@@ -328,6 +340,7 @@ const ScenarioList = () => {
                         onAllRowSelect={handleAllRowSelect}
                         onRowClick={handleRowClick}
                         onEdit={handleEdit}
+                        onShare={handleShare}
                         onConfirmDeleteScenario={handleConfirmDeleteScenario}
                         pagingData={{
                             total: filteredScenarios.length,
@@ -387,6 +400,12 @@ const ScenarioList = () => {
                     <ScenarioDetail scenario={selectedScenario} />
                 )}
             </Drawer>
+
+            <ShareScenarioDialog
+                isOpen={isShareDialogOpen}
+                scenario={selectedScenario}
+                onClose={onShareDialogClose}
+            />
 
             {/* Selected Scenarios Sticky Footer */}
             <ScenarioListSelected

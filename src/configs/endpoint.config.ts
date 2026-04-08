@@ -42,6 +42,7 @@ const endpointConfig = {
     addTeamMember: 'company-teams-members/',
     teamScenariosDashboard: 'scenarios/dashboard/manager',
     unassignScenario: (sessionId: string) => `scenarios/unassign/${sessionId}`,
+    sessionsManagerCreate: 'sessions/manager-create',
     authMe: 'auth/me',
 }
 

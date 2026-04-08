@@ -28,17 +28,15 @@ const getDerivedStatus = (row: Scenario) =>
 const ActionColumn = ({ 
     row, 
     onDelete,
-    onEdit 
+    onEdit,
+    onShare
 }: { 
     row: Scenario
     onDelete: () => void
     onEdit: () => void
+    onShare: () => void
 }) => {
     const isInactive = getDerivedStatus(row) === 'inactive'
-
-    const onShare = () => {
-        console.log('Share scenario:', row.scenario_id)
-    }
 
     return (
         <div className={classNames(
@@ -78,6 +76,7 @@ type ScenarioListTableProps = {
     onAllRowSelect: (checked: boolean, rows: any[]) => void
     onRowClick: (scenario: Scenario) => void
     onEdit: (scenario: Scenario) => void
+    onShare: (scenario: Scenario) => void
     onConfirmDeleteScenario?: (scenario: Scenario) => void | Promise<void>
     pagingData: {
         total: number
@@ -96,6 +95,7 @@ const ScenarioListTable = ({
     onAllRowSelect,
     onRowClick,
     onEdit,
+    onShare,
     onConfirmDeleteScenario,
     pagingData,
     onPaginationChange,
@@ -257,6 +257,7 @@ const ScenarioListTable = ({
                         row={props.row.original} 
                         onDelete={() => handleDelete(props.row.original)}
                         onEdit={() => onEdit(props.row.original)}
+                        onShare={() => onShare(props.row.original)}
                     />
                 ),
             },
