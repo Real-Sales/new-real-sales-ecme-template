@@ -20,6 +20,15 @@ export type SessionResponse = {
     created_at: string
 }
 
+export type CreateSessionManagerRequest = {
+    user_id: string
+    persona_id: string
+    mode_id: string
+    scenario_id?: string
+    scenario_text?: string
+    document_content?: string
+}
+
 export type PersonaDetails = {
     id: string
     name: string
@@ -50,5 +59,13 @@ export async function apiGetAiPersona(personaId: string) {
     return ApiService.fetchDataWithAxios<PersonaDetails>({
         url: endpointConfig.aiPersonaById(personaId),
         method: 'get',
+    })
+}
+
+export async function apiManagerCreateSession(data: CreateSessionManagerRequest) {
+    return ApiService.fetchDataWithAxios<SessionResponse>({
+        url: endpointConfig.sessionsManagerCreate,
+        method: 'post',
+        data,
     })
 }
