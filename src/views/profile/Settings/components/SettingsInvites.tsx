@@ -15,6 +15,11 @@ import {
     flexRender,
     createColumnHelper,
 } from '@tanstack/react-table'
+import {
+    canRevokeTeamInvite,
+    canSelectInviteTargetRole,
+    canSendTeamInvite,
+} from '@/utils/inviteAccess'
 
 type RoleOption = { value: InviteRole; label: string }
 
@@ -35,10 +40,9 @@ const SettingsInvites = () => {
     const [loading, setLoading] = useState(false)
     const [sending, setSending] = useState(false)
     const [error, setError] = useState('')
-    const canSendInvite =
-        userRole === 'company_owner' || userRole === 'sales_manager'
-    const canSelectRole = userRole === 'company_owner'
-    const canRevokeInvite = userRole === 'company_owner'
+    const canSendInvite = canSendTeamInvite(userRole)
+    const canSelectRole = canSelectInviteTargetRole(userRole)
+    const canRevokeInvite = canRevokeTeamInvite(userRole)
 
     const fetchInvites = async () => {
         if (!companyId) {

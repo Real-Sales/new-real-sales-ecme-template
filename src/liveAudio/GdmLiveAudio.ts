@@ -15,6 +15,7 @@ import { useRecording } from './hooks/useRecording';
 import { useSessionManager } from './hooks/useSessionManager';
 import { useEventListeners } from './hooks/useEventListeners';
 import { MediaHandler } from './hooks/mediaHandler';
+import { apiGetGeminiEphemeralToken } from '@/services/GeminiService';
 
 
 
@@ -72,6 +73,7 @@ export class GdmLiveAudio extends LitElement {
 		inputNode: { state: true },
 		outputNode: { state: true },
 		hideBuiltInVisuals: { type: Boolean, attribute: 'hide-built-in-visuals' },
+		sessionId: { type: String, attribute: 'session-id' },
 	};
 
 	declare isRecording: boolean;
@@ -79,8 +81,8 @@ export class GdmLiveAudio extends LitElement {
 	declare error: string;
 	declare inputNode: GainNode;
 	declare outputNode: GainNode;
-	declare cleanupListeners: () => void;
 	declare hideBuiltInVisuals: boolean;
+	declare sessionId: string;
 
 	private client!: GoogleGenAI;
 	private session?: Session;
@@ -93,10 +95,12 @@ export class GdmLiveAudio extends LitElement {
 	private scriptProcessorMuteGain?: GainNode;
 	private sources = new Set<AudioBufferSourceNode>();
 	private isSessionOpen = false;
+	private isReconnecting = false;
 	private sessionOpenPromise?: Promise<boolean>;
 	private resolveSessionOpen?: (value: boolean) => void;
 	private currentTokenCount?: number;
 	private geminiOutputAnalyser?: AnalyserNode;
+	private listenerAbort?: AbortController;
 
 	constructor() {
 		super();
@@ -106,6 +110,8 @@ export class GdmLiveAudio extends LitElement {
 		this.inputNode = this.inputAudioContext.createGain();
 		this.outputNode = this.outputAudioContext.createGain();
 		this.hideBuiltInVisuals = false;
+		this.sessionId = '';
+		this.listenerAbort = new AbortController();
 		this.initClient();
 		this.setupImageListener();
 		this.setupMicControlListener();
@@ -117,11 +123,13 @@ export class GdmLiveAudio extends LitElement {
 	 */
 	disconnectedCallback(): void {
 		super.disconnectedCallback();
+		this.listenerAbort?.abort();
 		this.emitGeminiAnalyserEnded();
 		this.tearDownLiveAudio();
 	}
 
 	private tearDownLiveAudio(): void {
+		console.log('[LiveAudio] tearDownLiveAudio, session exists:', !!this.session, 'isOpen:', this.isSessionOpen);
 		this.isRecording = false;
 
 		if (this.scriptProcessorNode) {
@@ -153,12 +161,14 @@ export class GdmLiveAudio extends LitElement {
 		}
 		this.nextStartTime = 0;
 
-		try {
-			this.session?.close();
-		} catch {
-			/* ignore */
+		if (this.session) {
+			try {
+				this.session.close();
+			} catch {
+				/* ignore */
+			}
+			this.session = undefined;
 		}
-		this.session = undefined;
 		this.isSessionOpen = false;
 		this.resolveSessionOpen?.(false);
 
@@ -179,13 +189,13 @@ export class GdmLiveAudio extends LitElement {
 	}
 
 	private setupImageListener() {
-		// Listen for image events from the React component
+		const opts = { signal: this.listenerAbort!.signal };
+
 		document.addEventListener('sendImage', (event: any) => {
 			const { imageData, mimeType, text, tokenCount } = event.detail;
 			this.sendImageWithText(imageData, mimeType, text || 'explain what is in this image', tokenCount);
-		});
+		}, opts);
 
-		// Listen for combined image and audio events (sequential sending)
 		document.addEventListener('sendImageWithAudio', (event: any) => {
 			const { 
 				imageData, 
@@ -198,53 +208,43 @@ export class GdmLiveAudio extends LitElement {
 				tokenCount
 			} = event.detail;
 			
-			// Always send image first
 			this.sendImageFirst(imageData, imageMimeType, textFallback, tokenCount).then(() => {
-				// Then send audio as separate input if available
 				if (usePreRecorded && audioData) {
 					setTimeout(() => {
 						this.sendPreRecordedAudioAsInput(audioData, audioMimeType, audioSampleRate, tokenCount);
-					}, 1000); // 1 second delay to let image be processed
+					}, 1000);
 				}
 			});
-		});
+		}, opts);
 
-		// Add test text sending for debugging
 		document.addEventListener('sendTestText', (event: any) => {
 			const { text, tokenCount } = event.detail;
 			this.sendTextMessage(text || 'Hello, can you hear me?', tokenCount);
-		});
+		}, opts);
 
-		// Generic text sending from TeachingPage message box
 		document.addEventListener('sendLiveText', (event: any) => {
 			const { text, tokenCount } = event.detail || {};
 			if (text && typeof text === 'string') {
 				this.sendTextMessage(text, tokenCount);
 			}
-		});
-
-		// Function to clean up event listeners
-		this.cleanupListeners = () => {
-			// No need to remove listeners since we're using anonymous functions
-			// The listeners will be garbage collected when the component is destroyed
-		};
+		}, opts);
 	}
 
 	private setupMicControlListener() {
-		// External controls to start/stop microphone streaming from React components
+		const opts = { signal: this.listenerAbort!.signal };
 		document.addEventListener('liveAudioStartMic', async () => {
 			if (!this.isRecording) {
 				await this.startRecording();
 			}
-		});
+		}, opts);
 		document.addEventListener('liveAudioStopMic', () => {
 			if (this.isRecording) {
 				this.stopRecording();
 			}
-		});
+		}, opts);
 		document.addEventListener('liveAudioResumeContexts', () => {
 			void this.resumeOutputAudio();
-		});
+		}, opts);
 	}
 
 	/** Exposes Gemini playback tap for React visualizers (e.g. AudioVisualizer). */
@@ -351,98 +351,22 @@ export class GdmLiveAudio extends LitElement {
 
 	// Remove the custom createBlobFromPCM function since we're using utils.createBlob
 
-	private async sendTextMessage(text: string, tokenCount?: number) {
+	private async sendTextMessage(text: string, _tokenCount?: number) {
 		if (!this.session || !this.isSessionOpen) {
 			this.updateError('Session is not ready. Please wait for connection.');
 			return;
 		}
 
-
+		const wasRecording = this.isRecording;
 
 		try {
-			// Check if audio is currently playing (by checking if any sources are active)
-			const isAudioPlaying = this.sources && this.sources.size > 0;
-			// Minimal outbound log
-			console.log('[LiveAudio][sendText] text=', text);
-			this.updateStatus('� Sending text message...');
-
-			// Method 1: Try using sendClientContent (similar to Python implementation)
-			let textSent = false;
-			try {
-				await (this.session as any)?.sendClientContent?.({
-					turns: [
-						{
-							role: 'user',
-							parts: [{ text: text }],
-						}
-					],
-					turnComplete: true
-				});
-				this.updateStatus('💬 Text sent via sendClientContent. Waiting for response...');
-				textSent = true;
-			} catch (error1) {
-				/* verbose log removed */
+			if (wasRecording) {
+				try { this.session.sendRealtimeInput({ audioStreamEnd: true }); } catch { /* ignore */ }
 			}
 
-			if (!textSent) {
-				// Method 2: Try using send with turnComplete
-				try {
-					await (this.session as any)?.send?.({
-						clientContent: [
-							{
-								role: 'user',
-								parts: [{ text: text }],
-							},
-						],
-						turnComplete: true
-					});
-					this.updateStatus('💬 Text sent via send method. Waiting for response...');
-					textSent = true;
-				} catch (error2) {
-					/* verbose log removed */
-				}
-			}
-
-			if (!textSent) {
-				try {
-					this.session?.sendClientContent({
-						turns: [{ role: 'user', parts: [{ text }] }],
-						turnComplete: true,
-					});
-					this.updateStatus('💬 Text sent (fallback). Waiting for response...');
-					textSent = true;
-				} catch (error3) {
-					throw new Error(`All text sending methods failed. Last error: ${error3}`);
-				}
-			}
-
-			// After text is sent, if audio is playing, send the pre-recorded okay audio
-			if (isAudioPlaying) {
-				this.updateStatus('🔄 Audio is playing, sending pre-recorded okay audio after text...');
-				try {
-					// Fetch the pre-recorded okay audio (WAV file)
-					const response = await fetch('/recorded_audio/okay.wav');
-					const arrayBuffer = await response.arrayBuffer();
-					// Decode the audio data to PCM
-					const audioBuffer = await this.inputAudioContext.decodeAudioData(arrayBuffer);
-					// Convert to 16-bit PCM Uint8Array
-					const pcmData = audioBuffer.getChannelData(0);
-					// Convert Float32Array [-1,1] to 16-bit PCM
-					const pcm16 = new Uint8Array(pcmData.length * 2);
-					for (let i = 0; i < pcmData.length; i++) {
-						let s = Math.max(-1, Math.min(1, pcmData[i]));
-						s = s < 0 ? s * 0x8000 : s * 0x7FFF;
-						const val = Math.round(s);
-						pcm16[i * 2] = val & 0xFF;
-						pcm16[i * 2 + 1] = (val >> 8) & 0xFF;
-					}
-					// Send the audio in chunks (simulate live audio)
-					await this.sendAudioInChunks(pcm16);
-				} catch (audioErr) {
-					console.error('Failed to send pre-recorded okay audio:', audioErr);
-				}
-			}
-
+			this.updateStatus('💬 Sending text...');
+			this.session.sendRealtimeInput({ text });
+			this.updateStatus('💬 Text sent. Waiting for response...');
 		} catch (error: any) {
 			console.error('Error sending text:', error);
 			this.updateError(`Failed to send text: ${error?.message || 'Unknown error'}`);
@@ -552,42 +476,61 @@ export class GdmLiveAudio extends LitElement {
 		this.nextStartTime = this.outputAudioContext.currentTime;
 	}
 
+	private async fetchEphemeralToken(): Promise<{ token: string } | null> {
+		if (!this.sessionId) {
+			this.updateError('No session ID available. Cannot fetch token.');
+			return null;
+		}
+		try {
+			return await apiGetGeminiEphemeralToken(this.sessionId);
+		} catch (err) {
+			this.updateError('Failed to get Gemini session token. Please sign in and retry.');
+			console.error('Ephemeral token fetch failed:', err);
+			return null;
+		}
+	}
+
 	private async initClient() {
 		this.initAudio();
-
-		const apiKey = import.meta.env.VITE_GEMINI_API_KEY as string | undefined;
-		if (!apiKey) {
-			this.updateError('Missing VITE_GEMINI_API_KEY. Please set it in your .env file.');
-			return;
-		}
-
-		this.client = new GoogleGenAI({
-			apiKey,
-		});
 
 		this.outputNode.connect(this.outputAudioContext.destination);
 
 		this.geminiOutputAnalyser = this.outputAudioContext.createAnalyser();
 		this.geminiOutputAnalyser.fftSize = 2048;
-		// Lower than mic path so TTS motion reads clearly (0.95 feels laggy on short chunks).
 		this.geminiOutputAnalyser.smoothingTimeConstant = 0.95;
 		this.outputNode.connect(this.geminiOutputAnalyser);
 
-		this.initSession();
+		// Session is created lazily by waitForSessionOpen() when the user clicks Start.
+		// Connecting here would waste the `uses:1` ephemeral token during React Strict
+		// Mode's mount-unmount-remount cycle.
 	}
 
 	private async initSession() {
 		const model = 'gemini-3.1-flash-live-preview';
 
+		this.isSessionOpen = false;
+		try { this.session?.close(); } catch { /* ignore */ }
+		this.session = undefined;
+		this.sessionOpenPromise = new Promise<boolean>((resolve) => {
+			this.resolveSessionOpen = resolve;
+		});
+
+		const tokenData = await this.fetchEphemeralToken();
+		if (!tokenData) {
+			this.resolveSessionOpen?.(false);
+			return;
+		}
+		const apiToken = tokenData.token;
+		console.log('[LiveAudio] Fresh token fetched');
+
+		this.client = new GoogleGenAI({ apiKey: apiToken, httpOptions: { apiVersion: 'v1alpha' } });
+
 		try {
-			this.isSessionOpen = false;
-			this.sessionOpenPromise = new Promise<boolean>((resolve) => {
-				this.resolveSessionOpen = resolve;
-			});
 			this.session = await this.client.live.connect({
 				model,
 				callbacks: {
 					onopen: () => {
+						console.log('[LiveAudio] WebSocket OPENED');
 						this.updateStatus('Opened');
 						this.isSessionOpen = true;
 						this.resolveSessionOpen?.(true);
@@ -596,7 +539,6 @@ export class GdmLiveAudio extends LitElement {
 						} catch {
 							/* ignore */
 						}
-						// Do not send here: `connect()` has not returned yet, so `this.session` is still undefined.
 					},
 					onmessage: async (message: LiveServerMessage) => {
 						const parts = message.serverContent?.modelTurn?.parts ?? [];
@@ -618,6 +560,18 @@ export class GdmLiveAudio extends LitElement {
 							for (const textPart of textParts) {
 								this.updateStatus(`💬 AI: ${textPart.text}`);
 							}
+						}
+
+						const sc = message.serverContent as any;
+						if (sc?.inputTranscription?.text) {
+							try { window.dispatchEvent(new CustomEvent('liveAudioInputTranscript', {
+								detail: { text: sc.inputTranscription.text, finished: !!sc.inputTranscription.finished }
+							})); } catch { /* ignore */ }
+						}
+						if (sc?.outputTranscription?.text) {
+							try { window.dispatchEvent(new CustomEvent('liveAudioOutputTranscript', {
+								detail: { text: sc.outputTranscription.text, finished: !!sc.outputTranscription.finished }
+							})); } catch { /* ignore */ }
 						}
 
 						if (audioB64) {
@@ -651,30 +605,40 @@ export class GdmLiveAudio extends LitElement {
 							this.sources.add(source);
 						}
 
-						const interrupted = (message.serverContent as any)?.interrupted as boolean | undefined;
-						if (interrupted) {
-							
-							try { window.dispatchEvent(new CustomEvent('liveAudioPlayback', { detail: { state: 'clearing' } })); } catch {}
-							for (const source of this.sources.values()) {
-								source.stop();
-								this.sources.delete(source);
-							}
-							this.nextStartTime = 0;
-							try { window.dispatchEvent(new CustomEvent('liveAudioPlayback', { detail: { state: 'idle' } })); } catch {}
+					const sc2 = message.serverContent as any;
+					if (sc2?.turnComplete) {
+						try { window.dispatchEvent(new CustomEvent('liveAudioTurnComplete')); } catch {}
+					}
+
+					const interrupted = sc2?.interrupted as boolean | undefined;
+					if (interrupted) {
+						try { window.dispatchEvent(new CustomEvent('liveAudioPlayback', { detail: { state: 'clearing' } })); } catch {}
+						for (const source of this.sources.values()) {
+							source.stop();
+							this.sources.delete(source);
 						}
+						this.nextStartTime = 0;
+						try { window.dispatchEvent(new CustomEvent('liveAudioPlayback', { detail: { state: 'idle' } })); } catch {}
+						try { window.dispatchEvent(new CustomEvent('liveAudioInterrupted')); } catch {}
+					}
 						
 					    if (message.usageMetadata) {
-							console.log('Usage metadata:', message.usageMetadata.totalTokenCount);
-							// Store the current token count for validation
-							this.currentTokenCount = message.usageMetadata.totalTokenCount;
-							
-							// Check usage status using the Redux async thunk
-							if (this.currentTokenCount) {
-								this.checkUsageStatus(this.currentTokenCount);
-							}
+						console.log('Usage metadata:', message.usageMetadata.totalTokenCount);
+						this.currentTokenCount = message.usageMetadata.totalTokenCount;
+						if (this.currentTokenCount) {
+							this.checkUsageStatus(this.currentTokenCount);
 						}
-					},
+					}
+
+						if ((message as any).goAway && !this.isReconnecting) {
+							this.isReconnecting = true;
+							this.updateStatus('Connection expiring, reconnecting...');
+							try { this.session?.close(); } catch { /* ignore */ }
+							this.initSession().finally(() => { this.isReconnecting = false; });
+						}
+				},
 					onerror: (e: ErrorEvent) => {
+						console.error('[LiveAudio] WebSocket ERROR:', e.message);
 						this.updateError(e.message);
 						this.isSessionOpen = false;
 						if (this.isRecording) {
@@ -682,7 +646,7 @@ export class GdmLiveAudio extends LitElement {
 						}
 					},
 					onclose: (e: CloseEvent) => {
-						this.updateStatus('Close: ' + e.reason);
+						console.log('[LiveAudio] WebSocket CLOSED, code:', e.code, 'reason:', e.reason);
 						this.isSessionOpen = false;
 						this.resolveSessionOpen?.(false);
 						this.emitGeminiAnalyserEnded();
@@ -690,24 +654,23 @@ export class GdmLiveAudio extends LitElement {
 						if (this.isRecording) {
 							this.stopRecording();
 						}
+
+						this.updateStatus('Close: ' + e.reason);
 					},
 				},
-				config: {
-					responseModalities: [Modality.AUDIO],
-					speechConfig: {
-						voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Orus' } },
-						// languageCode: 'en-GB'
-					},
-					systemInstruction: {
-						role: 'user',
-						parts: [{ text: 'You are a helpful assistant that can analyze images and answer questions about them. When an image is provided, describe what you see in detail.' }]
-					},
-					
-				},
+		config: {
+			responseModalities: [Modality.AUDIO],
+			speechConfig: {
+				voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Orus' } },
+			},
+			contextWindowCompression: { slidingWindow: {} },
+			inputAudioTranscription: {},
+			outputAudioTranscription: {},
+		},
 			});
 			// No automatic kickoff prompt — that forces an unsolicited model reply on every connect.
 		} catch (e) {
-			console.error(e);
+			console.error('[LiveAudio] Connection failed:', e);
 			this.isSessionOpen = false;
 			this.resolveSessionOpen?.(false);
 		}
@@ -745,17 +708,12 @@ export class GdmLiveAudio extends LitElement {
 		this.isSessionOpen = false;
 		this.resolveSessionOpen?.(false);
 		
-
-		
-		// Stop recording if active
 		if (this.isRecording) {
 			this.stopRecording();
 		}
 		
-		// Clear session
 		this.session = undefined;
 		
-		// Dispatch event for external components
 		try { 
 			window.dispatchEvent(new CustomEvent('liveAudioSessionClosed', { 
 				detail: { reason: 'token_inactive' } 
@@ -792,7 +750,7 @@ export class GdmLiveAudio extends LitElement {
 			return;
 		}
 
-		const ready = await this.waitForSessionOpen(8000);
+		const ready = await this.waitForSessionOpen(15000);
 		if (!ready) {
 			this.updateError('Live session is not ready. Try Reset and Start again.');
 			return;
@@ -839,9 +797,12 @@ export class GdmLiveAudio extends LitElement {
 					const msg = String(err?.message ?? err ?? '');
 					if (msg.includes('CLOSING') || msg.includes('CLOSED')) {
 						this.isSessionOpen = false;
-						this.updateError('Live session closed while sending audio. Reinitializing...');
 						this.stopRecording();
-						this.initSession();
+						if (!this.isReconnecting) {
+							this.isReconnecting = true;
+							this.updateError('Live session closed. Reconnecting...');
+							this.initSession().finally(() => { this.isReconnecting = false; });
+						}
 					}
 				}
 			};

@@ -23,6 +23,10 @@ const endpointConfig = {
     performanceReports: (userId: string) => `performance-reports/manager/${userId}/average-by-modes`,
     performanceMonthlyTrend: (userId: string) => `performance-reports/manager/${userId}/monthly-trend`,
     sessionsByUser: (userId: string) => `sessions/by-user/${userId}`,
+    createSession: 'sessions/',
+    storeSessionMessage: (sessionId: string) => `sessions/${sessionId}/messages`,
+    storeSessionMessagesBatch: (sessionId: string) =>
+        `sessions/${sessionId}/messages/batch`,
     interactionModeById: (modeId: string) => `interaction-modes/${modeId}`,
     aiPersonaById: (personaId: string) => `ai-personas/${personaId}`,
     salesCompanies: 'sales-companies/',
@@ -46,6 +50,7 @@ const endpointConfig = {
     assignScenario: (scenarioId: string, sessionId: string) => `scenarios/${scenarioId}/assign/${sessionId}`,
     scenarioAssignmentStatus: (scenarioId: string, teamId: string) => `scenarios/${scenarioId}/team/${teamId}/assignment-status`,
     authMe: 'auth/me',
+    geminiEphemeralToken: 'gemini/ephemeral-token',
 }
 
 export default endpointConfig

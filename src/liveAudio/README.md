@@ -16,8 +16,8 @@ This component now includes automatic token validation to ensure the session rem
 import { GdmLiveAudio } from './GdmLiveAudio';
 import { apiIsTokenActive } from '../../services/UsageService';
 
-// The component will automatically validate the VITE_GEMINI_API_KEY
-// and close the session if it becomes inactive
+// The component fetches an ephemeral token from the backend
+// at POST /api/v1/gemini/ephemeral-token on each session start
 
 // You can also manually check token status:
 const isActive = await apiIsTokenActive('your-token-here');
@@ -140,10 +140,16 @@ The service expects a usage API endpoint at `/usage/status/{usedToken}` that ret
 
 ## Environment Variables
 
-Set `VITE_GEMINI_API_KEY` in your `.env` file:
+The Gemini API key is **not** stored in the frontend `.env`. Instead, the component
+fetches a short-lived ephemeral token from your backend at startup and on each
+reconnect. See `BACKEND_EPHEMERAL_TOKEN_SETUP.md` in the project root for backend
+setup instructions.
+
+Required frontend env vars (already configured):
 
 ```env
-VITE_GEMINI_API_KEY=your-gemini-api-key-here
+VITE_BASE_URL=http://127.0.0.1:8000
+VITE_API_PREFIX=/api/v1/
 ```
 
 ## Token Validation Behavior
