@@ -59,7 +59,7 @@ const salesRoute: Routes = [
     },
     {
         key: 'salesManager.audioVisualizer',
-        path: '/audio-visualizer',
+        path: '/audio-visualizer/:sessionId',
         component: lazy(() => import('@/views/sales/AudioVisualizer')),
         authority: [],
         meta: {

@@ -1,7 +1,10 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Input, Button, Select, Avatar, Card } from '@/components/ui'
+import { injectReducer } from '@/store'
+import { Input, Button, Select, Avatar, Card, Spinner } from '@/components/ui'
+import toast from '@/components/ui/toast'
+import Notification from '@/components/ui/Notification'
 import {
     HiOutlineSearch,
     HiOutlineOfficeBuilding,
@@ -11,6 +14,16 @@ import {
 } from 'react-icons/hi'
 import { useAppSelector } from '@/store'
 import type { AIPersona } from '@/components/shared/SessionSetupPanel'
+import { apiCreateSession } from '@/services/SessionService'
+import type { AiPersonaListItem, InteractionModeListItem } from '@/views/sales/ScenarioList/types'
+import scenarioLibraryReducer, {
+    useAppSelector as useScenarioSelector,
+    useAppDispatch,
+    fetchPersonas,
+    fetchModes,
+} from '@/views/sales/ScenarioList/store'
+
+injectReducer('scenarioLibrary', scenarioLibraryReducer)
 
 // Map user's profile industry to persona industries (strict matching)
 const industryToPersonaIndustries: Record<string, string[]> = {
@@ -78,156 +91,18 @@ const productToPersonaIndustries: Record<string, string[]> = {
     accounting: ['Finance', 'Technology'],
 }
 
-// Mock AI Personas - Replace with API data
-const aiPersonas: AIPersona[] = [
-    {
-        id: 'tony-romano',
-        name: 'Tony Romano',
-        role: 'Operations Manager',
-        company: 'Apex Manufacturing Co.',
-        industry: 'Manufacturing',
-        personality: 'Data-driven, focuses on efficiency and cost savings. Needs clear ROI before making decisions.',
-        difficulty: 'Medium',
-        avatar: '/img/avatars/thumb-3.jpg',
-    },
-    {
-        id: 'sarah-chen',
-        name: 'Sarah Chen',
-        role: 'VP of Sales',
-        company: 'Nexus Tech Solutions',
-        industry: 'Technology',
-        personality: 'Goal-oriented and competitive. Values direct communication and proven results.',
-        difficulty: 'Hard',
-        avatar: '/img/avatars/thumb-1.jpg',
-    },
-    {
-        id: 'michael-foster',
-        name: 'Michael Foster',
-        role: 'Plant Manager',
-        company: 'Midwest Industrial Group',
-        industry: 'Industrial',
-        personality: 'Hands-on leader. Skeptical of change, needs tangible proof before committing.',
-        difficulty: 'Medium',
-        avatar: '/img/avatars/thumb-5.jpg',
-    },
-    {
-        id: 'jessica-park',
-        name: 'Jessica Park',
-        role: 'Chief Procurement Officer',
-        company: 'Summit Financial Partners',
-        industry: 'Finance',
-        personality: 'Strategic thinker. Builds long-term relationships and evaluates vendors carefully.',
-        difficulty: 'Hard',
-        avatar: '/img/avatars/thumb-4.jpg',
-    },
-    {
-        id: 'david-miller',
-        name: 'David Miller',
-        role: 'IT Director',
-        company: 'CloudFirst Software',
-        industry: 'Software',
-        personality: 'Tech-savvy and open to innovation. Wants scalable solutions that integrate well.',
-        difficulty: 'Easy',
-        avatar: '/img/avatars/thumb-2.jpg',
-    },
-    {
-        id: 'emily-rodriguez',
-        name: 'Emily Rodriguez',
-        role: 'Business Owner',
-        company: 'Rodriguez Retail Group',
-        industry: 'Retail',
-        personality: 'Wears many hats. Cautious with spending, prioritizes customer experience.',
-        difficulty: 'Medium',
-        avatar: '/img/avatars/thumb-6.jpg',
-    },
-    {
-        id: 'robert-johnson',
-        name: 'Robert Johnson',
-        role: 'CTO',
-        company: 'Innovate Labs',
-        industry: 'Technology',
-        personality: 'Forward-thinking. Moves fast, expects vendors to match his pace and vision.',
-        difficulty: 'Hard',
-        avatar: '/img/avatars/thumb-7.jpg',
-    },
-    {
-        id: 'lisa-martinez',
-        name: 'Lisa Martinez',
-        role: 'Purchasing Director',
-        company: 'Premier Manufacturing Corp',
-        industry: 'Manufacturing',
-        personality: 'Process-focused. Prioritizes compliance, quality, and reliability over price.',
-        difficulty: 'Medium',
-        avatar: '/img/avatars/thumb-8.jpg',
-    },
-    {
-        id: 'james-wilson',
-        name: 'James Wilson',
-        role: 'Operations VP',
-        company: 'Wilson Industries',
-        industry: 'Industrial',
-        personality: 'Direct communicator. Focused on efficiency and hitting targets.',
-        difficulty: 'Hard',
-        avatar: '/img/avatars/thumb-9.jpg',
-    },
-    {
-        id: 'amanda-lee',
-        name: 'Amanda Lee',
-        role: 'Marketing Director',
-        company: 'BrandWave Agency',
-        industry: 'Marketing',
-        personality: 'Creative and collaborative. Cares about brand fit and market positioning.',
-        difficulty: 'Easy',
-        avatar: '/img/avatars/thumb-10.jpg',
-    },
-    {
-        id: 'kevin-brown',
-        name: 'Kevin Brown',
-        role: 'CFO',
-        company: 'Precision Financial Corp',
-        industry: 'Finance',
-        personality: 'Metrics-focused. Requires solid financial justification and clear payback period.',
-        difficulty: 'Hard',
-        avatar: '/img/avatars/thumb-11.jpg',
-    },
-    {
-        id: 'maria-garcia',
-        name: 'Maria Garcia',
-        role: 'Store Manager',
-        company: 'Urban Retail Co.',
-        industry: 'Retail',
-        personality: 'Customer-centric. Balances day-to-day operations with strategic improvements.',
-        difficulty: 'Easy',
-        avatar: '/img/avatars/thumb-12.jpg',
-    },
-]
-
-const roleOptions = [
-    { value: '', label: 'All Roles' },
-    { value: 'Operations Manager', label: 'Operations Manager' },
-    { value: 'VP of Sales', label: 'VP of Sales' },
-    { value: 'Plant Manager', label: 'Plant Manager' },
-    { value: 'Chief Procurement Officer', label: 'Chief Procurement Officer' },
-    { value: 'IT Director', label: 'IT Director' },
-    { value: 'Business Owner', label: 'Business Owner' },
-    { value: 'CTO', label: 'CTO' },
-    { value: 'Purchasing Director', label: 'Purchasing Director' },
-    { value: 'Operations VP', label: 'Operations VP' },
-    { value: 'Marketing Director', label: 'Marketing Director' },
-    { value: 'CFO', label: 'CFO' },
-    { value: 'Store Manager', label: 'Store Manager' },
-]
-
-const allIndustryOptions = [
-    { value: '', label: 'All Industries' },
-    { value: 'Manufacturing', label: 'Manufacturing' },
-    { value: 'Technology', label: 'Technology' },
-    { value: 'Industrial', label: 'Industrial' },
-    { value: 'Finance', label: 'Finance' },
-    { value: 'Software', label: 'Software' },
-    { value: 'Retail', label: 'Retail' },
-    { value: 'Marketing', label: 'Marketing' },
-]
+function mapPersona(p: AiPersonaListItem): AIPersona {
+    return {
+        id: p.persona_id,
+        name: p.name,
+        role: p.ai_role?.name || 'Role',
+        company: p.company_size_new?.name || p.geography || 'Company',
+        industry: p.industry?.name || 'General',
+        personality: p.behavioral_detail || '',
+        difficulty: 'Medium' as const,
+        avatar: p.profile_pic,
+    }
+}
 
 const difficultyOptions = [
     { value: '', label: 'All Levels' },
@@ -239,10 +114,23 @@ const difficultyOptions = [
 const PersonaSelection = () => {
     const navigate = useNavigate()
     const location = useLocation()
+    const dispatch = useAppDispatch()
     const authUser = useAppSelector((state) => state.auth.user)
     const settingsProfile = useAppSelector((state) => state.settings.profile)
 
-    // Use profile settings (industry, products) when set; fall back to auth user (from onboarding)
+    const storePersonas = useScenarioSelector(
+        (state) => state.scenarioLibrary?.data?.personasData,
+    )
+    const storeModes = useScenarioSelector(
+        (state) => state.scenarioLibrary?.data?.modesData,
+    )
+    const personasLoading = useScenarioSelector(
+        (state) => state.scenarioLibrary?.data?.personasLoading,
+    )
+    const modesLoading = useScenarioSelector(
+        (state) => state.scenarioLibrary?.data?.modesLoading,
+    )
+
     const userIndustry = settingsProfile?.industry || authUser?.industry || ''
     const userProducts: string[] = (settingsProfile?.products?.map((p) => p.value) ?? authUser?.industryProducts ?? []).filter(Boolean)
 
@@ -252,16 +140,45 @@ const PersonaSelection = () => {
         files?: File[]
     }
 
+    const [isCreatingSession, setIsCreatingSession] = useState(false)
     const [searchQuery, setSearchQuery] = useState('')
     const [selectedRole, setSelectedRole] = useState('')
     const [selectedIndustry, setSelectedIndustry] = useState('')
     const [selectedDifficulty, setSelectedDifficulty] = useState('')
-    const [selectedPersona, setSelectedPersona] = useState<AIPersona | null>(
-        null
-    )
+    const [selectedPersona, setSelectedPersona] = useState<AIPersona | null>(null)
     const [hoveredPersona, setHoveredPersona] = useState<string | null>(null)
 
-    // Get related personas based on user's industry and product category
+    useEffect(() => {
+        if (!storePersonas?.length && !personasLoading) {
+            dispatch(fetchPersonas())
+        }
+        if (!storeModes?.length && !modesLoading) {
+            dispatch(fetchModes())
+        }
+    }, [dispatch, storePersonas?.length, personasLoading, storeModes?.length, modesLoading])
+
+    const aiPersonas = useMemo(() => {
+        if (!storePersonas?.length) return []
+        return storePersonas.filter((p) => p.status_active).map(mapPersona)
+    }, [storePersonas])
+
+    const interactionModes = useMemo(() => {
+        if (!storeModes?.length) return []
+        return storeModes.filter((m) => m.status_active)
+    }, [storeModes])
+
+    const isLoading = (personasLoading ?? false) || (modesLoading ?? false)
+
+    const roleOptions = useMemo(() => {
+        const roles = [...new Set(aiPersonas.map((p) => p.role))].sort()
+        return [{ value: '', label: 'All Roles' }, ...roles.map((r) => ({ value: r, label: r }))]
+    }, [aiPersonas])
+
+    const allIndustryOptions = useMemo(() => {
+        const industries = [...new Set(aiPersonas.map((p) => p.industry))].sort()
+        return [{ value: '', label: 'All Industries' }, ...industries.map((i) => ({ value: i, label: i }))]
+    }, [aiPersonas])
+
     const relatedPersonas = useMemo(() => {
         if (!userIndustry && userProducts.length === 0) {
             return aiPersonas
@@ -279,10 +196,11 @@ const PersonaSelection = () => {
             }
         })
         if (allowedIndustries.size === 0) return aiPersonas
-        return aiPersonas.filter((persona) =>
+        const filtered = aiPersonas.filter((persona) =>
             allowedIndustries.has(persona.industry)
         )
-    }, [userIndustry, userProducts])
+        return filtered.length > 0 ? filtered : aiPersonas
+    }, [userIndustry, userProducts, aiPersonas])
 
     // Filter and search personas (within related personas only)
     const filteredPersonas = useMemo(() => {
@@ -315,19 +233,43 @@ const PersonaSelection = () => {
         })
     }, [relatedPersonas, searchQuery, selectedRole, selectedIndustry, selectedDifficulty])
 
-    const handleStartSession = () => {
-        if (selectedPersona) {
-            console.log('Starting session:', {
-                ...sessionData,
-                persona: selectedPersona,
+    const handleStartSession = async () => {
+        if (!selectedPersona || isCreatingSession) return
+
+        const matchedMode = interactionModes.find(
+            (m) => m.name.toLowerCase() === sessionData?.mode,
+        )
+        if (!matchedMode) {
+            toast.push(
+                <Notification title="Error" type="danger">
+                    Interaction mode not found. Please go back and try again.
+                </Notification>,
+            )
+            return
+        }
+
+        setIsCreatingSession(true)
+        try {
+            const session = await apiCreateSession({
+                persona_id: selectedPersona.id,
+                mode_id: matchedMode.mode_id,
+                scenario_id: sessionData?.scenarios?.[0],
             })
-            // Navigate to audio visualizer with all session data
-            navigate('/audio-visualizer', {
+            navigate(`/audio-visualizer/${session.session_id}`, {
                 state: {
                     ...sessionData,
                     persona: selectedPersona,
                 },
             })
+        } catch (err: any) {
+            console.error('Failed to create session:', err)
+            toast.push(
+                <Notification title="Error" type="danger">
+                    {err?.response?.data?.detail || 'Failed to create session. Please try again.'}
+                </Notification>,
+            )
+        } finally {
+            setIsCreatingSession(false)
         }
     }
 
@@ -472,9 +414,10 @@ const PersonaSelection = () => {
                                 variant="solid"
                                 size="lg"
                                 onClick={handleStartSession}
+                                loading={isCreatingSession}
                                 className="bg-primary hover:bg-primary-deep text-white"
                             >
-                                Start Session with {selectedPersona.name}
+                                {isCreatingSession ? 'Creating Session...' : `Start Session with ${selectedPersona.name}`}
                             </Button>
                         )}
                     </div>
@@ -483,7 +426,11 @@ const PersonaSelection = () => {
 
             {/* Personas Grid */}
             <div className="max-w-7xl mx-auto px-6 py-8">
-                {filteredPersonas.length === 0 ? (
+                {isLoading ? (
+                    <div className="flex items-center justify-center py-20">
+                        <Spinner size={40} />
+                    </div>
+                ) : filteredPersonas.length === 0 ? (
                     <div className="text-center py-20">
                         <div className="text-gray-400 dark:text-gray-500 mb-4">
                             <HiOutlineSearch className="w-16 h-16 mx-auto" />
@@ -610,9 +557,10 @@ const PersonaSelection = () => {
                         variant="solid"
                         size="lg"
                         onClick={handleStartSession}
+                        loading={isCreatingSession}
                         className="bg-primary hover:bg-primary-deep text-white shadow-2xl"
                     >
-                        Start Session with {selectedPersona.name}
+                        {isCreatingSession ? 'Creating Session...' : `Start Session with ${selectedPersona.name}`}
                     </Button>
                 </div>
             )}

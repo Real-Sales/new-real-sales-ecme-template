@@ -4,10 +4,20 @@ import { OrbitControls, PerspectiveCamera } from '@react-three/drei';
 import { EffectComposer, Bloom } from '@react-three/postprocessing';
 import * as THREE from 'three';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useLocation } from 'react-router-dom';
-import { HiMicrophone, HiStop, HiPaperAirplane, HiPaperClip, HiPlus, HiLightBulb, HiSparkles } from 'react-icons/hi2';
+import { useLocation, useParams, useNavigate } from 'react-router-dom';
+import { HiStop, HiPaperAirplane, HiPaperClip, HiPlus, HiLightBulb, HiSparkles } from 'react-icons/hi2';
 import '@/liveAudio/GdmLiveAudio';
 import { getRangeVolumeFromAnalyser } from '@/liveAudio/utils/frequencyRange';
+import {
+  apiStoreSessionMessagesBatch,
+  flushSessionMessagesBatchKeepalive,
+} from '@/services/SessionService';
+import { apiGetGeminiEphemeralToken } from '@/services/GeminiService';
+import type { ChatHistoryItem } from '@/services/GeminiService';
+import ConfirmDialog from '@/components/shared/ConfirmDialog';
+import Loading from '@/components/shared/Loading';
+import ScrollBar from '@/components/ui/ScrollBar';
+import { useAppSelector } from '@/store/hook';
 
 // --- 1. CONFIGURATION: "Kilo Herz 2" ---
 const CONFIG = [
@@ -72,7 +82,7 @@ const CONFIG = [
 
 // --- 2. Audio Analyzer ---
 const useAudioAnalyzer = () => {
-  const [context, setContext] = useState<{ ctx: AudioContext, source: MediaStreamAudioSourceNode } | null>(null);
+  const [context, setContext] = useState<{ ctx: AudioContext, source: MediaStreamAudioSourceNode, stream: MediaStream } | null>(null);
   const analyzerRef = useRef<AnalyserNode | null>(null);
   const dataArrayRef = useRef<Uint8Array | null>(null);
 
@@ -93,7 +103,7 @@ const useAudioAnalyzer = () => {
       const source = ctx.createMediaStreamSource(stream);
 
       analyzer.fftSize = 2048;
-      analyzer.smoothingTimeConstant = 0.95; // Higher = smoother audio transitions
+      analyzer.smoothingTimeConstant = 0.95;
       
       source.connect(analyzer);
       
@@ -102,11 +112,21 @@ const useAudioAnalyzer = () => {
 
       analyzerRef.current = analyzer;
       dataArrayRef.current = dataArray;
-      setContext({ ctx, source });
+      setContext({ ctx, source, stream });
     } catch (err) {
       console.error("Audio Init Failed:", err);
     }
   };
+
+  const stopAudio = useCallback(() => {
+    if (!context) return;
+    try { context.source.disconnect(); } catch { /* ignore */ }
+    context.stream.getTracks().forEach(t => t.stop());
+    try { context.ctx.close(); } catch { /* ignore */ }
+    analyzerRef.current = null;
+    dataArrayRef.current = null;
+    setContext(null);
+  }, [context]);
 
   const getMicRangeVolume = useCallback(
     (minHz: number, maxHz: number) => {
@@ -122,7 +142,7 @@ const useAudioAnalyzer = () => {
     [context],
   );
 
-  return { startAudio, getMicRangeVolume, isReady: !!context };
+  return { startAudio, stopAudio, getMicRangeVolume, isReady: !!context };
 };
 
 // --- 3. Shader Material (GPU Logic) ---
@@ -393,6 +413,8 @@ interface Message {
   role: 'user' | 'assistant'
   content: string
   timestamp: Date
+  finished?: boolean
+  synced?: boolean
 }
 
 interface Hint {
@@ -437,8 +459,16 @@ const AVAILABLE_HINTS: Hint[] = [
 ];
 
 // --- 6. Main Component with Chat Interface ---
+const SESSION_DURATION = 1800;
+let _msgIdCounter = 0;
+const nextMsgId = () => `${Date.now()}_${++_msgIdCounter}`;
+
+
 export default function KiloHerzVisualizer() {
   const location = useLocation();
+  const { sessionId } = useParams<{ sessionId: string }>();
+  const navigateTo = useNavigate();
+  const direction = useAppSelector((state) => state.theme.direction);
   const sessionData = location.state as {
     mode?: string
     persona?: {
@@ -453,7 +483,7 @@ export default function KiloHerzVisualizer() {
     files?: File[]
   };
 
-  const { startAudio, getMicRangeVolume, isReady } = useAudioAnalyzer();
+  const { startAudio, stopAudio, getMicRangeVolume, isReady } = useAudioAnalyzer();
   const liveAudioRef = useRef<
     HTMLElement & {
       getGeminiOutputAnalyser?: () => { analyser: AnalyserNode; sampleRate: number } | null;
@@ -516,39 +546,123 @@ export default function KiloHerzVisualizer() {
     [getMicRangeVolume, syncGeminiAnalyserFromElement],
   );
 
+  const storageKey = (base: string) => sessionId ? `${base}_${sessionId}` : base;
+
   const [isMicActive, setIsMicActive] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [tokenReady, setTokenReady] = useState(false);
+  const [hasBackendHistory, setHasBackendHistory] = useState(false);
   const [personaMode] = useState(
     sessionData?.mode 
       ? sessionData.mode.charAt(0).toUpperCase() + sessionData.mode.slice(1)
       : 'Discovering'
   );
-  const [timeLeft, setTimeLeft] = useState(1800); // 30 minutes in seconds
+  const [timeLeft, setTimeLeft] = useState(() => {
+    const stored = sessionStorage.getItem(storageKey('session_start_timestamp'));
+    if (stored) {
+      const elapsed = Math.floor((Date.now() - Number(stored)) / 1000);
+      return Math.max(0, SESSION_DURATION - elapsed);
+    }
+    return SESSION_DURATION;
+  });
   const [userName] = useState(sessionData?.persona?.name || 'AI Persona');
   const [userRole] = useState(sessionData?.persona?.role || 'Role');
   const [userAvatar] = useState(sessionData?.persona?.avatar);
+
   const [hints, setHints] = useState<Hint[]>(AVAILABLE_HINTS);
   const [currentHintIndex, setCurrentHintIndex] = useState(0);
   const [viewedHints, setViewedHints] = useState<number[]>([]);
   const [showHints, setShowHints] = useState(false);
   const [sessionStarted, setSessionStarted] = useState(false);
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const historyPushedRef = useRef(false);
+  /** Prevents duplicate POSTs for the same user+assistant pair while a batch is in flight */
+  const syncingPairKeyRef = useRef<string | null>(null);
+  const messagesRef = useRef<Message[]>([]);
+  const sessionIdRef = useRef<string | undefined>(sessionId);
 
-  // Timer countdown - starts when session is started
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
+
+  useEffect(() => {
+    sessionIdRef.current = sessionId;
+  }, [sessionId]);
+
+  // Persist in-progress assistant reply on reload/close (normal batch sync waits for turnComplete)
+  useEffect(() => {
+    const onPageHide = () => {
+      const sid = sessionIdRef.current;
+      if (!sid) return;
+      const msgs = messagesRef.current;
+      for (let i = 0; i < msgs.length - 1; i++) {
+        const a = msgs[i];
+        const b = msgs[i + 1];
+        if (
+          a.role === 'user' &&
+          a.finished &&
+          !a.synced &&
+          b.role === 'assistant' &&
+          !b.synced &&
+          b.content.trim()
+        ) {
+          flushSessionMessagesBatchKeepalive(sid, [
+            { role: 'human', content: a.content },
+            { role: 'assistant', content: b.content },
+          ]);
+          return;
+        }
+      }
+    };
+    window.addEventListener('pagehide', onPageHide, { capture: true });
+    return () => window.removeEventListener('pagehide', onPageHide, true);
+  }, []);
+
+  // Fetch ephemeral token on mount — preloads the Gemini session and loads chat history from backend
+  useEffect(() => {
+    if (!sessionId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await apiGetGeminiEphemeralToken(sessionId);
+        if (cancelled) return;
+        if (res.chat_history?.length) {
+          setHasBackendHistory(true);
+          const restored: Message[] = res.chat_history.map((m: ChatHistoryItem, i: number) => ({
+            id: `history_${i}`,
+            role: m.role === 'human' ? 'user' as const : 'assistant' as const,
+            content: m.content,
+            timestamp: new Date(),
+            finished: true,
+            synced: true,
+          }));
+          setMessages(restored);
+        }
+      } catch (err) {
+        console.error('Failed to prefetch ephemeral token:', err);
+      } finally {
+        if (!cancelled) setTokenReady(true);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [sessionId]);
+
+  // Timer countdown using persisted start timestamp for reload accuracy
   useEffect(() => {
     if (!sessionStarted) return;
-    
+    const startTs = sessionStorage.getItem(storageKey('session_start_timestamp'));
+    if (!startTs) return;
+    const origin = Number(startTs);
+
     const timer = setInterval(() => {
-      setTimeLeft(prev => {
-        if (prev <= 0) {
-          clearInterval(timer);
-          return 0;
-        }
-        return prev - 1;
-      });
+      const elapsed = Math.floor((Date.now() - origin) / 1000);
+      const remaining = Math.max(0, SESSION_DURATION - elapsed);
+      setTimeLeft(remaining);
+      if (remaining <= 0) clearInterval(timer);
     }, 1000);
 
     return () => clearInterval(timer);
@@ -568,45 +682,215 @@ export default function KiloHerzVisualizer() {
     scrollToBottom();
   }, [messages]);
 
+  // Persist sessionStarted flag
+  useEffect(() => {
+    sessionStorage.setItem(storageKey('session_started'), String(sessionStarted));
+  }, [sessionStarted]);
+
+  // Transcription event listeners (voice-to-text from Gemini)
+  useEffect(() => {
+    const handleOutput = (e: Event) => {
+      const { text, finished } = (e as CustomEvent<{ text: string; finished: boolean }>).detail;
+      if (!text) return;
+      setMessages(prev => {
+        const last = prev[prev.length - 1];
+        if (last?.role === 'assistant' && !last.finished) {
+          return [...prev.slice(0, -1), { ...last, content: last.content + text, finished }];
+        }
+        return [...prev, { id: nextMsgId(), role: 'assistant', content: text, timestamp: new Date(), finished }];
+      });
+    };
+
+    const handleInput = (e: Event) => {
+      const { text, finished } = (e as CustomEvent<{ text: string; finished: boolean }>).detail;
+      if (!text) return;
+      setMessages(prev => {
+        const last = prev[prev.length - 1];
+        if (last?.role === 'user' && !last.finished) {
+          return [...prev.slice(0, -1), { ...last, content: last.content + text, finished }];
+        }
+        return [...prev, { id: nextMsgId(), role: 'user', content: text, timestamp: new Date(), finished }];
+      });
+    };
+
+    window.addEventListener('liveAudioOutputTranscript', handleOutput);
+    window.addEventListener('liveAudioInputTranscript', handleInput);
+    return () => {
+      window.removeEventListener('liveAudioOutputTranscript', handleOutput);
+      window.removeEventListener('liveAudioInputTranscript', handleInput);
+    };
+  }, []);
+
+  // Force-finalize in-progress assistant messages on interruption
+  useEffect(() => {
+    const handler = () => {
+      setMessages(prev => {
+        const last = prev[prev.length - 1];
+        if (last?.role === 'assistant' && !last.finished) {
+          return [...prev.slice(0, -1), { ...last, finished: true }];
+        }
+        return prev;
+      });
+    };
+    window.addEventListener('liveAudioInterrupted', handler);
+    return () => window.removeEventListener('liveAudioInterrupted', handler);
+  }, []);
+
+  // Finalize messages when Gemini's turn completes (reliable signal for end of response)
+  useEffect(() => {
+    const handler = () => {
+      setMessages(prev => {
+        let changed = false;
+        const updated = prev.map(m => {
+          if (!m.finished) {
+            changed = true;
+            return { ...m, finished: true };
+          }
+          return m;
+        });
+        return changed ? updated : prev;
+      });
+    };
+    window.addEventListener('liveAudioTurnComplete', handler);
+    return () => window.removeEventListener('liveAudioTurnComplete', handler);
+  }, []);
+
+  // Sync human + assistant pairs to backend (batch — avoids race vs two separate POSTs)
+  useEffect(() => {
+    if (!sessionId) return;
+
+    let idx = -1;
+    for (let i = 0; i < messages.length - 1; i++) {
+      const a = messages[i];
+      const b = messages[i + 1];
+      if (
+        a.role === 'user' &&
+        a.finished &&
+        !a.synced &&
+        b.role === 'assistant' &&
+        b.finished &&
+        !b.synced
+      ) {
+        idx = i;
+        break;
+      }
+    }
+    if (idx === -1) return;
+
+    const userMsg = messages[idx];
+    const asstMsg = messages[idx + 1];
+    const pairKey = `${userMsg.id}:${asstMsg.id}`;
+    if (syncingPairKeyRef.current === pairKey) return;
+
+    syncingPairKeyRef.current = pairKey;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        await apiStoreSessionMessagesBatch(sessionId, {
+          messages: [
+            { role: 'human', content: userMsg.content },
+            { role: 'assistant', content: asstMsg.content },
+          ],
+        });
+      } catch (e) {
+        console.error('Failed to sync message batch:', e);
+        syncingPairKeyRef.current = null;
+        return;
+      }
+      if (cancelled) {
+        syncingPairKeyRef.current = null;
+        return;
+      }
+      const uid = userMsg.id;
+      const aid = asstMsg.id;
+      setMessages(prev =>
+        prev.map(m =>
+          m.id === uid || m.id === aid ? { ...m, synced: true } : m,
+        ),
+      );
+      syncingPairKeyRef.current = null;
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [messages, sessionId]);
+
+  // beforeunload warning when session is active
+  useEffect(() => {
+    if (!sessionStarted) return;
+    const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [sessionStarted]);
+
+  // Browser back button interception via popstate
+  useEffect(() => {
+    if (!sessionStarted) { historyPushedRef.current = false; return; }
+    if (historyPushedRef.current) return;
+    historyPushedRef.current = true;
+    window.history.pushState(null, '', window.location.href);
+    const handlePopState = () => {
+      window.history.pushState(null, '', window.location.href);
+      setShowLeaveConfirm(true);
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [sessionStarted]);
+
+  const handleConfirmLeave = () => {
+    setShowLeaveConfirm(false);
+    endSession();
+    navigateTo('/overview');
+  };
+
   const handleSendMessage = () => {
-    if (!inputValue.trim() || isGenerating) return;
+    const text = inputValue.trim();
+    if (!text || isGenerating) return;
 
     const userMessage: Message = {
-      id: Date.now().toString(),
+      id: nextMsgId(),
       role: 'user',
-      content: inputValue,
-      timestamp: new Date()
+      content: text,
+      timestamp: new Date(),
+      finished: true,
+      synced: false,
     };
 
     setMessages(prev => [...prev, userMessage]);
     setInputValue('');
 
     document.dispatchEvent(new CustomEvent('sendLiveText', {
-      detail: { text: inputValue },
+      detail: { text },
     }));
   };
 
   const toggleMic = async () => {
-    if (!isReady) {
-      await startAudio();
-    }
-    await liveAudioRef.current?.resumeOutputAudio?.();
     if (isMicActive) {
       document.dispatchEvent(new CustomEvent('liveAudioStopMic'));
+      stopAudio();
+      setIsMicActive(false);
     } else {
+      if (!isReady) await startAudio();
+      await liveAudioRef.current?.resumeOutputAudio?.();
       document.dispatchEvent(new CustomEvent('liveAudioStartMic'));
+      setIsMicActive(true);
     }
-    setIsMicActive(!isMicActive);
   };
 
   const endSession = () => {
     document.dispatchEvent(new CustomEvent('liveAudioStopMic'));
+    stopAudio();
     setMessages([]);
     setIsMicActive(false);
     setSessionStarted(false);
-    setTimeLeft(1800); // Reset timer
-    setViewedHints([]); // Reset hints
+    setTimeLeft(SESSION_DURATION);
+    setViewedHints([]);
     setCurrentHintIndex(0);
+    sessionStorage.removeItem(storageKey('session_started'));
+    sessionStorage.removeItem(storageKey('session_start_timestamp'));
+    navigateTo('/overview');
   };
 
   const handleStartSession = async () => {
@@ -615,6 +899,9 @@ export default function KiloHerzVisualizer() {
     document.dispatchEvent(new CustomEvent('liveAudioStartMic'));
     setIsMicActive(true);
     setSessionStarted(true);
+    if (!sessionStorage.getItem(storageKey('session_start_timestamp'))) {
+      sessionStorage.setItem(storageKey('session_start_timestamp'), String(Date.now()));
+    }
   };
 
   const handleAddFiles = () => {
@@ -660,6 +947,14 @@ export default function KiloHerzVisualizer() {
     return formatted;
   };
 
+  if (!tokenReady) {
+    return (
+      <div className="flex h-screen w-screen bg-gray-950 overflow-hidden fixed inset-0">
+        <Loading loading={true} className="w-full h-full bg-gray-950" spinnerClass="text-blue-500" />
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-screen w-screen bg-gray-950 overflow-hidden fixed inset-0">
       <div
@@ -669,6 +964,7 @@ export default function KiloHerzVisualizer() {
         {React.createElement('gdm-live-audio', {
           ref: liveAudioRef,
           'hide-built-in-visuals': true,
+          'session-id': sessionId || '',
         })}
       </div>
       {/* LEFT: Audio Visualizer - Increased to 65% */}
@@ -732,6 +1028,19 @@ export default function KiloHerzVisualizer() {
         </AnimatePresence>
       </div>
 
+      <ConfirmDialog
+        isOpen={showLeaveConfirm}
+        type="warning"
+        title="Leave Session?"
+        onClose={() => setShowLeaveConfirm(false)}
+        onCancel={() => setShowLeaveConfirm(false)}
+        onConfirm={handleConfirmLeave}
+        confirmText="Leave"
+        cancelText="Stay"
+      >
+        <p>Your current session will be lost. Are you sure you want to leave?</p>
+      </ConfirmDialog>
+
       {/* RIGHT: Chat Interface - 35% */}
       <div className="w-[35%] h-full flex flex-col bg-gray-950">
         {/* Header: Persona Detail - Compact Row */}
@@ -791,75 +1100,83 @@ export default function KiloHerzVisualizer() {
           </div>
         </div>
 
-        {/* Transcript Area - Middle Large Section */}
-        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4 min-h-0">
-          {messages.length === 0 ? (
-            <div className="h-full flex items-center justify-center">
-              <p className="text-gray-500 text-center text-sm">
-                Transcript will appear here<br />
-                <span className="text-xs text-gray-600">User's input + AI's response</span>
-              </p>
-            </div>
-          ) : (
-            <>
-              {messages.map((message) => (
-                <motion.div
-                  key={message.id}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                >
-                  <div
-                    className={`
+        {/* Transcript — ScrollBar matches SideNav (SimpleBar + _scrollbar.css) */}
+        <div className="flex-1 min-h-0 overflow-hidden">
+          <ScrollBar
+            className="h-full max-h-full"
+            style={{ height: '100%', maxHeight: '100%' }}
+            direction={direction}
+          >
+            <div className="px-6 py-4 space-y-4 min-h-full box-border">
+              {messages.length === 0 ? (
+                <div className="min-h-[min(100%,24rem)] flex items-center justify-center">
+                  <p className="text-gray-500 text-center text-sm">
+                    Transcript will appear here<br />
+                    <span className="text-xs text-gray-600">User's input + AI's response</span>
+                  </p>
+                </div>
+              ) : (
+                <>
+                  {messages.map((message) => (
+                    <motion.div
+                      key={message.id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                    >
+                      <div
+                        className={`
                       max-w-[90%] px-4 py-3 rounded-xl
                       ${message.role === 'user'
                         ? 'bg-gradient-to-br from-blue-500 via-blue-600 to-blue-600 text-white shadow-lg shadow-blue-500/30'
                         : 'bg-gradient-to-br from-gray-900/90 to-gray-800/90 text-gray-200 border border-gray-700/50 shadow-md'
                       }
                     `}
-                  >
-                    <div 
-                      className="text-sm leading-relaxed"
-                      dangerouslySetInnerHTML={{ __html: formatContent(message.content) }}
-                    />
-                    <p className="text-xs opacity-50 mt-1.5">
-                      {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </p>
-                  </div>
-                </motion.div>
-              ))}
+                      >
+                        <div
+                          className="text-sm leading-relaxed"
+                          dangerouslySetInnerHTML={{ __html: formatContent(message.content) }}
+                        />
+                        <p className="text-xs opacity-50 mt-1.5">
+                          {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      </div>
+                    </motion.div>
+                  ))}
 
-              {isGenerating && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="flex justify-start"
-                >
-                  <div className="px-4 py-3 rounded-xl bg-gray-900/90 border border-gray-700/50">
-                    <div className="flex gap-1.5">
-                      <motion.div
-                        animate={{ scale: [1, 1.3, 1] }}
-                        transition={{ repeat: Infinity, duration: 0.6, delay: 0 }}
-                        className="w-1.5 h-1.5 rounded-full bg-blue-500"
-                      />
-                      <motion.div
-                        animate={{ scale: [1, 1.3, 1] }}
-                        transition={{ repeat: Infinity, duration: 0.6, delay: 0.2 }}
-                        className="w-1.5 h-1.5 rounded-full bg-blue-500"
-                      />
-                      <motion.div
-                        animate={{ scale: [1, 1.3, 1] }}
-                        transition={{ repeat: Infinity, duration: 0.6, delay: 0.4 }}
-                        className="w-1.5 h-1.5 rounded-full bg-blue-500"
-                      />
-                    </div>
-                  </div>
-                </motion.div>
+                  {isGenerating && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="flex justify-start"
+                    >
+                      <div className="px-4 py-3 rounded-xl bg-gray-900/90 border border-gray-700/50">
+                        <div className="flex gap-1.5">
+                          <motion.div
+                            animate={{ scale: [1, 1.3, 1] }}
+                            transition={{ repeat: Infinity, duration: 0.6, delay: 0 }}
+                            className="w-1.5 h-1.5 rounded-full bg-blue-500"
+                          />
+                          <motion.div
+                            animate={{ scale: [1, 1.3, 1] }}
+                            transition={{ repeat: Infinity, duration: 0.6, delay: 0.2 }}
+                            className="w-1.5 h-1.5 rounded-full bg-blue-500"
+                          />
+                          <motion.div
+                            animate={{ scale: [1, 1.3, 1] }}
+                            transition={{ repeat: Infinity, duration: 0.6, delay: 0.4 }}
+                            className="w-1.5 h-1.5 rounded-full bg-blue-500"
+                          />
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+
+                  <div ref={messagesEndRef} />
+                </>
               )}
-
-              <div ref={messagesEndRef} />
-            </>
-          )}
+            </div>
+          </ScrollBar>
         </div>
 
         {/* Hints Panel - Above Input - One Hint at a Time */}
@@ -973,7 +1290,7 @@ export default function KiloHerzVisualizer() {
         <div className="flex-shrink-0 px-4 py-3 bg-gray-900/60 backdrop-blur-2xl">
           <AnimatePresence mode="wait">
             {!sessionStarted ? (
-              /* Start Session Button */
+              /* Start / Continue Session Button */
               <motion.div
                 key="start-session"
                 initial={{ opacity: 1, y: 0 }}
@@ -993,7 +1310,7 @@ export default function KiloHerzVisualizer() {
                     transition-all duration-300
                   "
                 >
-                  Start Session
+                  {hasBackendHistory ? 'Continue Session' : 'Start Session'}
                 </motion.button>
               </motion.div>
             ) : (
@@ -1080,17 +1397,7 @@ export default function KiloHerzVisualizer() {
                   <motion.button
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    onClick={async () => {
-                      if (isMicActive) {
-                        document.dispatchEvent(new CustomEvent('liveAudioStopMic'));
-                        setIsMicActive(false);
-                      } else {
-                        await startAudio();
-                        await liveAudioRef.current?.resumeOutputAudio?.();
-                        document.dispatchEvent(new CustomEvent('liveAudioStartMic'));
-                        setIsMicActive(true);
-                      }
-                    }}
+                    onClick={toggleMic}
                     className={`
                       w-9 h-9 rounded-full flex-shrink-0
                       flex items-center justify-center
