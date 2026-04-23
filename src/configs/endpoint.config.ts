@@ -51,6 +51,15 @@ const endpointConfig = {
     scenarioAssignmentStatus: (scenarioId: string, teamId: string) => `scenarios/${scenarioId}/team/${teamId}/assignment-status`,
     authMe: 'auth/me',
     geminiEphemeralToken: 'gemini/ephemeral-token',
+    subscriptions: 'subscriptions/',
+    userSubscriptionsByUser: (userId: string) =>
+        `user-subscriptions/by-user/${userId}`,
+    userSubscriptions: 'user-subscriptions/',
+    userSubscriptionsMy: 'user-subscriptions/my-subscription',
+    paymentsCreatePayment: 'payments/create-payment',
+    paymentsUpdate: (paymentId: string) => `payments/${paymentId}`,
+    paymentsCreateOrder: 'create-order',
+    paymentsVerifyPayment: 'verify-payment',
 }
 
 export default endpointConfig

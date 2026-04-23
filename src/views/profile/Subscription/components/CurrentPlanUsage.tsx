@@ -1,6 +1,6 @@
 import Card from '@/components/ui/Card'
 import Tag from '@/components/ui/Tag'
-import { useAppSelector } from '@/store/hook'
+import Alert from '@/components/ui/Alert'
 import { NumericFormat } from 'react-number-format'
 import {
     TbBolt,
@@ -8,19 +8,112 @@ import {
     TbCreditCard,
     TbMessageCircle,
 } from 'react-icons/tb'
+import type { UserSubscriptionRecord } from '@/services/SubscriptionService'
 
-const CurrentPlanUsage = () => {
-    const currentPlan = useAppSelector(
-        (state) => state.subscription.currentPlan,
-    )
+type CurrentPlanUsageProps = {
+    activeUserSubscription: UserSubscriptionRecord | null
+    loading: boolean
+    error: string | null
+    hasUserId: boolean
+}
 
-    const usagePercent = Math.round(
-        (currentPlan.sessionsUsed / currentPlan.sessionsTotal) * 100,
-    )
+function formatPlanTitle(planType: string) {
+    const t = planType.replace(/_/g, ' ')
+    return `${t.charAt(0).toUpperCase()}${t.slice(1).toLowerCase()} Plan`
+}
+
+function formatDateLabel(iso: string) {
+    const d = new Date(iso)
+    if (Number.isNaN(d.getTime())) {
+        return '—'
+    }
+    return d.toLocaleDateString(undefined, {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+    })
+}
+
+function daysUntil(iso: string) {
+    const end = new Date(iso).getTime()
+    if (Number.isNaN(end)) {
+        return 0
+    }
+    const start = Date.now()
+    return Math.max(0, Math.ceil((end - start) / (1000 * 60 * 60 * 24)))
+}
+
+function parseAmount(s: string) {
+    const n = parseFloat(s)
+    return Number.isFinite(n) ? n : 0
+}
+
+const CurrentPlanUsage = ({
+    activeUserSubscription,
+    loading,
+    error,
+    hasUserId,
+}: CurrentPlanUsageProps) => {
+    if (!hasUserId) {
+        return (
+            <Card className="mb-6 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Sign in to view your subscription and usage.
+                </p>
+            </Card>
+        )
+    }
+
+    if (loading) {
+        return (
+            <Card className="mb-6 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Loading your subscription…
+                </p>
+            </Card>
+        )
+    }
+
+    if (error) {
+        return (
+            <Card className="mb-6 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
+                <Alert showIcon type="danger">
+                    {error}
+                </Alert>
+            </Card>
+        )
+    }
+
+    if (!activeUserSubscription) {
+        return (
+            <Card className="mb-6 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                    No subscription is linked to your account yet.
+                </p>
+            </Card>
+        )
+    }
+
+    const sub = activeUserSubscription.subscription
+    const billingLabel =
+        sub.billing_cycle === 'yearly' ? 'yearly' : 'monthly'
+    const periodSuffix = sub.billing_cycle === 'yearly' ? 'yr' : 'mo'
+    const amount =
+        sub.billing_cycle === 'yearly'
+            ? parseAmount(sub.yearly_price)
+            : parseAmount(sub.monthly_price)
+
+    const allocated = activeUserSubscription.credits_allocated
+    const completed = activeUserSubscription.sessions_completed
+    const usagePercent =
+        allocated > 0 ? Math.min(100, Math.round((completed / allocated) * 100)) : 0
+
+    const renewalLabel = formatDateLabel(activeUserSubscription.end_date)
+    const daysRemaining = daysUntil(activeUserSubscription.end_date)
+    const statusLabel = activeUserSubscription.status_active ? 'active' : 'inactive'
 
     return (
         <Card className="mb-6 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
-            {/* Header */}
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6">
                 <div className="flex items-center gap-4">
                     <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-primary/10">
@@ -29,108 +122,102 @@ const CurrentPlanUsage = () => {
                     <div>
                         <div className="flex items-center gap-2">
                             <h4 className="font-bold">
-                                {currentPlan.plan} Plan
+                                {formatPlanTitle(sub.plan_type)}
                             </h4>
                             <Tag className="bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-md border-0 font-semibold">
-                                <span className="capitalize">
-                                    {currentPlan.status}
-                                </span>
+                                <span className="capitalize">{statusLabel}</span>
                             </Tag>
                         </div>
                         <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-                            Billed {currentPlan.billingCycle} •{' '}
+                            Billed {billingLabel} •{' '}
                             <NumericFormat
+                                thousandSeparator
+                                fixedDecimalScale
+                                decimalScale={2}
                                 displayType="text"
-                                value={currentPlan.amount}
-                                prefix={'$'}
-                                thousandSeparator={true}
+                                prefix="$"
+                                value={amount}
                             />
-                            /{currentPlan.billingCycle === 'monthly' ? 'mo' : 'yr'}
+                            /{periodSuffix}
                         </p>
                     </div>
                 </div>
             </div>
 
-            {/* Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* Sessions Usage */}
                 <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-800/50">
                     <div className="flex items-center gap-3 mb-3">
                         <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-blue-50 dark:bg-blue-500/10">
                             <TbMessageCircle className="text-lg text-blue-500" />
                         </div>
                         <span className="text-sm font-semibold text-gray-500 dark:text-gray-400">
-                            Sessions Used
+                            Sessions used
                         </span>
                     </div>
                     <div className="flex items-end gap-1 mb-3">
                         <span className="text-2xl font-bold heading-text">
                             <NumericFormat
+                                thousandSeparator
                                 displayType="text"
-                                value={currentPlan.sessionsUsed}
-                                thousandSeparator=","
+                                value={completed}
                             />
                         </span>
                         <span className="text-sm text-gray-400 mb-0.5">
                             /{' '}
                             <NumericFormat
+                                thousandSeparator
                                 displayType="text"
-                                value={currentPlan.sessionsTotal}
-                                thousandSeparator=","
+                                value={allocated}
                             />
                         </span>
                     </div>
                     <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                         <div
                             className="bg-blue-500 h-2 rounded-full transition-all duration-500"
-                            style={{ width: `${Math.min(usagePercent, 100)}%` }}
+                            style={{ width: `${usagePercent}%` }}
                         />
                     </div>
-                    <p className="text-xs text-gray-400 mt-2">
-                        {usagePercent}% used
-                    </p>
+                    <p className="text-xs text-gray-400 mt-2">{usagePercent}% used</p>
                 </div>
 
-                {/* Next Billing */}
                 <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-800/50">
                     <div className="flex items-center gap-3 mb-3">
                         <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-amber-50 dark:bg-amber-500/10">
                             <TbCalendarEvent className="text-lg text-amber-500" />
                         </div>
                         <span className="text-sm font-semibold text-gray-500 dark:text-gray-400">
-                            Next Billing
+                            Next billing
                         </span>
                     </div>
                     <div className="text-2xl font-bold heading-text mb-1">
-                        {currentPlan.renewalDate}
+                        {renewalLabel}
                     </div>
                     <p className="text-sm text-gray-500 dark:text-gray-400">
-                        {currentPlan.daysRemaining} days remaining
+                        {daysRemaining} days remaining
                     </p>
                 </div>
 
-                {/* Amount Due */}
                 <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-800/50">
                     <div className="flex items-center gap-3 mb-3">
                         <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-emerald-50 dark:bg-emerald-500/10">
                             <TbCreditCard className="text-lg text-emerald-500" />
                         </div>
                         <span className="text-sm font-semibold text-gray-500 dark:text-gray-400">
-                            Amount Due
+                            Amount due
                         </span>
                     </div>
                     <div className="text-2xl font-bold heading-text mb-1">
                         <NumericFormat
-                            displayType="text"
-                            value={currentPlan.amount}
-                            prefix={'$'}
-                            thousandSeparator={true}
-                            decimalScale={2}
+                            thousandSeparator
                             fixedDecimalScale
+                            decimalScale={2}
+                            displayType="text"
+                            prefix="$"
+                            value={amount}
                         />
                     </div>
                     <p className="text-sm text-gray-500 dark:text-gray-400">
-                        Due on {currentPlan.renewalDate}
+                        Due on {renewalLabel}
                     </p>
                 </div>
             </div>

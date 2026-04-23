@@ -1,7 +1,14 @@
+import { useCallback, useEffect, useState } from 'react'
 import { Button } from '@/components/ui'
 import { HiArrowRight } from 'react-icons/hi'
 import { NumericFormat } from 'react-number-format'
 import { Link } from 'react-router-dom'
+import { useAppSelector } from '@/store/hook'
+import {
+    apiGetUserSubscriptionsByUser,
+    pickActiveUserSubscription,
+    type UserSubscriptionRecord,
+} from '@/services/SubscriptionService'
 
 const CircleProgress = ({ percent }: { percent: number }) => {
     const size = 20
@@ -38,38 +45,82 @@ const CircleProgress = ({ percent }: { percent: number }) => {
 }
 
 const UpgradeCard = () => {
-    // Mock balance data - replace with actual data
-    const totalCredits = 87711
-    const remainingCredits = 84116
-    const usagePercent = 50
+    const userId = useAppSelector((state) => state.auth.user.userId?.trim() ?? '')
+
+    const [activeSub, setActiveSub] = useState<UserSubscriptionRecord | null>(null)
+    const [loading, setLoading] = useState(true)
+
+    const load = useCallback(async () => {
+        if (!userId) {
+            setActiveSub(null)
+            setLoading(false)
+            return
+        }
+        setLoading(true)
+        try {
+            const rows = await apiGetUserSubscriptionsByUser(userId)
+            setActiveSub(
+                pickActiveUserSubscription(Array.isArray(rows) ? rows : []),
+            )
+        } catch {
+            setActiveSub(null)
+        } finally {
+            setLoading(false)
+        }
+    }, [userId])
+
+    useEffect(() => {
+        void load()
+    }, [load])
+
+    const totalCredits = Number(activeSub?.credits_allocated ?? 0)
+    const usedCredits = Number(activeSub?.credits_used ?? 0)
+    const remainingCredits = Math.max(0, totalCredits - usedCredits)
+    const usagePercent =
+        totalCredits > 0
+            ? Math.min(100, Math.round((usedCredits / totalCredits) * 100))
+            : 0
+
+    const showDash = loading || !userId
 
     return (
         <div className="p-2.5 mx-4 mb-2 rounded-lg bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 shadow-md hover:shadow-lg transition-all duration-300">
-            {/* Balance Section */}
             <div className="flex items-center gap-2 mb-2">
-                <CircleProgress percent={usagePercent} />
+                <CircleProgress percent={showDash ? 0 : usagePercent} />
                 <h5 className="font-bold text-sm">Balance</h5>
             </div>
             <div className="space-y-1 mb-2">
                 <div className="flex items-center justify-between">
-                    <span className="text-[10px] text-gray-500 dark:text-gray-400">Total</span>
+                    <span className="text-[10px] text-gray-500 dark:text-gray-400">
+                        Total
+                    </span>
                     <span className="text-xs font-bold text-gray-900 dark:text-white">
-                        <NumericFormat
-                            displayType="text"
-                            value={totalCredits}
-                            thousandSeparator=","
-                            suffix=" Sessions"
-                        />
+                        {showDash ? (
+                            <span className="tabular-nums">—</span>
+                        ) : (
+                            <NumericFormat
+                                thousandSeparator
+                                displayType="text"
+                                suffix=" Sessions"
+                                value={totalCredits}
+                            />
+                        )}
                     </span>
                 </div>
                 <div className="flex items-center justify-between">
-                    <span className="text-[10px] text-gray-500 dark:text-gray-400">Remaining</span>
+                    <span className="text-[10px] text-gray-500 dark:text-gray-400">
+                        Remaining
+                    </span>
                     <span className="text-xs font-bold text-gray-900 dark:text-white">
-                        <NumericFormat
-                            displayType="text"
-                            value={remainingCredits}
-                            thousandSeparator=","
-                        />
+                        {showDash ? (
+                            <span className="tabular-nums">—</span>
+                        ) : (
+                            <NumericFormat
+                                thousandSeparator
+                                displayType="text"
+                                value={remainingCredits}
+                            />
+                        )}
                     </span>
                 </div>
             </div>
