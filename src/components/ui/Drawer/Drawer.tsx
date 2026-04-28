@@ -41,6 +41,8 @@ const Drawer = (props: DrawerProps) => {
         showBackdrop = true,
         title,
         width = 400,
+        /* Default false so react-modal does not focus the tabIndex=-1 shell (breaks typing in drawers). */
+        shouldFocusAfterRender = false,
         ...rest
     } = props
 
@@ -117,6 +119,7 @@ const Drawer = (props: DrawerProps) => {
             isOpen={isOpen}
             closeTimeoutMS={closeTimeoutMS}
             {...rest}
+            shouldFocusAfterRender={shouldFocusAfterRender}
         >
             <motion.div
                 className={classNames('drawer-content', dimensionClass)}

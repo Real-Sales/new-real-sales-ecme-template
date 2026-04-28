@@ -205,7 +205,9 @@ const CompanyList = () => {
         console.log('CompanyList component mounted')
     }, [])
 
-    const companyId = useAppSelector((state) => state.auth.user.companyId)
+    const companyIdRaw = useAppSelector((state) => state.auth.user.companyId)
+    const companyId =
+        typeof companyIdRaw === 'string' ? companyIdRaw.trim() : companyIdRaw
 
     const {
         divisionsData,
@@ -226,9 +228,10 @@ const CompanyList = () => {
     )
 
     useEffect(() => {
-        if (companyId && !initialized && !divisionsLoading) {
-            dispatch(fetchSalesDivisions(companyId))
+        if (!companyId || initialized || divisionsLoading) {
+            return
         }
+        dispatch(fetchSalesDivisions(companyId))
     }, [dispatch, companyId, initialized, divisionsLoading])
 
     useEffect(() => {
@@ -443,13 +446,22 @@ const CompanyList = () => {
             >
                 <div className="px-2">
                     <CompanyForm
+                        key={
+                            selectedDivision?.sales_division_id ??
+                            `create-${drawerMode}`
+                        }
                         ref={formRef}
                         onSubmit={onCompanySubmit}
                         onCancel={onDrawerClose}
-                        defaultValues={selectedDivision ? {
-                            companyName: selectedDivision.name,
-                            category: selectedDivision.division_category
-                        } : undefined}
+                        defaultValues={
+                            selectedDivision
+                                ? {
+                                      companyName: selectedDivision.name,
+                                      category:
+                                          selectedDivision.division_category,
+                                  }
+                                : undefined
+                        }
                     />
                 </div>
             </Drawer>

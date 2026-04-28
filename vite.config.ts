@@ -21,9 +21,12 @@ export default defineConfig(({ mode }) => {
             },
         },
         server: {
+            // Browser calls /api/* on the Vite origin; forward to local FastAPI (default :8000).
             proxy: {
                 '/api': {
-                    target: 'http://localhost:3000',
+                    target:
+                        env.VITE_DEV_PROXY_TARGET?.trim() ||
+                        'http://127.0.0.1:8000',
                     changeOrigin: true,
                     secure: false,
                 },

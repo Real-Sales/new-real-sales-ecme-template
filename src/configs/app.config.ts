@@ -9,9 +9,13 @@ export type AppConfig = {
     activeNavTranslation: boolean
 }
 
+// Avoid "undefined/api/..." if env is missing at build time.
+const baseUrl = (import.meta.env.VITE_BASE_URL ?? '').toString().trim()
+const apiPath = (import.meta.env.VITE_API_PREFIX ?? '/api/v1/').toString().trim()
+
 const appConfig: AppConfig = {
-    baseUrl: import.meta.env.VITE_BASE_URL,
-    apiPrefix: `${import.meta.env.VITE_BASE_URL}${import.meta.env.VITE_API_PREFIX}`,
+    baseUrl,
+    apiPrefix: `${baseUrl}${apiPath}`,
     authenticatedEntryPath: '/overview',
     unAuthenticatedEntryPath: '/landing',
     locale: 'en',

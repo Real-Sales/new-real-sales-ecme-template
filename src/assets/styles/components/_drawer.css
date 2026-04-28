@@ -1,6 +1,11 @@
 @layer components {
+  /* Content sits inside .drawer-overlay; fill overlay and park the panel on the right */
+  .drawer {
+    @apply flex h-full w-full justify-end outline-none pointer-events-none;
+  }
+
   .drawer-content {
-    @apply bg-white dark:bg-gray-800 shadow-xl absolute flex flex-col;
+    @apply bg-white dark:bg-gray-800 shadow-xl absolute top-0 bottom-0 flex flex-col max-h-full pointer-events-auto;
   
     &.vertical {
       @apply h-full;
@@ -31,7 +36,8 @@
   
   .drawer-overlay {
     transition: all 0.3s ease-in-out;
-    @apply bg-black/80 inset-0 fixed z-30;
+    /* Above app chrome (.header is z-30) so drawer + inputs stay interactive */
+    @apply bg-black/80 inset-0 fixed z-[200];
   }
   
   .drawer-overlay-after-open {
