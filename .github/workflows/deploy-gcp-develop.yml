@@ -6,16 +6,19 @@
 #   GCP_VM_SSH_KEY    — Private key for that user (full PEM, including headers)
 #
 # Optional repository variables (Settings → Variables → Actions):
-#   GCP_DEPLOY_PATH   — App directory on the VM (clone this repo here once)
-#   GCP_SYSTEMD_UNIT  — systemd service to restart after build (e.g. nginx or a custom unit)
+#   GCP_DEPLOY_PATH    — App directory on the VM (clone this repo here once)
+#   GCP_SYSTEMD_UNIT   — If set, restart this unit after build (e.g. nginx when you need
+#                        `reload` after config edits). Leave unset for static-only deploys:
+#                        nginx serves `build/` from disk and picks up new files immediately.
 #
 # On the VM:
 #   - Install Node.js LTS + npm (build runs on the VM). SSH runs a non-interactive shell,
 #     so ~/.bashrc is not loaded; this workflow sources nvm/fnm/asdf when present. If you
 #     use apt/nodejs only, ensure npm is on PATH (e.g. /usr/bin/npm).
 #   - Clone this repo once, copy `.env` with production `VITE_*` values (build embeds them).
-#   - Configure your web server or systemd unit to serve `build/` (Vite `outDir`).
-#   - Ensure the deploy user can run: sudo systemctl restart <unit> (NOPASSWD or membership).
+#   - Point nginx `root` at this repo’s `build/` (Vite `outDir`). No frontend systemd unit
+#     is required—only `realsales-backend` for the API is typical.
+#   - If GCP_SYSTEMD_UNIT is set, the deploy user needs: sudo systemctl restart <that unit>.
 
 name: Deploy to GCP VM (develop)
 
@@ -70,12 +73,13 @@ jobs:
               exit 127
             fi
             APP="${DEPLOY_PATH:-/home/RealSales/frontend/new-real-sales-ecme-template}"
-            UNIT="${SYSTEMD_UNIT:-realsales-frontend}"
             cd "$APP"
             git fetch origin develop
             git checkout develop
             git pull origin develop
             npm ci
             npm run build
-            sudo systemctl restart "$UNIT"
-            sudo systemctl is-active "$UNIT"
+            if [ -n "${SYSTEMD_UNIT:-}" ]; then
+              sudo systemctl restart "$SYSTEMD_UNIT"
+              sudo systemctl is-active "$SYSTEMD_UNIT"
+            fi
