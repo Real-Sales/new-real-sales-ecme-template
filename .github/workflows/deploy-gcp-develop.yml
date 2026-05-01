@@ -1,0 +1,55 @@
+# Deploy this Vite/React app to a GCP Compute Engine VM on push to `develop`.
+#
+# Required repository secrets (Settings → Secrets and variables → Actions):
+#   GCP_VM_HOST       — VM external IP or hostname
+#   GCP_VM_USER       — SSH user (e.g. vipul)
+#   GCP_VM_SSH_KEY    — Private key for that user (full PEM, including headers)
+#
+# Optional repository variables (Settings → Variables → Actions):
+#   GCP_DEPLOY_PATH   — App directory on the VM (clone this repo here once)
+#   GCP_SYSTEMD_UNIT  — systemd service to restart after build (e.g. nginx or a custom unit)
+#
+# On the VM:
+#   - Install Node.js LTS + npm (build runs on the VM, same pattern as backend).
+#   - Clone this repo once, copy `.env` with production `VITE_*` values (build embeds them).
+#   - Configure your web server or systemd unit to serve `build/` (Vite `outDir`).
+#   - Ensure the deploy user can run: sudo systemctl restart <unit> (NOPASSWD or membership).
+
+name: Deploy to GCP VM (develop)
+
+on:
+  push:
+    branches:
+      - develop
+
+concurrency:
+  group: deploy-develop-frontend-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      DEPLOY_PATH: ${{ vars.GCP_DEPLOY_PATH }}
+      SYSTEMD_UNIT: ${{ vars.GCP_SYSTEMD_UNIT }}
+    steps:
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.GCP_VM_HOST }}
+          username: ${{ secrets.GCP_VM_USER }}
+          key: ${{ secrets.GCP_VM_SSH_KEY }}
+          command_timeout: 30m
+          envs: DEPLOY_PATH,SYSTEMD_UNIT
+          script: |
+            set -euo pipefail
+            APP="${DEPLOY_PATH:-/home/RealSales/frontend/new-real-sales-ecme-template}"
+            UNIT="${SYSTEMD_UNIT:-realsales-frontend}"
+            cd "$APP"
+            git fetch origin develop
+            git checkout develop
+            git pull origin develop
+            npm ci
+            npm run build
+            sudo systemctl restart "$UNIT"
+            sudo systemctl is-active "$UNIT"

@@ -75,11 +75,24 @@ const UpgradeCard = () => {
 
     const totalCredits = Number(activeSub?.credits_allocated ?? 0)
     const usedCredits = Number(activeSub?.credits_used ?? 0)
-    const remainingCredits = Math.max(0, totalCredits - usedCredits)
-    const usagePercent =
-        totalCredits > 0
+    /** Prefer server `credits_remaining`; local math breaks when used > allocated or semantics differ. */
+    const remainingCredits =
+        activeSub?.credits_remaining != null
+            ? Number(activeSub.credits_remaining)
+            : Math.max(0, totalCredits - usedCredits)
+    const usagePercent = (() => {
+        if (activeSub?.credits_remaining != null) {
+            const rem = Number(activeSub.credits_remaining)
+            const denom = rem + usedCredits
+            if (denom > 0) {
+                return Math.min(100, Math.round((usedCredits / denom) * 100))
+            }
+            return 0
+        }
+        return totalCredits > 0
             ? Math.min(100, Math.round((usedCredits / totalCredits) * 100))
             : 0
+    })()
 
     const showDash = loading || !userId
 

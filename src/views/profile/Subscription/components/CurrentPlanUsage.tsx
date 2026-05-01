@@ -103,10 +103,38 @@ const CurrentPlanUsage = ({
             ? parseAmount(sub.yearly_price)
             : parseAmount(sub.monthly_price)
 
-    const allocated = activeUserSubscription.credits_allocated
-    const completed = activeUserSubscription.sessions_completed
-    const usagePercent =
-        allocated > 0 ? Math.min(100, Math.round((completed / allocated) * 100)) : 0
+    const creditsUsed = Number(activeUserSubscription.credits_used ?? 0)
+    const creditsRem =
+        activeUserSubscription.credits_remaining != null
+            ? Number(activeUserSubscription.credits_remaining)
+            : null
+
+    let usageNumerator: number
+    let usageDenominator: number
+    let usagePercent: number
+    let usagePercentRaw: number
+
+    if (creditsRem != null) {
+        usageNumerator = creditsUsed
+        usageDenominator = creditsUsed + creditsRem
+        usagePercentRaw =
+            usageDenominator > 0
+                ? Math.round((usageNumerator / usageDenominator) * 100)
+                : 0
+        usagePercent = Math.min(100, usagePercentRaw)
+    } else {
+        const allocated = activeUserSubscription.credits_allocated
+        const completed = Number(
+            activeUserSubscription.sessions_completed ?? creditsUsed,
+        )
+        usageNumerator = completed
+        usageDenominator = allocated
+        usagePercentRaw =
+            allocated > 0
+                ? Math.round((completed / allocated) * 100)
+                : 0
+        usagePercent = Math.min(100, usagePercentRaw)
+    }
 
     const renewalLabel = formatDateLabel(activeUserSubscription.end_date)
     const daysRemaining = daysUntil(activeUserSubscription.end_date)
@@ -159,7 +187,7 @@ const CurrentPlanUsage = ({
                             <NumericFormat
                                 thousandSeparator
                                 displayType="text"
-                                value={completed}
+                                value={usageNumerator}
                             />
                         </span>
                         <span className="text-sm text-gray-400 mb-0.5">
@@ -167,7 +195,7 @@ const CurrentPlanUsage = ({
                             <NumericFormat
                                 thousandSeparator
                                 displayType="text"
-                                value={allocated}
+                                value={usageDenominator}
                             />
                         </span>
                     </div>
@@ -177,7 +205,9 @@ const CurrentPlanUsage = ({
                             style={{ width: `${usagePercent}%` }}
                         />
                     </div>
-                    <p className="text-xs text-gray-400 mt-2">{usagePercent}% used</p>
+                    <p className="text-xs text-gray-400 mt-2">
+                        {usagePercentRaw}% used
+                    </p>
                 </div>
 
                 <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-800/50">
