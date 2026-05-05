@@ -1,8 +1,7 @@
 {
-    "rewrites": [
-      {
-        "source": "/api/:path*",
-        "destination": "http://34.93.171.133/api/:path*"
-      }
-    ]
+  "functions": {
+    "api/proxy/[...path].js": {
+      "maxDuration": 60
+    }
   }
+}
