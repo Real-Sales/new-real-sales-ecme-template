@@ -1,6 +1,7 @@
 /**
- * BFF proxy: browser → same-origin /api/proxy → VM backend.
- * Set PROXY_TARGET_ORIGIN in Vercel (e.g. http://34.93.171.133:8000) — no trailing slash.
+ * BFF proxy — invoked via vercel.json rewrite from /api/proxy/* → /api/vm-proxy?__p=...
+ * Frontend keeps base URL /api/proxy (no code changes there).
+ * Set PROXY_TARGET_ORIGIN on Vercel (e.g. http://YOUR_VM_IP:8000), no trailing slash.
  */
 const DEFAULT_TARGET = 'http://34.93.171.133:8000'
 
@@ -20,25 +21,32 @@ function getTargetOrigin() {
     return raw.replace(/\/$/, '')
 }
 
-function normalizePathSegments(req) {
-    const path = req.query?.path
-    if (Array.isArray(path)) {
-        return path.join('/')
+function normalizeForwardedPath(req) {
+    const raw = req.query?.__p
+    if (Array.isArray(raw)) {
+        return raw.map(String).join('/')
     }
-    if (typeof path === 'string') {
-        return path
+    if (typeof raw === 'string') {
+        return raw
     }
     return ''
 }
 
 function buildTargetUrl(req) {
-    const path = normalizePathSegments(req)
+    const forwardPath = normalizeForwardedPath(req).replace(/^\/+/, '')
     const rawUrl = req.url || ''
-    const queryString = rawUrl.includes('?') ? rawUrl.slice(rawUrl.indexOf('?')) : ''
+    const internal = new URL(rawUrl, 'http://internal')
+    const backendQuery = new URLSearchParams()
+    internal.searchParams.forEach((value, key) => {
+        if (key !== '__p') {
+            backendQuery.append(key, value)
+        }
+    })
+    const qs = backendQuery.toString()
+    const queryString = qs ? `?${qs}` : ''
     const origin = getTargetOrigin()
-    const pathPart = path ? `/${path}` : ''
-    const withQuery = queryString ? `${origin}${pathPart}${queryString}` : `${origin}${pathPart}`
-    return withQuery
+    const pathPart = forwardPath ? `/${forwardPath}` : ''
+    return `${origin}${pathPart}${queryString}`
 }
 
 function buildForwardHeaders(req) {
@@ -109,7 +117,7 @@ export default async function handler(req, res) {
     } catch (error) {
         const msg = error instanceof Error ? error.message : 'Unknown error'
         const code = error && typeof error === 'object' && 'cause' in error ? error.cause : undefined
-        console.error('[api/proxy]', targetUrl, msg, code)
+        console.error('[api/vm-proxy]', targetUrl, msg, code)
 
         return res.status(502).json({
             message: 'Proxy request failed',

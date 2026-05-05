@@ -1,6 +1,12 @@
 {
+  "rewrites": [
+    {
+      "source": "/api/proxy/(.*)",
+      "destination": "/api/vm-proxy?__p=$1"
+    }
+  ],
   "functions": {
-    "api/proxy/[...path].js": {
+    "api/vm-proxy.js": {
       "maxDuration": 60
     }
   }
