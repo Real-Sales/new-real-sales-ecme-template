@@ -212,7 +212,7 @@ const SessionHistorySection = () => {
                 size="sm"
                 variant="default"
                 type="button"
-                className="flex-1 bg-gray-800 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-md"
+                className="flex-1 dark:!bg-gray-800 dark:!border-gray-600 dark:!text-gray-200 dark:hover:!bg-gray-700 dark:hover:!border-gray-500"
                 onClick={handleReset}
             >
                 Reset

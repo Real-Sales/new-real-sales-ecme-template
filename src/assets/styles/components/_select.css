@@ -1,10 +1,15 @@
 @layer components {
+  /* Root from react-select `className`; keeps outer layout + utilities (e.g. shadow-*) aligned with .select-control radius */
+  .select {
+    @apply rounded-xl;
+  }
+
   .select-control {
     @apply flex 
       items-center 
       justify-between 
       border 
-      border-gray-100 
+      border-gray-200 
       dark:border-gray-700
       rounded-xl
       transition 

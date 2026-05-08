@@ -321,7 +321,8 @@ const TeamList = () => {
         <div className="flex justify-between items-center w-full gap-3 px-2">
             <Button
                 size="sm"
-                className="flex-1 bg-gray-800 dark:bg-gray-800 hover:bg-gray-700 dark:hover:bg-gray-700 text-gray-300 border border-gray-600 dark:border-gray-600"
+                variant="default"
+                className="flex-1 dark:!bg-gray-800 dark:!border-gray-600 dark:!text-gray-200 dark:hover:!bg-gray-700 dark:hover:!border-gray-500"
                 onClick={onDrawerClose}
             >
                 Cancel

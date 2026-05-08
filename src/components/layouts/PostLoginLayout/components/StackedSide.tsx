@@ -1,6 +1,7 @@
 import StackedSideNav from '@/components/template/StackedSideNav'
 import Header from '@/components/template/Header'
 import MobileNav from '@/components/template/MobileNav'
+import ThemeToggleButton from '@/components/shared/ThemeToggleButton'
 import Notification from '@/components/template/Notification/Notification'
 import UserProfileDropdown from '@/components//template/UserProfileDropdown'
 import LayoutBase from '@/components//template/LayoutBase'
@@ -24,6 +25,7 @@ const StackedSide = ({ children }: CommonProps) => {
                         headerStart={<>{smaller.lg && <MobileNav />}</>}
                         headerEnd={
                             <>
+                                <ThemeToggleButton />
                                 <Notification />
                                 <UserProfileDropdown hoverable={false} />
                             </>

@@ -2,6 +2,7 @@ import SideNav from '@/components/template/SideNav'
 import Header from '@/components/template/Header'
 import SideNavToggle from '@/components/template/SideNavToggle'
 import MobileNav from '@/components/template/MobileNav'
+import ThemeToggleButton from '@/components/shared/ThemeToggleButton'
 import Notification from '@/components/template/Notification/Notification'
 import UserProfileDropdown from '@/components//template/UserProfileDropdown'
 import LayoutBase from '@/components//template/LayoutBase'
@@ -30,6 +31,7 @@ const CollapsibleSide = ({ children }: CommonProps) => {
                         }
                         headerEnd={
                             <>
+                                <ThemeToggleButton />
                                 <Notification />
                                 <UserProfileDropdown hoverable={false} />
                             </>

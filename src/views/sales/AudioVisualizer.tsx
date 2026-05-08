@@ -272,7 +272,15 @@ const LayerShaderMaterial = {
 };
 
 // --- 4. Layer Component ---
-const VisualizerLayer = ({ config, analyzer }: { config: any, analyzer: any }) => {
+const VisualizerLayer = ({
+    config,
+    analyzer,
+    useAdditiveBlend = true,
+}: {
+    config: (typeof CONFIG)[0]
+    analyzer: { getRangeVolume: (min: number, max: number) => number }
+    useAdditiveBlend?: boolean
+}) => {
   const meshRef = useRef<THREE.Points>(null!);
   const materialRef = useRef<THREE.ShaderMaterial>(null!);
 
@@ -294,9 +302,11 @@ const VisualizerLayer = ({ config, analyzer }: { config: any, analyzer: any }) =
       fragmentShader: LayerShaderMaterial.fragmentShader,
       transparent: true,
       depthWrite: false,
-      blending: THREE.AdditiveBlending
+      blending: useAdditiveBlend
+        ? THREE.AdditiveBlending
+        : THREE.NormalBlending,
     });
-  }, [config]);
+  }, [config, useAdditiveBlend]);
 
   // Geometry Generation Logic based on your reference code
   const geometry = useMemo(() => {
@@ -407,6 +417,20 @@ const VisualizerLayer = ({ config, analyzer }: { config: any, analyzer: any }) =
   );
 };
 
+/** Bloom for the always-dark session canvas. */
+function VisualizerBloom() {
+  return (
+    <EffectComposer enableNormalPass={false}>
+      <Bloom
+        luminanceThreshold={0.3}
+        mipmapBlur
+        intensity={1.2}
+        radius={0.8}
+      />
+    </EffectComposer>
+  )
+}
+
 // --- 5. Types for Chat Interface ---
 interface Message {
   id: string
@@ -460,6 +484,8 @@ const AVAILABLE_HINTS: Hint[] = [
 
 // --- 6. Main Component with Chat Interface ---
 const SESSION_DURATION = 1800;
+/** Left session + WebGL are always dark so additive particles / bloom read correctly. */
+const SESSION_VISUALIZER_BG = '#000000';
 let _msgIdCounter = 0;
 const nextMsgId = () => `${Date.now()}_${++_msgIdCounter}`;
 
@@ -942,21 +968,27 @@ export default function KiloHerzVisualizer() {
   const currentHint = hints[currentHintIndex];
 
   const formatContent = (content: string) => {
-    let formatted = content.replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold text-white">$1</strong>');
-    formatted = formatted.replace(/`(.*?)`/g, '<code class="px-2 py-0.5 rounded-lg bg-gray-800/80 text-blue-400 font-mono text-sm">$1</code>');
+    let formatted = content.replace(
+        /\*\*(.*?)\*\*/g,
+        '<strong class="font-semibold text-gray-900 dark:text-white">$1</strong>',
+    );
+    formatted = formatted.replace(
+        /`(.*?)`/g,
+        '<code class="px-2 py-0.5 rounded-lg bg-gray-200/90 dark:bg-gray-800/80 text-blue-600 dark:text-blue-400 font-mono text-sm">$1</code>',
+    );
     return formatted;
   };
 
   if (!tokenReady) {
     return (
-      <div className="flex h-screen w-screen bg-gray-950 overflow-hidden fixed inset-0">
-        <Loading loading={true} className="w-full h-full bg-gray-950" spinnerClass="text-blue-500" />
+      <div className="flex h-screen w-screen bg-gray-100 dark:bg-gray-950 overflow-hidden fixed inset-0">
+        <Loading loading={true} className="w-full h-full bg-gray-100 dark:bg-gray-950" spinnerClass="text-blue-500" />
       </div>
     );
   }
 
   return (
-    <div className="flex h-screen w-screen bg-gray-950 overflow-hidden fixed inset-0">
+    <div className="flex h-screen w-screen bg-gray-100 dark:bg-gray-950 overflow-hidden fixed inset-0">
       <div
         className="pointer-events-none absolute overflow-hidden w-px h-px opacity-0 -z-10"
         aria-hidden
@@ -967,13 +999,17 @@ export default function KiloHerzVisualizer() {
           'session-id': sessionId || '',
         })}
       </div>
-      {/* LEFT: Audio Visualizer - Increased to 65% */}
+      {/* LEFT: Audio Visualizer - always dark (global theme only affects the chat column). */}
       <div className="relative flex-shrink-0 w-[65%] h-full border-r border-gray-800/50 bg-black">
         {/* Canvas Animation - Always visible */}
-        <div className="absolute inset-0" style={{ background: '#000000' }}>
-          <Canvas dpr={[1, 2]} style={{ width: '100%', height: '100%' }} gl={{ alpha: false, antialias: true }}>
+        <div className="absolute inset-0" style={{ background: SESSION_VISUALIZER_BG }}>
+          <Canvas
+            dpr={[1, 2]}
+            style={{ width: '100%', height: '100%' }}
+            gl={{ alpha: false, antialias: true }}
+          >
         <PerspectiveCamera makeDefault position={[0, 0, 4.0]} />
-            <color attach="background" args={['#000000']} />
+            <color attach="background" args={[SESSION_VISUALIZER_BG]} />
         
         <Suspense fallback={null}>
               {CONFIG.map((layerConfig, index) => (
@@ -981,20 +1017,14 @@ export default function KiloHerzVisualizer() {
               <VisualizerLayer 
                 key={index} 
                 config={layerConfig} 
-                analyzer={{ getRangeVolume }} 
+                analyzer={{ getRangeVolume }}
+                useAdditiveBlend
               />
             )
           ))}
         </Suspense>
 
-        <EffectComposer enableNormalPass={false}>
-          <Bloom 
-            luminanceThreshold={0.3} 
-            mipmapBlur 
-            intensity={1.2} 
-            radius={0.8} 
-          />
-        </EffectComposer>
+        <VisualizerBloom />
         
         <OrbitControls enableZoom={true} />
       </Canvas>
@@ -1003,8 +1033,10 @@ export default function KiloHerzVisualizer() {
         {/* Top Right: Time Left */}
         <div className="absolute top-6 right-6 z-[100] pointer-events-none">
           <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-black/50 backdrop-blur-md border border-white/10">
-            <div className={`w-1.5 h-1.5 rounded-full ${sessionStarted ? 'bg-green-400 animate-pulse' : 'bg-gray-500'}`} />
-            <span className="text-sm font-bold text-white font-mono">{formatTime(timeLeft)}</span>
+            <div className={`w-1.5 h-1.5 rounded-full ${sessionStarted ? 'bg-green-500 animate-pulse' : 'bg-gray-500'}`} />
+            <span className="text-sm font-bold text-white font-mono">
+              {formatTime(timeLeft)}
+            </span>
           </div>
         </div>
 
@@ -1020,8 +1052,10 @@ export default function KiloHerzVisualizer() {
               className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[100] pointer-events-none"
             >
               <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-black/50 backdrop-blur-md border border-white/10">
-                <div className="w-2 h-2 rounded-full bg-red-400 animate-pulse" />
-                <span className="text-xs text-gray-300 font-medium">Listening</span>
+                <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                <span className="text-xs text-gray-300 font-medium">
+                  Listening
+                </span>
               </div>
             </motion.div>
           )}
@@ -1042,11 +1076,11 @@ export default function KiloHerzVisualizer() {
       </ConfirmDialog>
 
       {/* RIGHT: Chat Interface - 35% */}
-      <div className="w-[35%] h-full flex flex-col bg-gray-950">
+      <div className="w-[35%] h-full flex flex-col bg-white dark:bg-gray-950 border-l border-gray-200 dark:border-transparent">
         {/* Header: Persona Detail - Compact Row */}
         <div className="
-          flex-shrink-0 px-5 py-4 border-b border-gray-800/50
-          bg-gray-900/60 backdrop-blur-xl
+          flex-shrink-0 px-5 py-4 border-b border-gray-200 dark:border-gray-800/50
+          bg-gray-50/95 dark:bg-gray-900/60 backdrop-blur-xl
         ">
           <div className="flex items-center gap-3">
             {/* Avatar */}
@@ -1071,8 +1105,8 @@ export default function KiloHerzVisualizer() {
 
             {/* Name & Mode */}
             <div className="flex-1 min-w-0">
-              <h3 className="text-sm font-semibold text-white truncate">{userName}</h3>
-              <p className="text-xs text-gray-400">{personaMode} · {userRole}</p>
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-white truncate">{userName}</h3>
+              <p className="text-xs text-gray-600 dark:text-gray-400">{personaMode} · {userRole}</p>
             </div>
 
             {/* End Session - Top Right */}
@@ -1107,12 +1141,12 @@ export default function KiloHerzVisualizer() {
             style={{ height: '100%', maxHeight: '100%' }}
             direction={direction}
           >
-            <div className="px-6 py-4 space-y-4 min-h-full box-border">
+            <div className="px-6 py-4 space-y-4 min-h-full box-border bg-white dark:bg-transparent">
               {messages.length === 0 ? (
                 <div className="min-h-[min(100%,24rem)] flex items-center justify-center">
-                  <p className="text-gray-500 text-center text-sm">
+                  <p className="text-gray-500 dark:text-gray-500 text-center text-sm">
                     Transcript will appear here<br />
-                    <span className="text-xs text-gray-600">User's input + AI's response</span>
+                    <span className="text-xs text-gray-500 dark:text-gray-600">User's input + AI's response</span>
                   </p>
                 </div>
               ) : (
@@ -1129,7 +1163,7 @@ export default function KiloHerzVisualizer() {
                       max-w-[90%] px-4 py-3 rounded-xl
                       ${message.role === 'user'
                         ? 'bg-gradient-to-br from-blue-500 via-blue-600 to-blue-600 text-white shadow-lg shadow-blue-500/30'
-                        : 'bg-gradient-to-br from-gray-900/90 to-gray-800/90 text-gray-200 border border-gray-700/50 shadow-md'
+                        : 'bg-gradient-to-br from-gray-100 to-gray-50 dark:from-gray-900/90 dark:to-gray-800/90 text-gray-800 dark:text-gray-200 border border-gray-200/80 dark:border-gray-700/50 shadow-md'
                       }
                     `}
                       >
@@ -1150,7 +1184,7 @@ export default function KiloHerzVisualizer() {
                       animate={{ opacity: 1, y: 0 }}
                       className="flex justify-start"
                     >
-                      <div className="px-4 py-3 rounded-xl bg-gray-900/90 border border-gray-700/50">
+                      <div className="px-4 py-3 rounded-xl bg-gray-100 dark:bg-gray-900/90 border border-gray-200 dark:border-gray-700/50">
                         <div className="flex gap-1.5">
                           <motion.div
                             animate={{ scale: [1, 1.3, 1] }}
@@ -1186,18 +1220,18 @@ export default function KiloHerzVisualizer() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 20 }}
-              className="flex-shrink-0 px-6 py-4 border-t border-blue-500/30 bg-gradient-to-br from-blue-500/10 to-blue-600/5 backdrop-blur-xl"
+              className="flex-shrink-0 px-6 py-4 border-t border-blue-500/20 dark:border-blue-500/30 bg-gradient-to-br from-blue-500/[0.06] to-blue-600/0 dark:from-blue-500/10 dark:to-blue-600/5 backdrop-blur-xl"
             >
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <HiLightBulb className="w-5 h-5 text-blue-400" />
-                  <h4 className="text-sm font-semibold text-white">
+                  <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
                     Session Hint {currentHintIndex + 1}/{hints.length}
                   </h4>
                 </div>
                 <button
                   onClick={() => setShowHints(false)}
-                  className="text-xs text-gray-400 hover:text-gray-300 transition-colors"
+                  className="text-xs text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-300 transition-colors"
                 >
                   Close
                 </button>
@@ -1209,7 +1243,7 @@ export default function KiloHerzVisualizer() {
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -20 }}
-                className="p-4 rounded-xl bg-gray-900/50 border border-gray-700/50"
+                className="p-4 rounded-xl bg-white/80 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700/50"
               >
                 <div className="flex items-start gap-2 mb-3">
                   <span className={`
@@ -1223,11 +1257,11 @@ export default function KiloHerzVisualizer() {
                   </span>
                 </div>
                 
-                <h5 className="text-base font-bold text-white mb-2">
+                <h5 className="text-base font-bold text-gray-900 dark:text-white mb-2">
                   {currentHint.title}
                 </h5>
                 
-                <p className="text-sm text-gray-300 leading-relaxed">
+                <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
                   {currentHint.suggestion}
                 </p>
               </motion.div>
@@ -1243,8 +1277,8 @@ export default function KiloHerzVisualizer() {
                     px-4 py-2 rounded-lg text-sm font-medium
                     transition-all duration-200
                     ${currentHintIndex === 0
-                      ? 'bg-gray-800/30 text-gray-600 cursor-not-allowed'
-                      : 'bg-gray-800/50 text-gray-300 hover:bg-gray-700/50 border border-gray-700/50'
+                      ? 'bg-gray-200/80 dark:bg-gray-800/30 text-gray-500 dark:text-gray-600 cursor-not-allowed'
+                      : 'bg-gray-100 dark:bg-gray-800/50 text-gray-800 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700/50 border border-gray-300 dark:border-gray-700/50'
                     }
                   `}
                 >
@@ -1261,7 +1295,7 @@ export default function KiloHerzVisualizer() {
                           ? 'bg-blue-400 w-6'
                           : viewedHints.includes(hints[index].id)
                             ? 'bg-blue-600/50'
-                            : 'bg-gray-600'
+                            : 'bg-gray-300 dark:bg-gray-600'
                         }
                       `}
                     />
@@ -1287,7 +1321,7 @@ export default function KiloHerzVisualizer() {
         </AnimatePresence>
 
         {/* Bottom Section - Start Session or Chat Input */}
-        <div className="flex-shrink-0 px-4 py-3 bg-gray-900/60 backdrop-blur-2xl">
+        <div className="flex-shrink-0 px-4 py-3 bg-gray-50/95 dark:bg-gray-900/60 backdrop-blur-2xl border-t border-gray-200 dark:border-gray-800/50">
           <AnimatePresence mode="wait">
             {!sessionStarted ? (
               /* Start / Continue Session Button */
@@ -1322,8 +1356,8 @@ export default function KiloHerzVisualizer() {
                 transition={{ duration: 0.4, ease: "easeOut" }}
                 className="
                   flex items-center gap-2
-                  bg-gray-800/80 backdrop-blur-xl
-                  border border-gray-700/50
+                  bg-white/90 dark:bg-gray-800/80 backdrop-blur-xl
+                  border border-gray-200 dark:border-gray-700/50
                   rounded-full
                   px-4 py-2
                   focus-within:border-blue-500/50
@@ -1331,7 +1365,7 @@ export default function KiloHerzVisualizer() {
                 "
               >
                 {/* Attachment */}
-                <button className="text-gray-400 hover:text-white transition-colors flex-shrink-0">
+                <button className="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors flex-shrink-0">
                   <HiPaperClip className="w-5 h-5" />
                 </button>
 
@@ -1345,8 +1379,8 @@ export default function KiloHerzVisualizer() {
                   placeholder="Type a message..."
                   disabled={isGenerating}
                   className="
-                    flex-1 bg-transparent text-white text-sm
-                    placeholder:text-gray-500
+                    flex-1 bg-transparent text-gray-900 dark:text-white text-sm
+                    placeholder:text-gray-500 dark:placeholder:text-gray-500
                     focus:outline-none
                     disabled:opacity-50 disabled:cursor-not-allowed
                   "
@@ -1404,7 +1438,7 @@ export default function KiloHerzVisualizer() {
                       transition-all duration-200
                       ${isMicActive
                         ? 'bg-red-500 text-white shadow-lg shadow-red-500/30'
-                        : 'bg-white/10 text-white border border-gray-600 hover:bg-white/20'
+                        : 'bg-gray-200 text-gray-800 border border-gray-300 hover:bg-gray-300 dark:bg-white/10 dark:text-white dark:border-gray-600 dark:hover:bg-white/20'
                       }
                     `}
                   >
@@ -1413,7 +1447,7 @@ export default function KiloHerzVisualizer() {
                     ) : (
                       <div className="flex gap-[2px] items-end h-4">
                         {[3, 5, 7, 5, 3].map((h, i) => (
-                          <div key={i} className="w-[2px] bg-white rounded-full" style={{ height: `${h * 2}px` }} />
+                          <div key={i} className="w-[2px] bg-gray-800 dark:bg-white rounded-full" style={{ height: `${h * 2}px` }} />
                         ))}
                       </div>
                     )}

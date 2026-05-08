@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import Input from '@/components/ui/Input'
 import { FormItem, Form } from '@/components/ui/Form'
 import Select from '@/components/ui/Select'
@@ -34,6 +34,9 @@ type TeamFormProps = {
     onSubmit: (values: TeamFormSchema) => void
     onCancel: () => void
 }
+
+const fieldControlClass =
+    '!bg-gray-50 dark:!bg-gray-800/50 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-200 shadow-md'
 
 const TeamForm = ({ companyId, formRef, onSubmit, onCancel }: TeamFormProps) => {
     const dispatch = useAppDispatch()
@@ -100,7 +103,7 @@ const TeamForm = ({ companyId, formRef, onSubmit, onCancel }: TeamFormProps) => 
                                 type="text"
                                 autoComplete="off"
                                 placeholder="Enter team name"
-                                className="bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-200 shadow-md"
+                                className={fieldControlClass}
                                 {...field}
                             />
                         )}
@@ -119,7 +122,6 @@ const TeamForm = ({ companyId, formRef, onSubmit, onCancel }: TeamFormProps) => 
                             <Select
                                 loading={isLoading}
                                 placeholder="Select division"
-                                className="bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-200 shadow-md"
                                 options={divisions}
                                 value={divisions.find(
                                     (opt) => opt.value === field.value
@@ -141,10 +143,11 @@ const TeamForm = ({ companyId, formRef, onSubmit, onCancel }: TeamFormProps) => 
                         control={control}
                         render={({ field }) => (
                             <Input
-                                type="text"
+                                textArea
+                                rows={4}
                                 autoComplete="off"
                                 placeholder="Brief description (optional)"
-                                className="bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-200 shadow-md"
+                                className={fieldControlClass}
                                 {...field}
                             />
                         )}

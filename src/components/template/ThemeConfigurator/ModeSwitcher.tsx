@@ -13,9 +13,9 @@ const ModeSwitcher = () => {
     )
 
     return (
-        <div>
+        <div className="flex items-center">
             <Switcher
-                defaultChecked={isDark}
+                checked={isDark}
                 onChange={(checked) => onSwitchChange(checked)}
             />
         </div>

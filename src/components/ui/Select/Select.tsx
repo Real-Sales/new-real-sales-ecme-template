@@ -103,7 +103,7 @@ function Select<
 
     const isSelectInvalid = invalid || formItemInvalid
 
-    const selectClass = cn(`select select-${selectSize}`, className)
+    const selectClass = cn(`select select-${selectSize} w-full`, className)
 
     return (
         <Component<Option, IsMulti, Group>
@@ -117,7 +117,7 @@ function Select<
                             state.isDisabled && 'opacity-50 cursor-not-allowed',
                             (() => {
                                 const classes: string[] = [
-                                    'bg-gray-100 dark:bg-gray-700',
+                                    'bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 shadow-md',
                                 ]
 
                                 const { isFocused } = state

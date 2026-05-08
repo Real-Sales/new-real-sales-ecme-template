@@ -55,6 +55,7 @@ const salesRoute: Routes = [
         authority: [],
         meta: {
             layout: 'blank',
+            pageContainerType: 'gutterless',
         },
     },
     {

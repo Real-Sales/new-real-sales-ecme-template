@@ -282,7 +282,12 @@ const ScenarioList = () => {
 
     const DrawerFooter = (
         <div className="flex justify-between items-center w-full gap-3 px-2">
-            <Button size="sm" className="flex-1 bg-gray-800 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-md" onClick={onDrawerClose}>
+            <Button
+                size="sm"
+                variant="default"
+                className="flex-1 dark:!bg-gray-800 dark:!border-gray-600 dark:!text-gray-200 dark:hover:!bg-gray-700 dark:hover:!border-gray-500"
+                onClick={onDrawerClose}
+            >
                 Cancel
             </Button>
             <Button

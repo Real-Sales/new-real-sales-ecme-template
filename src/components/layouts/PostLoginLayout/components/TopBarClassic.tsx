@@ -1,4 +1,5 @@
 import Header from '@/components/template/Header'
+import ThemeToggleButton from '@/components/shared/ThemeToggleButton'
 import Notification from '@/components/template/Notification/Notification'
 import UserProfileDropdown from '@/components//template/UserProfileDropdown'
 import HeaderLogo from '@/components/template/HeaderLogo'
@@ -31,6 +32,7 @@ const TopBarClassic = ({ children }: CommonProps) => {
                         headerMiddle={<>{larger.lg && <HorizontalNav />}</>}
                         headerEnd={
                             <>
+                                <ThemeToggleButton />
                                 <Notification />
                                 <UserProfileDropdown hoverable={false} />
                             </>

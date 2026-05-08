@@ -3,6 +3,7 @@ import Header from '@/components/template/Header'
 import FrameLessGap from '@/components/template/FrameLessGap'
 import SideNavToggle from '@/components/template/SideNavToggle'
 import MobileNav from '@/components/template/MobileNav'
+import ThemeToggleButton from '@/components/shared/ThemeToggleButton'
 import Notification from '@/components/template/Notification/Notification'
 import UserProfileDropdown from '@/components//template/UserProfileDropdown'
 import LayoutBase from '@/components//template/LayoutBase'
@@ -99,6 +100,7 @@ const FrameLessSide = ({ children }: CommonProps) => {
                             }
                             headerEnd={
                                 <>
+                                    <ThemeToggleButton />
                                     <Notification />
                                     <UserProfileDropdown hoverable={false} />
                                 </>
