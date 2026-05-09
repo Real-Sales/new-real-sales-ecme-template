@@ -37,6 +37,34 @@ const statusConfig: Record<string, { label: string; bgClass: string; textClass: 
         bgClass: 'bg-gray-100 dark:bg-gray-700',
         textClass: 'text-gray-700 dark:text-gray-400',
     },
+    completed: {
+        label: 'Completed',
+        bgClass: 'bg-emerald-100 dark:bg-emerald-900/30',
+        textClass: 'text-emerald-700 dark:text-emerald-400',
+    },
+    pending: {
+        label: 'Pending',
+        bgClass: 'bg-amber-100 dark:bg-amber-900/30',
+        textClass: 'text-amber-700 dark:text-amber-400',
+    },
+}
+
+const defaultStatusMeta = statusConfig.inactive
+
+const getStatusMeta = (raw: string | undefined) => {
+    if (raw == null || String(raw).trim() === '') {
+        return defaultStatusMeta
+    }
+    const key = String(raw).toLowerCase().trim()
+    const known = statusConfig[key]
+    if (known) return known
+    const label =
+        key
+            .split(/[\s_]+/)
+            .filter(Boolean)
+            .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+            .join(' ') || defaultStatusMeta.label
+    return { ...defaultStatusMeta, label }
 }
 
 const modeColorMap: Record<string, { bgClass: string; textClass: string }> = {
@@ -152,7 +180,14 @@ const ScenarioDetail = ({ scenario }: ScenarioDetailProps) => {
     const derivedStatus = isLibraryScenario(scenario)
         ? (scenario.persona?.status_active && scenario.mode?.status_active ? 'active' : 'inactive')
         : (scenario as ScenarioSession).session_status
-    const isInactive = derivedStatus === 'inactive'
+    const sessionStatusKey =
+        !isLibraryScenario(scenario) && derivedStatus != null && String(derivedStatus).trim() !== ''
+            ? String(derivedStatus).toLowerCase().trim()
+            : null
+    const statusMeta = getStatusMeta(isLibraryScenario(scenario) ? derivedStatus : (scenario as ScenarioSession).session_status)
+    const isInactive = isLibraryScenario(scenario)
+        ? derivedStatus === 'inactive'
+        : sessionStatusKey === 'inactive'
     const modeName = isLibraryScenario(scenario) ? (scenario.mode?.name ?? '') : (scenario as ScenarioSession).mode
     const personaName = isLibraryScenario(scenario) ? (scenario.persona?.name ?? '') : (scenario as ScenarioSession).persona
     const modeStyle = getModeStyle(modeName)
@@ -168,8 +203,8 @@ const ScenarioDetail = ({ scenario }: ScenarioDetailProps) => {
                     <span className="font-semibold block mb-1">Status</span>
                     <div>
                         <Badge
-                            innerClass={`${statusConfig[derivedStatus].bgClass} ${statusConfig[derivedStatus].textClass} px-2 py-0.5 text-xs font-medium`}
-                            content={statusConfig[derivedStatus].label}
+                            innerClass={`${statusMeta.bgClass} ${statusMeta.textClass} px-2 py-0.5 text-xs font-medium`}
+                            content={statusMeta.label}
                         />
                     </div>
                 </div>
