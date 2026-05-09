@@ -1,11 +1,7 @@
-import React, { useRef, useMemo, useState, Suspense, useEffect, useCallback } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
-import { OrbitControls, PerspectiveCamera } from '@react-three/drei';
-import { EffectComposer, Bloom } from '@react-three/postprocessing';
-import * as THREE from 'three';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLocation, useParams, useNavigate } from 'react-router-dom';
-import { HiStop, HiPaperAirplane, HiPaperClip, HiPlus, HiLightBulb, HiSparkles } from 'react-icons/hi2';
+import { HiStop, HiPaperAirplane, HiPaperClip, HiLightBulb, HiChevronLeft, HiChevronRight } from 'react-icons/hi2';
 import '@/liveAudio/GdmLiveAudio';
 import { getRangeVolumeFromAnalyser } from '@/liveAudio/utils/frequencyRange';
 import {
@@ -19,68 +15,7 @@ import Loading from '@/components/shared/Loading';
 import ScrollBar from '@/components/ui/ScrollBar';
 import { useAppSelector } from '@/store/hook';
 
-// --- 1. CONFIGURATION: "Kilo Herz 2" ---
-const CONFIG = [
-
-  {
-    "enabled": true,
-    "name": "Kilo Orange Core",
-    "sphereRadius": 0.2,
-    "innerSphereRadius": 1.0, // Solid/Surface
-    "rotationSpeed": 0.001,
-    "rotationSpeedMin": 0,
-    "rotationSpeedMax": 0.065,
-    "rotationSmoothness": 0.3,
-    "particleCount": 8000,
-    "particleSize": 0.005,
-    "particleLifetime": 4,
-    "minFrequency": 120,
-    "maxFrequency": 250,
-    "minFrequencyBeat": 0,
-    "maxFrequencyBeat": 100,
-    "noiseScale": 1.4,
-    "dynamicNoiseScale": true,
-    "minNoiseScale": 0.5,
-    "maxNoiseScale": 9.6,
-    "noiseStep": 0.2,
-    "noiseSpeed": 0.1,
-    "turbulenceStrength": 0.0005,
-    "colorStart": "#e3570b", // Orange
-    "colorEnd": "#d77100",   // Dark Orange
-    "beatStrength": 0.002,
-    "gainMultiplier": 1
-  },
-  {
-    "enabled": true,
-    "name": "Kilo Pink Mid",
-    "sphereRadius": 0.8,
-    "innerSphereRadius": 1.0, 
-    "rotationSpeed": 0.001,
-    "rotationSpeedMin": 0.005,
-    "rotationSpeedMax": 0.059,
-    "rotationSmoothness": 0.79,
-    "particleCount": 24000,
-    "particleSize": 0.005,
-    "particleLifetime": 4,
-    "minFrequency": 99,
-    "maxFrequency": 10313,
-    "minFrequencyBeat": 120,
-    "maxFrequencyBeat": 250,
-    "noiseScale": 2.8,
-    "dynamicNoiseScale": true,
-    "minNoiseScale": 0.7,
-    "maxNoiseScale": 7.7,
-    "noiseStep": 0.2,
-    "noiseSpeed": 0.1,
-    "turbulenceStrength": 0.0015,
-    "colorStart": "#ff324b", // Red-Pink
-    "colorEnd": "#ff32b7",   // Hot Pink
-    "beatStrength": 0.004,
-    "gainMultiplier": 1
-  }
-];
-
-// --- 2. Audio Analyzer ---
+// --- 1. Audio Analyzer Hook ---
 const useAudioAnalyzer = () => {
   const [context, setContext] = useState<{ ctx: AudioContext, source: MediaStreamAudioSourceNode, stream: MediaStream } | null>(null);
   const analyzerRef = useRef<AnalyserNode | null>(null);
@@ -145,293 +80,215 @@ const useAudioAnalyzer = () => {
   return { startAudio, stopAudio, getMicRangeVolume, isReady: !!context };
 };
 
-// --- 3. Shader Material (GPU Logic) ---
-const LayerShaderMaterial = {
-  uniforms: {
-    uTime: { value: 0 },
-    uVolume: { value: 0 },
-    uColorStart: { value: new THREE.Color() },
-    uColorEnd: { value: new THREE.Color() },
-    uNoiseScale: { value: 1.0 },
-    uNoiseSpeed: { value: 0.1 },
-    uTurbulence: { value: 0.005 },
-    uBeatStrength: { value: 0.01 },
-    uParticleSize: { value: 4.0 }
-  },
-  vertexShader: `
-    uniform float uTime;
-    uniform float uVolume;
-    uniform float uNoiseScale;
-    uniform float uNoiseSpeed;
-    uniform float uTurbulence;
-    uniform float uBeatStrength;
-    uniform float uParticleSize;
-    
-    varying float vDist;
-
-    // Simplex Noise 3D
-    vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
-    vec4 mod289(vec4 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
-    vec4 permute(vec4 x) { return mod289(((x*34.0)+1.0)*x); }
-    vec4 taylorInvSqrt(vec4 r) { return 1.79284291400159 - 0.85373472095314 * r; }
-    float snoise(vec3 v) {
-      const vec2  C = vec2(1.0/6.0, 1.0/3.0) ;
-      const vec4  D = vec4(0.0, 0.5, 1.0, 2.0);
-      vec3 i  = floor(v + dot(v, C.yyy) );
-      vec3 x0 = v - i + dot(i, C.xxx) ;
-      vec3 g = step(x0.yzx, x0.xyz);
-      vec3 l = 1.0 - g;
-      vec3 i1 = min( g.xyz, l.zxy );
-      vec3 i2 = max( g.xyz, l.zxy );
-      vec3 x1 = x0 - i1 + C.xxx;
-      vec3 x2 = x0 - i2 + C.yyy;
-      vec3 x3 = x0 - D.yyy;
-      i = mod289(i);
-      vec4 p = permute( permute( permute(
-                i.z + vec4(0.0, i1.z, i2.z, 1.0 ))
-              + i.y + vec4(0.0, i1.y, i2.y, 1.0 ))
-              + i.x + vec4(0.0, i1.x, i2.x, 1.0 ));
-      float n_ = 0.142857142857;
-      vec3  ns = n_ * D.wyz - D.xzx;
-      vec4 j = p - 49.0 * floor(p * ns.z * ns.z);
-      vec4 x_ = floor(j * ns.z);
-      vec4 y_ = floor(j - 7.0 * x_ );
-      vec4 x = x_ *ns.x + ns.yyyy;
-      vec4 y = y_ *ns.x + ns.yyyy;
-      vec4 h = 1.0 - abs(x) - abs(y);
-      vec4 b0 = vec4( x.xy, y.xy );
-      vec4 b1 = vec4( x.zw, y.zw );
-      vec4 s0 = floor(b0)*2.0 + 1.0;
-      vec4 s1 = floor(b1)*2.0 + 1.0;
-      vec4 sh = -step(h, vec4(0.0));
-      vec4 a0 = b0.xzyw + s0.xzyw*sh.xxyy ;
-      vec4 a1 = b1.xzyw + s1.xzyw*sh.zzww ;
-      vec3 p0 = vec3(a0.xy,h.x);
-      vec3 p1 = vec3(a0.zw,h.y);
-      vec3 p2 = vec3(a1.xy,h.z);
-      vec3 p3 = vec3(a1.zw,h.w);
-      vec4 norm = taylorInvSqrt(vec4(dot(p0,p0), dot(p1,p1), dot(p2, p2), dot(p3,p3)));
-      p0 *= norm.x; p1 *= norm.y; p2 *= norm.z; p3 *= norm.w;
-      vec4 m = max(0.6 - vec4(dot(x0,x0), dot(x1,x1), dot(x2,x2), dot(x3,x3)), 0.0);
-      m = m * m;
-      return 42.0 * dot( m*m, vec4( dot(p0,x0), dot(p1,x1), dot(p2,x2), dot(p3,x3) ) );
-    }
-
-    void main() {
-      // Time flow
-      float t = uTime * uNoiseSpeed;
-      
-      // Dynamic Noise Scaling
-      float dynamicScale = uNoiseScale + (uVolume * 1.5);
-      
-      // Calculate Noise
-      float noise = snoise(position * dynamicScale + vec3(t));
-      
-      // Turbulence & Beat Logic
-      // Kilo Herz uses very subtle turbulence (0.0005)
-      // We amplify significantly for visual clarity in WebGL
-      float displacement = noise * (uTurbulence * 90.0) + (uVolume * uBeatStrength * 5.0);
-      
-      vec3 newPos = position + (normal * displacement);
-      
-      // Pass distance for coloring
-      vDist = length(newPos); 
-
-      vec4 mvPosition = modelViewMatrix * vec4(newPos, 1.0);
-      
-      // Particle Size with depth attenuation
-      gl_PointSize = (uParticleSize * (1.0 + uVolume * 1.5)) * (1.0 / -mvPosition.z);
-      gl_Position = projectionMatrix * mvPosition;
-    }
-  `,
-  fragmentShader: `
-    uniform vec3 uColorStart;
-    uniform vec3 uColorEnd;
-    
-    varying float vDist;
-
-    void main() {
-      // Circular particle
-      float r = distance(gl_PointCoord, vec2(0.5));
-      if (r > 0.5) discard;
-      
-      // Soft Edge
-      float alpha = smoothstep(0.5, 0.2, r);
-      
-      // Gradient Mixing
-      // Mix based on radial distance
-      float mixFactor = smoothstep(0.1, 1.8, vDist); 
-      vec3 color = mix(uColorStart, uColorEnd, mixFactor);
-      
-      // Highlight center of particle
-      color += vec3(0.15) * (1.0 - r);
-
-      gl_FragColor = vec4(color, alpha);
-    }
-  `
-};
-
-// --- 4. Layer Component ---
-const VisualizerLayer = ({
-    config,
-    analyzer,
-    useAdditiveBlend = true,
-}: {
-    config: (typeof CONFIG)[0]
-    analyzer: { getRangeVolume: (min: number, max: number) => number }
-    useAdditiveBlend?: boolean
+// --- 2. Enhanced Liquid-Glass Circular Visualizer ---
+const CircularAvatarVisualizer = ({ 
+  analyzer,
+  isMicActive, 
+  isAiThinking = false,
+  avatar, 
+  name, 
+  role 
+}: { 
+  analyzer?: { getRangeVolume: (min: number, max: number) => number },
+  isMicActive: boolean,
+  isAiThinking?: boolean,
+  avatar?: string,
+  name: string,
+  role: string
 }) => {
-  const meshRef = useRef<THREE.Points>(null!);
-  const materialRef = useRef<THREE.ShaderMaterial>(null!);
+  const swirlRef = useRef<HTMLDivElement | null>(null);
+  const blobARef = useRef<HTMLDivElement | null>(null);
+  const blobBRef = useRef<HTMLDivElement | null>(null);
+  const glowRef = useRef<HTMLDivElement | null>(null);
+  const requestRef = useRef<number>();
+  const rotationRef = useRef(0);
+  const rotationSpeedRef = useRef(0);
+  const targetSpeedRef = useRef(0);
+  const lastTsRef = useRef(0);
+  /** Smoothed volume (0..1-ish). Drives swirl scale + glow opacity. */
+  const smoothedVolumeRef = useRef(0);
+  /** Phase clock for the liquid morph — accumulates at audio-modulated speed. */
+  const morphPhaseRef = useRef(0);
+  /** Secondary morph clock so the inner blob counter-rotates and morphs out of phase. */
+  const morphPhaseBRef = useRef(0);
 
-  // Create unique material for each layer with its own uniforms
-  const material = useMemo(() => {
-    return new THREE.ShaderMaterial({
-      uniforms: {
-        uTime: { value: 0 },
-        uVolume: { value: 0 },
-        uColorStart: { value: new THREE.Color(config.colorStart) },
-        uColorEnd: { value: new THREE.Color(config.colorEnd) },
-        uNoiseScale: { value: config.noiseScale },
-        uNoiseSpeed: { value: config.noiseSpeed },
-        uTurbulence: { value: config.turbulenceStrength },
-        uBeatStrength: { value: config.beatStrength },
-        uParticleSize: { value: config.particleSize * 1500.0 }
-      },
-      vertexShader: LayerShaderMaterial.vertexShader,
-      fragmentShader: LayerShaderMaterial.fragmentShader,
-      transparent: true,
-      depthWrite: false,
-      blending: useAdditiveBlend
-        ? THREE.AdditiveBlending
-        : THREE.NormalBlending,
-    });
-  }, [config, useAdditiveBlend]);
+  useEffect(() => {
+    // deg/s -> quick spin while AI is thinking, 25 for a livelier idle drift.
+    targetSpeedRef.current = isAiThinking ? 240 : 25;
+  }, [isAiThinking]);
 
-  // Geometry Generation Logic based on your reference code
-  const geometry = useMemo(() => {
-    const geo = new THREE.BufferGeometry();
-    const positions = [];
-    const normals = [];
+  useEffect(() => {
+    /** Build an organic blob border-radius from 8 sine-driven percentages. */
+    const buildRadius = (phase: number, amp: number) => {
+      const a = 50 + amp * Math.sin(phase);
+      const b = 50 + amp * Math.sin(phase * 1.3 + 1.1);
+      const c = 50 + amp * Math.sin(phase * 0.9 + 2.3);
+      const d = 50 + amp * Math.sin(phase * 1.1 + 3.7);
+      const e = 50 + amp * Math.sin(phase * 0.7 + 0.5);
+      const f = 50 + amp * Math.sin(phase * 1.05 + 1.9);
+      const g = 50 + amp * Math.sin(phase * 0.85 + 4.2);
+      const h = 50 + amp * Math.sin(phase * 1.2 + 5.1);
+      return `${a}% ${b}% ${c}% ${d}% / ${e}% ${f}% ${g}% ${h}%`;
+    };
 
-    for (let i = 0; i < config.particleCount; i++) {
-      // Kilo Herz Logic:
-      // innerSphereRadius acts as a modifier for distribution
-      // If inner is 1.0, distribution is surface-heavy
-      // If inner is 0.24, distribution is volumetric
-      
-      // Standard Shell logic:
-      const rMin = config.sphereRadius * config.innerSphereRadius;
-      const rMax = config.sphereRadius;
-      
-      // Distribute randomly between min and max
-      const r = rMin + Math.random() * (rMax - rMin);
-      
-      const theta = Math.random() * Math.PI * 2;
-                        const phi = Math.acos(2 * Math.random() - 1);
+    const animate = (ts: number) => {
+      const dt = lastTsRef.current ? Math.min(0.05, (ts - lastTsRef.current) / 1000) : 0;
+      lastTsRef.current = ts;
 
-      
-      const x = r * Math.sin(phi) * Math.cos(theta);
-      const y = r * Math.sin(phi) * Math.sin(theta);
-      const z = r * Math.cos(phi);
+      // --- Audio level (mic + AI playback are merged inside getRangeVolume) ---
+      const raw = analyzer ? analyzer.getRangeVolume(80, 8000) * 1.8 : 0;
+      const cur = smoothedVolumeRef.current;
+      // Snappy attack, soft release.
+      const k = raw > cur ? 0.55 : 0.12;
+      smoothedVolumeRef.current = cur + (raw - cur) * k;
+      const vol = Math.min(1, smoothedVolumeRef.current);
 
-      positions.push(x, y, z);
-      const n = new THREE.Vector3(x, y, z).normalize();
-      normals.push(n.x, n.y, n.z);
-    }
+      // --- Rotation (thinking / idle drift) ---
+      const target = targetSpeedRef.current;
+      const curSpeed = rotationSpeedRef.current;
+      const sk = target > curSpeed ? 0.08 : 0.022;
+      rotationSpeedRef.current = curSpeed + (target - curSpeed) * sk;
+      rotationRef.current = (rotationRef.current + rotationSpeedRef.current * dt) % 360;
 
-    geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-    geo.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
-    return geo;
-  }, [config]);
+      // --- Liquid morph: phase advances faster as voice level rises ---
+      const morphSpeed = 1.4 + vol * 4.0;        // primary blob
+      const morphSpeedB = 1.0 + vol * 3.2;       // secondary blob — slower, out of phase
+      morphPhaseRef.current += dt * morphSpeed;
+      morphPhaseBRef.current += dt * morphSpeedB;
 
-  useFrame((state) => {
-    if (!materialRef.current || !meshRef.current) return;
+      // --- Apply to swirl wrapper (rotate + audio-reactive scale) ---
+      if (swirlRef.current) {
+        // Bounded scale so it never overflows the glass shell. Idle ~1.0, full audio ~1.16.
+        const scale = 1 + vol * 0.16;
+        swirlRef.current.style.transform = `rotate(${rotationRef.current}deg) scale(${scale})`;
+        // Slightly brighter on louder audio.
+        swirlRef.current.style.opacity = String(0.6 + vol * 0.3);
+      }
 
-    // Get Audio
-    const volume = analyzer.getRangeVolume(config.minFrequency, config.maxFrequency);
-    const beatVolume = analyzer.getRangeVolume(config.minFrequencyBeat, config.maxFrequencyBeat);
+      // --- Primary blob: morph + saturate/brighten with audio ---
+      if (blobARef.current) {
+        blobARef.current.style.borderRadius = buildRadius(morphPhaseRef.current, 14 + vol * 16);
+        blobARef.current.style.filter =
+          `blur(4px) saturate(${1 + vol * 0.7}) brightness(${1 + vol * 0.2})`;
+      }
 
-    // Dynamic Rotation with smooth transitions
-    const targetSpeed = config.rotationSpeedMin + (config.rotationSpeedMax - config.rotationSpeedMin) * beatVolume;
+      // --- Secondary blob: counter-rotates, fades in with audio for richness ---
+      if (blobBRef.current) {
+        blobBRef.current.style.borderRadius = buildRadius(morphPhaseBRef.current * 0.8 + 1.7, 18 + vol * 18);
+        blobBRef.current.style.transform = `rotate(${-rotationRef.current * 0.6}deg)`;
+        // Quiet at idle, becomes a clear secondary highlight as audio comes in.
+        blobBRef.current.style.opacity = String(0.18 + vol * 0.55);
+        blobBRef.current.style.filter =
+          `blur(8px) saturate(${1.1 + vol * 0.6}) brightness(${1 + vol * 0.25})`;
+      }
+
+      // --- Apply to glow halo behind avatar ---
+      if (glowRef.current) {
+        const glow = (isMicActive ? 0.35 : 0.12) + vol * 0.5;
+        glowRef.current.style.opacity = String(Math.min(0.9, glow));
+        glowRef.current.style.transform = `scale(${1 + vol * 0.18})`;
+      }
+
+      requestRef.current = requestAnimationFrame(animate);
+    };
     
-    // Store smooth rotation speed
-    if (!meshRef.current.userData.smoothSpeed) {
-      meshRef.current.userData.smoothSpeed = config.rotationSpeed;
-    }
-    
-    // Smooth the rotation speed changes
-    meshRef.current.userData.smoothSpeed = THREE.MathUtils.lerp(
-      meshRef.current.userData.smoothSpeed,
-      targetSpeed,
-      0.05 // Very smooth rotation transitions
-    );
-    
-    // Apply smoothed rotation
-    meshRef.current.rotation.y += meshRef.current.userData.smoothSpeed;
-    meshRef.current.rotation.z += 0.0005;
-
-    // Dynamic Noise Scale
-    let currentNoiseScale = config.noiseScale;
-    if (config.dynamicNoiseScale) {
-       currentNoiseScale = THREE.MathUtils.lerp(
-         config.minNoiseScale, 
-         config.maxNoiseScale, 
-         volume
-       );
-    }
-
-    // Update Uniforms
-    materialRef.current.uniforms.uTime.value = state.clock.elapsedTime;
-    materialRef.current.uniforms.uNoiseSpeed.value = config.noiseSpeed;
-    materialRef.current.uniforms.uTurbulence.value = config.turbulenceStrength;
-    materialRef.current.uniforms.uBeatStrength.value = config.beatStrength;
-    materialRef.current.uniforms.uParticleSize.value = config.particleSize * 1500.0; // Scaler
-
-    // Smooth Volume - Lower value = smoother, gradual transitions
-    materialRef.current.uniforms.uVolume.value = THREE.MathUtils.lerp(
-      materialRef.current.uniforms.uVolume.value,
-      volume * config.gainMultiplier, 
-      0.12 // Lower = smoother, less sudden changes
-    );
-
-    // Smooth Noise Scale transitions
-    materialRef.current.uniforms.uNoiseScale.value = THREE.MathUtils.lerp(
-      materialRef.current.uniforms.uNoiseScale.value,
-      currentNoiseScale,
-      0.08 // Lower = smoother noise transitions
-    );
-
-    materialRef.current.uniforms.uColorStart.value.set(config.colorStart);
-    materialRef.current.uniforms.uColorEnd.value.set(config.colorEnd);
-  });
+    requestRef.current = requestAnimationFrame(animate);
+    return () => { if (requestRef.current) cancelAnimationFrame(requestRef.current); };
+  }, [analyzer, isMicActive]);
 
   return (
-    <points ref={meshRef} geometry={geometry}>
-      <primitive 
-        ref={materialRef}
-        object={material}
-        attach="material"
-      />
-    </points>
+    <div className="relative w-full h-full flex items-center justify-center bg-gray-50 dark:bg-gray-900 overflow-hidden">
+      
+      {/* 1. Continuous Background Ripple Animation */}
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
+        {[0, 1, 2, 3].map((i) => (
+          <motion.div
+            key={`bg-ripple-${i}`}
+            className="absolute w-[350px] h-[350px] rounded-full border border-gray-500/45 dark:border-gray-600/30"
+            initial={{ scale: 1, opacity: 0 }}
+            animate={{
+              scale: [1, 4],
+              opacity: [0.4, 0],
+            }}
+            transition={{
+              duration: 8,
+              repeat: Infinity,
+              ease: "linear",
+              delay: i * 2,
+            }}
+          />
+        ))}
+      </div>
+
+      {/* Avatar stays visually centered; name/role sit above it without shifting the circle down */}
+      <div className="relative z-10 flex items-center justify-center">
+        <div className="absolute left-1/2 -translate-x-1/2 bottom-[calc(100%+2rem)] flex w-full max-w-lg flex-col items-center px-4 text-center">
+          <h2 className="text-[28px] font-extrabold text-gray-900 dark:text-gray-50 tracking-tight">{name}</h2>
+          <p className="text-[15px] font-medium text-gray-600 dark:text-gray-400 mt-1 whitespace-nowrap text-center">{role}</p>
+        </div>
+
+        <div className="relative flex items-center justify-center">
+          {/* Soft radial glow behind the avatar — pulses with audio level */}
+          <div
+            ref={glowRef}
+            className="absolute w-[260px] h-[260px] bg-blue-400 dark:bg-sky-500 rounded-full blur-[70px]"
+            style={{ opacity: 0.15, transform: 'scale(1)', willChange: 'opacity, transform' }}
+          />
+
+          {/* --- TRUE LIQUID GLASS AVATAR RING --- */}
+          <div className="relative w-[260px] h-[260px] flex items-center justify-center z-30 group">
+            
+            {/* 1. The morphing blue liquid — fully audio-reactive: speed, color, secondary blob */}
+            <div
+              ref={swirlRef}
+              className="absolute inset-0 flex items-center justify-center"
+              style={{ willChange: 'transform, opacity', transformOrigin: 'center' }}
+            >
+              {/* Primary blob — morph + saturate/brighten driven in rAF */}
+              <div
+                ref={blobARef}
+                className="absolute inset-0 bg-gradient-to-tr from-cyan-100 via-blue-300 to-blue-500 dark:from-indigo-950 dark:via-blue-900 dark:to-cyan-800"
+                style={{ willChange: 'border-radius, filter', borderRadius: '50%', filter: 'blur(4px)' }}
+              />
+              {/* Secondary blob — counter-rotates and fades in with audio for a liquid 'second highlight' */}
+              <div
+                ref={blobBRef}
+                className="absolute inset-[8%] bg-gradient-to-br from-white/80 via-cyan-200 to-blue-400 dark:from-sky-300/25 dark:via-cyan-500/35 dark:to-blue-600/50"
+                style={{
+                  willChange: 'border-radius, transform, opacity, filter',
+                  borderRadius: '50%',
+                  opacity: 0.18,
+                  mixBlendMode: 'screen',
+                  filter: 'blur(8px)',
+                }}
+              />
+            </div>
+            
+            {/* 2. The Proper Outer Glass Shell */}
+            <div className="absolute inset-[6px] rounded-full bg-white/10 dark:bg-gray-900/45 backdrop-blur-2xl border border-white/60 dark:border-white/15 shadow-[inset_0_4px_30px_rgba(255,255,255,0.7),_0_8px_32px_rgba(37,99,235,0.2)] dark:shadow-[inset_0_4px_28px_rgba(255,255,255,0.05),_0_8px_36px_rgba(56,189,248,0.18)] z-10 overflow-hidden">
+              <div className="absolute inset-0 rounded-full bg-gradient-to-b from-white/40 via-transparent to-black/5 dark:from-white/[0.06] dark:via-transparent dark:to-black/50 pointer-events-none" />
+            </div>
+            
+            {/* 3. Deep inner shadow ring for 3D depth */}
+            <div className="absolute inset-[16px] rounded-full shadow-[inset_0_4px_15px_rgba(0,0,0,0.2)] dark:shadow-[inset_0_4px_20px_rgba(0,0,0,0.55)] z-20 pointer-events-none border border-black/5 dark:border-gray-700/80" />
+            
+            {/* 4. The Actual Avatar (White border removed) */}
+            <div className="absolute inset-[18px] rounded-full overflow-hidden z-20 shadow-[0_0_20px_rgba(0,0,0,0.15)] dark:shadow-[0_0_28px_rgba(0,0,0,0.65)] bg-transparent">
+              <img 
+                src={avatar || "https://i.pravatar.cc/300?img=11"} 
+                alt={name}
+                className="w-full h-full object-cover"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
   );
 };
 
-/** Bloom for the always-dark session canvas. */
-function VisualizerBloom() {
-  return (
-    <EffectComposer enableNormalPass={false}>
-      <Bloom
-        luminanceThreshold={0.3}
-        mipmapBlur
-        intensity={1.2}
-        radius={0.8}
-      />
-    </EffectComposer>
-  )
-}
-
-// --- 5. Types for Chat Interface ---
+// --- 3. Types for Chat Interface ---
 interface Message {
   id: string
   role: 'user' | 'assistant'
@@ -448,74 +305,32 @@ interface Hint {
   suggestion: string
 }
 
-// Sample hints for the session
 const AVAILABLE_HINTS: Hint[] = [
-  {
-    id: 1,
-    category: 'what',
-    title: 'Opening Questions',
-    suggestion: 'Start with: "Can you walk me through your current sales process?" This helps establish context and builds rapport.'
-  },
-  {
-    id: 2,
-    category: 'how',
-    title: 'Active Listening',
-    suggestion: 'Pause after they speak, then say: "So if I understand correctly..." This shows engagement and ensures clarity.'
-  },
-  {
-    id: 3,
-    category: 'what',
-    title: 'Pain Point Discovery',
-    suggestion: 'Ask: "What challenges are you facing with your current solution?" Focus on their problems, not your product.'
-  },
-  {
-    id: 4,
-    category: 'how',
-    title: 'Tone & Pace',
-    suggestion: 'Speak 15% slower than usual. Use confident pauses. Mirror their energy level to build connection.'
-  },
-  {
-    id: 5,
-    category: 'what',
-    title: 'Value Proposition',
-    suggestion: 'Frame benefits as: "This means you\'ll be able to..." rather than "Our product has..." Focus on outcomes.'
-  }
+  { id: 1, category: 'what', title: 'Opening Questions', suggestion: 'Start with: "Can you walk me through your current sales process?" This helps establish context and builds rapport.' },
+  { id: 2, category: 'how', title: 'Active Listening', suggestion: 'Pause after they speak, then say: "So if I understand correctly..." This shows engagement and ensures clarity.' },
+  { id: 3, category: 'what', title: 'Pain Point Discovery', suggestion: 'Ask: "What challenges are you facing with your current solution?" Focus on their problems, not your product.' },
 ];
 
-// --- 6. Main Component with Chat Interface ---
 const SESSION_DURATION = 1800;
-/** Left session + WebGL are always dark so additive particles / bloom read correctly. */
-const SESSION_VISUALIZER_BG = '#000000';
+
+/** Track sizes for the main / side column split (`gridTemplateColumns`). */
+const CHAT_PANEL_VIS_FR = 13;
+const CHAT_PANEL_SIDE_FR = 7;
 let _msgIdCounter = 0;
 const nextMsgId = () => `${Date.now()}_${++_msgIdCounter}`;
 
-
-export default function KiloHerzVisualizer() {
+// --- 4. Main Component with Chat Interface ---
+export default function InteractiveVisualizerSession() {
   const location = useLocation();
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigateTo = useNavigate();
   const direction = useAppSelector((state) => state.theme.direction);
-  const sessionData = location.state as {
-    mode?: string
-    persona?: {
-      id: string
-      name: string
-      role: string
-      avatar?: string
-      company?: string
-      industry?: string
-    }
-    scenarios?: string[]
-    files?: File[]
-  };
+  const sessionData = location.state as any;
 
   const { startAudio, stopAudio, getMicRangeVolume, isReady } = useAudioAnalyzer();
-  const liveAudioRef = useRef<
-    HTMLElement & {
-      getGeminiOutputAnalyser?: () => { analyser: AnalyserNode; sampleRate: number } | null;
-      resumeOutputAudio?: () => Promise<void>;
-    }
-  >(null);
+  const liveAudioRef = useRef<any>(null);
+
+  // --- Live audio analyser bridge (mic + Gemini output) so the swirl can react ---
   const geminiAnalyserRef = useRef<AnalyserNode | null>(null);
   const geminiDataArrayRef = useRef<Uint8Array | null>(null);
   const geminiSampleRateRef = useRef(24000);
@@ -534,9 +349,6 @@ export default function KiloHerzVisualizer() {
 
   useEffect(() => {
     syncGeminiAnalyserFromElement();
-  }, [syncGeminiAnalyserFromElement]);
-
-  useEffect(() => {
     const onSessionOpened = () => syncGeminiAnalyserFromElement();
     window.addEventListener('liveAudioSessionOpened', onSessionOpened);
     return () => window.removeEventListener('liveAudioSessionOpened', onSessionOpened);
@@ -551,23 +363,27 @@ export default function KiloHerzVisualizer() {
     return () => window.removeEventListener('liveAudioGeminiAnalyserEnded', clear);
   }, []);
 
+  /** Returns max(mic, gemini-output) so the swirl reacts to both speakers. */
   const getRangeVolume = useCallback(
     (minHz: number, maxHz: number) => {
-      const g = geminiAnalyserRef.current;
-      const buf = geminiDataArrayRef.current;
+      const micLevel = getMicRangeVolume(minHz, maxHz);
+
+      let geminiLevel = 0;
+      let g = geminiAnalyserRef.current;
+      let buf = geminiDataArrayRef.current;
       if (!g || !buf || g.context.state === 'closed') {
         syncGeminiAnalyserFromElement();
       }
-      const g2 = geminiAnalyserRef.current;
-      const buf2 = geminiDataArrayRef.current;
-      if (g2 && buf2 && g2.context.state !== 'closed') {
+      g = geminiAnalyserRef.current;
+      buf = geminiDataArrayRef.current;
+      if (g && buf && g.context.state !== 'closed') {
         try {
-          return getRangeVolumeFromAnalyser(g2, buf2, geminiSampleRateRef.current, minHz, maxHz);
+          geminiLevel = getRangeVolumeFromAnalyser(g, buf, geminiSampleRateRef.current, minHz, maxHz);
         } catch {
-          return getMicRangeVolume(minHz, maxHz);
+          /* ignore */
         }
       }
-      return getMicRangeVolume(minHz, maxHz);
+      return Math.max(micLevel, geminiLevel);
     },
     [getMicRangeVolume, syncGeminiAnalyserFromElement],
   );
@@ -578,6 +394,7 @@ export default function KiloHerzVisualizer() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isChatPanelOpen, setIsChatPanelOpen] = useState(true);
   const [tokenReady, setTokenReady] = useState(false);
   const [hasBackendHistory, setHasBackendHistory] = useState(false);
   const [personaMode] = useState(
@@ -585,6 +402,7 @@ export default function KiloHerzVisualizer() {
       ? sessionData.mode.charAt(0).toUpperCase() + sessionData.mode.slice(1)
       : 'Discovering'
   );
+  
   const [timeLeft, setTimeLeft] = useState(() => {
     const stored = sessionStorage.getItem(storageKey('session_start_timestamp'));
     if (stored) {
@@ -593,8 +411,9 @@ export default function KiloHerzVisualizer() {
     }
     return SESSION_DURATION;
   });
-  const [userName] = useState(sessionData?.persona?.name || 'AI Persona');
-  const [userRole] = useState(sessionData?.persona?.role || 'Role');
+  
+  const [userName] = useState(sessionData?.persona?.name || 'Tony Romano');
+  const [userRole] = useState(sessionData?.persona?.role || 'Prospecting · Operations Manager');
   const [userAvatar] = useState(sessionData?.persona?.avatar);
 
   const [hints, setHints] = useState<Hint[]>(AVAILABLE_HINTS);
@@ -606,20 +425,14 @@ export default function KiloHerzVisualizer() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const historyPushedRef = useRef(false);
-  /** Prevents duplicate POSTs for the same user+assistant pair while a batch is in flight */
   const syncingPairKeyRef = useRef<string | null>(null);
   const messagesRef = useRef<Message[]>([]);
   const sessionIdRef = useRef<string | undefined>(sessionId);
 
-  useEffect(() => {
-    messagesRef.current = messages;
-  }, [messages]);
+  useEffect(() => { messagesRef.current = messages; }, [messages]);
+  useEffect(() => { sessionIdRef.current = sessionId; }, [sessionId]);
 
-  useEffect(() => {
-    sessionIdRef.current = sessionId;
-  }, [sessionId]);
-
-  // Persist in-progress assistant reply on reload/close (normal batch sync waits for turnComplete)
+  // Persist in-progress assistant reply
   useEffect(() => {
     const onPageHide = () => {
       const sid = sessionIdRef.current;
@@ -628,14 +441,7 @@ export default function KiloHerzVisualizer() {
       for (let i = 0; i < msgs.length - 1; i++) {
         const a = msgs[i];
         const b = msgs[i + 1];
-        if (
-          a.role === 'user' &&
-          a.finished &&
-          !a.synced &&
-          b.role === 'assistant' &&
-          !b.synced &&
-          b.content.trim()
-        ) {
+        if (a.role === 'user' && a.finished && !a.synced && b.role === 'assistant' && !b.synced && b.content.trim()) {
           flushSessionMessagesBatchKeepalive(sid, [
             { role: 'human', content: a.content },
             { role: 'assistant', content: b.content },
@@ -648,7 +454,7 @@ export default function KiloHerzVisualizer() {
     return () => window.removeEventListener('pagehide', onPageHide, true);
   }, []);
 
-  // Fetch ephemeral token on mount — preloads the Gemini session and loads chat history from backend
+  // Fetch token
   useEffect(() => {
     if (!sessionId) return;
     let cancelled = false;
@@ -677,20 +483,18 @@ export default function KiloHerzVisualizer() {
     return () => { cancelled = true; };
   }, [sessionId]);
 
-  // Timer countdown using persisted start timestamp for reload accuracy
+  // Timer
   useEffect(() => {
     if (!sessionStarted) return;
     const startTs = sessionStorage.getItem(storageKey('session_start_timestamp'));
     if (!startTs) return;
     const origin = Number(startTs);
-
     const timer = setInterval(() => {
       const elapsed = Math.floor((Date.now() - origin) / 1000);
       const remaining = Math.max(0, SESSION_DURATION - elapsed);
       setTimeLeft(remaining);
       if (remaining <= 0) clearInterval(timer);
     }, 1000);
-
     return () => clearInterval(timer);
   }, [sessionStarted]);
 
@@ -703,21 +507,19 @@ export default function KiloHerzVisualizer() {
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
+  useEffect(() => { scrollToBottom(); }, [messages]);
 
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
-
-  // Persist sessionStarted flag
   useEffect(() => {
     sessionStorage.setItem(storageKey('session_started'), String(sessionStarted));
   }, [sessionStarted]);
 
-  // Transcription event listeners (voice-to-text from Gemini)
+  // Transcripts
   useEffect(() => {
     const handleOutput = (e: Event) => {
       const { text, finished } = (e as CustomEvent<{ text: string; finished: boolean }>).detail;
       if (!text) return;
+      // First chunk of assistant output -> AI started speaking, exit "thinking" state.
+      setIsGenerating(false);
       setMessages(prev => {
         const last = prev[prev.length - 1];
         if (last?.role === 'assistant' && !last.finished) {
@@ -730,6 +532,8 @@ export default function KiloHerzVisualizer() {
     const handleInput = (e: Event) => {
       const { text, finished } = (e as CustomEvent<{ text: string; finished: boolean }>).detail;
       if (!text) return;
+      // User just finished speaking (mic) -> AI is about to think.
+      if (finished) setIsGenerating(true);
       setMessages(prev => {
         const last = prev[prev.length - 1];
         if (last?.role === 'user' && !last.finished) {
@@ -747,9 +551,10 @@ export default function KiloHerzVisualizer() {
     };
   }, []);
 
-  // Force-finalize in-progress assistant messages on interruption
   useEffect(() => {
     const handler = () => {
+      // AI was interrupted before/while speaking - drop "thinking" state.
+      setIsGenerating(false);
       setMessages(prev => {
         const last = prev[prev.length - 1];
         if (last?.role === 'assistant' && !last.finished) {
@@ -762,9 +567,10 @@ export default function KiloHerzVisualizer() {
     return () => window.removeEventListener('liveAudioInterrupted', handler);
   }, []);
 
-  // Finalize messages when Gemini's turn completes (reliable signal for end of response)
   useEffect(() => {
     const handler = () => {
+      // Turn complete - AI is done; clear "thinking" as a safety net.
+      setIsGenerating(false);
       setMessages(prev => {
         let changed = false;
         const updated = prev.map(m => {
@@ -781,24 +587,14 @@ export default function KiloHerzVisualizer() {
     return () => window.removeEventListener('liveAudioTurnComplete', handler);
   }, []);
 
-  // Sync human + assistant pairs to backend (batch — avoids race vs two separate POSTs)
   useEffect(() => {
     if (!sessionId) return;
-
     let idx = -1;
     for (let i = 0; i < messages.length - 1; i++) {
       const a = messages[i];
       const b = messages[i + 1];
-      if (
-        a.role === 'user' &&
-        a.finished &&
-        !a.synced &&
-        b.role === 'assistant' &&
-        b.finished &&
-        !b.synced
-      ) {
-        idx = i;
-        break;
+      if (a.role === 'user' && a.finished && !a.synced && b.role === 'assistant' && b.finished && !b.synced) {
+        idx = i; break;
       }
     }
     if (idx === -1) return;
@@ -820,30 +616,20 @@ export default function KiloHerzVisualizer() {
           ],
         });
       } catch (e) {
-        console.error('Failed to sync message batch:', e);
         syncingPairKeyRef.current = null;
         return;
       }
-      if (cancelled) {
-        syncingPairKeyRef.current = null;
-        return;
-      }
+      if (cancelled) { syncingPairKeyRef.current = null; return; }
+      
       const uid = userMsg.id;
       const aid = asstMsg.id;
-      setMessages(prev =>
-        prev.map(m =>
-          m.id === uid || m.id === aid ? { ...m, synced: true } : m,
-        ),
-      );
+      setMessages(prev => prev.map(m => m.id === uid || m.id === aid ? { ...m, synced: true } : m));
       syncingPairKeyRef.current = null;
     })();
 
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [messages, sessionId]);
 
-  // beforeunload warning when session is active
   useEffect(() => {
     if (!sessionStarted) return;
     const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); };
@@ -851,7 +637,6 @@ export default function KiloHerzVisualizer() {
     return () => window.removeEventListener('beforeunload', handler);
   }, [sessionStarted]);
 
-  // Browser back button interception via popstate
   useEffect(() => {
     if (!sessionStarted) { historyPushedRef.current = false; return; }
     if (historyPushedRef.current) return;
@@ -875,21 +660,19 @@ export default function KiloHerzVisualizer() {
     const text = inputValue.trim();
     if (!text || isGenerating) return;
 
-    const userMessage: Message = {
+    setMessages(prev => [...prev, {
       id: nextMsgId(),
       role: 'user',
       content: text,
       timestamp: new Date(),
       finished: true,
       synced: false,
-    };
-
-    setMessages(prev => [...prev, userMessage]);
+    }]);
     setInputValue('');
 
-    document.dispatchEvent(new CustomEvent('sendLiveText', {
-      detail: { text },
-    }));
+    document.dispatchEvent(new CustomEvent('sendLiveText', { detail: { text } }));
+    // Enter "AI is thinking" - visualizer shell will swirl until first AI output chunk.
+    setIsGenerating(true);
   };
 
   const toggleMic = async () => {
@@ -930,137 +713,230 @@ export default function KiloHerzVisualizer() {
     }
   };
 
-  const handleAddFiles = () => {
-    // Handle file upload or scenario selection
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.multiple = true;
-    input.accept = '.pdf,.doc,.docx,.txt,.json';
-    input.onchange = (e: any) => {
-      const files = Array.from(e.target.files);
-      console.log('Files selected:', files);
-      // Handle file upload logic here
-    };
-    input.click();
-  };
-
   const handleNextHint = () => {
     const currentHint = hints[currentHintIndex];
-    if (!viewedHints.includes(currentHint.id)) {
-      setViewedHints([...viewedHints, currentHint.id]);
-    }
-    
-    if (currentHintIndex < hints.length - 1) {
-      setCurrentHintIndex(currentHintIndex + 1);
-    } else {
-      // At the end, close hints
-      setShowHints(false);
-    }
+    if (!viewedHints.includes(currentHint.id)) setViewedHints([...viewedHints, currentHint.id]);
+    if (currentHintIndex < hints.length - 1) setCurrentHintIndex(currentHintIndex + 1);
+    else setShowHints(false);
   };
 
   const handlePreviousHint = () => {
-    if (currentHintIndex > 0) {
-      setCurrentHintIndex(currentHintIndex - 1);
-    }
+    if (currentHintIndex > 0) setCurrentHintIndex(currentHintIndex - 1);
   };
 
-  const remainingHints = hints.length - viewedHints.length;
-  const currentHint = hints[currentHintIndex];
-
   const formatContent = (content: string) => {
-    let formatted = content.replace(
-        /\*\*(.*?)\*\*/g,
-        '<strong class="font-semibold text-gray-900 dark:text-white">$1</strong>',
-    );
-    formatted = formatted.replace(
-        /`(.*?)`/g,
-        '<code class="px-2 py-0.5 rounded-lg bg-gray-200/90 dark:bg-gray-800/80 text-blue-600 dark:text-blue-400 font-mono text-sm">$1</code>',
-    );
+    let formatted = content.replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold text-gray-900 dark:text-white">$1</strong>');
+    formatted = formatted.replace(/`(.*?)`/g, '<code class="px-2 py-0.5 rounded-lg bg-gray-200/90 dark:bg-gray-800/80 text-blue-600 dark:text-blue-400 font-mono text-sm">$1</code>');
     return formatted;
   };
 
   if (!tokenReady) {
     return (
-      <div className="flex h-screen w-screen bg-gray-100 dark:bg-gray-950 overflow-hidden fixed inset-0">
-        <Loading loading={true} className="w-full h-full bg-gray-100 dark:bg-gray-950" spinnerClass="text-blue-500" />
+      <div className="flex h-screen w-screen bg-gray-100 dark:bg-gray-900 overflow-hidden fixed inset-0">
+        <Loading loading={true} className="w-full h-full bg-gray-100 dark:bg-gray-900" spinnerClass="text-blue-500" />
       </div>
     );
   }
 
   return (
-    <div className="flex h-screen w-screen bg-gray-100 dark:bg-gray-950 overflow-hidden fixed inset-0">
-      <div
-        className="pointer-events-none absolute overflow-hidden w-px h-px opacity-0 -z-10"
-        aria-hidden
-      >
+    <div className="flex h-screen w-screen flex-col bg-gray-100 dark:bg-gray-900 overflow-hidden fixed inset-0">
+      <div className="pointer-events-none absolute overflow-hidden w-px h-px opacity-0 -z-10" aria-hidden>
         {React.createElement('gdm-live-audio', {
           ref: liveAudioRef,
           'hide-built-in-visuals': true,
           'session-id': sessionId || '',
         })}
       </div>
-      {/* LEFT: Audio Visualizer - always dark (global theme only affects the chat column). */}
-      <div className="relative flex-shrink-0 w-[65%] h-full border-r border-gray-800/50 bg-black">
-        {/* Canvas Animation - Always visible */}
-        <div className="absolute inset-0" style={{ background: SESSION_VISUALIZER_BG }}>
-          <Canvas
-            dpr={[1, 2]}
-            style={{ width: '100%', height: '100%' }}
-            gl={{ alpha: false, antialias: true }}
-          >
-        <PerspectiveCamera makeDefault position={[0, 0, 4.0]} />
-            <color attach="background" args={[SESSION_VISUALIZER_BG]} />
-        
-        <Suspense fallback={null}>
-              {CONFIG.map((layerConfig, index) => (
-            layerConfig.enabled && (
-              <VisualizerLayer 
-                key={index} 
-                config={layerConfig} 
-                analyzer={{ getRangeVolume }}
-                useAdditiveBlend
-              />
-            )
-          ))}
-        </Suspense>
 
-        <VisualizerBloom />
-        
-        <OrbitControls enableZoom={true} />
-      </Canvas>
-        </div>
+      <div className="relative min-h-0 min-w-0 flex-1 overflow-hidden">
+        <div
+          className="grid h-full min-h-0 min-w-0 overflow-hidden"
+          style={{
+            gridTemplateColumns: isChatPanelOpen
+              ? `minmax(0,${CHAT_PANEL_VIS_FR}fr) minmax(0,${CHAT_PANEL_SIDE_FR}fr)`
+              : 'minmax(0,1fr) minmax(0,0fr)',
+            transition: 'grid-template-columns 300ms linear',
+          }}
+        >
+        {/* LEFT: Enhanced Liquid Glass Visualizer */}
+        <div className="relative z-10 min-h-0 min-w-0 overflow-visible border-r border-gray-200/90 dark:border-gray-700">
+        <button
+          type="button"
+          onClick={() => setIsChatPanelOpen((open) => !open)}
+          className={`absolute top-[1.375rem] z-[120] flex items-center backdrop-blur-sm transition-colors ${
+            isChatPanelOpen
+              ? 'left-full h-8 w-8 -translate-x-1/2 justify-center rounded-full border border-gray-300 bg-white/90 text-gray-700 shadow-md hover:bg-white dark:border-gray-600 dark:bg-gray-800/95 dark:text-gray-100 dark:hover:bg-gray-800'
+              : 'right-0 h-8 w-4 translate-x-0 justify-start rounded-l-full border-y border-l border-r-0 border-gray-400/90 bg-gray-900 pl-1 text-white shadow-lg shadow-black/20 ring-2 ring-black/10 hover:bg-gray-800 dark:border-slate-400/80 dark:bg-slate-200 dark:text-slate-900 dark:shadow-black/50 dark:ring-white/20 dark:hover:bg-white'
+          }`}
+          aria-expanded={isChatPanelOpen}
+          aria-label={isChatPanelOpen ? 'Collapse chat panel' : 'Open chat panel'}
+        >
+          {isChatPanelOpen ? (
+            <HiChevronRight className="h-4 w-4 shrink-0" />
+          ) : (
+            <HiChevronLeft className="h-3 w-3 shrink-0" />
+          )}
+        </button>
 
-        {/* Top Right: Time Left */}
-        <div className="absolute top-6 right-6 z-[100] pointer-events-none">
-          <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-black/50 backdrop-blur-md border border-white/10">
-            <div className={`w-1.5 h-1.5 rounded-full ${sessionStarted ? 'bg-green-500 animate-pulse' : 'bg-gray-500'}`} />
-            <span className="text-sm font-bold text-white font-mono">
+        <CircularAvatarVisualizer 
+          analyzer={{ getRangeVolume }}
+          isMicActive={isMicActive}
+          isAiThinking={isGenerating}
+          avatar={userAvatar}
+          name={userName}
+          role={userRole}
+        />
+
+        {/* Top Right: Glassmorphism Timer Pill */}
+        <div className="absolute top-6 right-12 z-[100] pointer-events-none">
+          <div className="flex items-center gap-2.5 px-4 py-2 rounded-full bg-black/5 backdrop-blur-xl border border-white/40 shadow-[0_4px_12px_rgba(0,0,0,0.05)] dark:bg-gray-800 dark:border-gray-600 dark:shadow-[0_4px_18px_rgba(0,0,0,0.55)] dark:ring-1 dark:ring-gray-500/40">
+            <div className={`w-2 h-2 rounded-full ${sessionStarted ? 'bg-red-400 animate-pulse' : 'bg-gray-400 dark:bg-gray-400'}`} />
+            <span className="text-[13px] font-bold text-gray-800 dark:text-gray-100 font-mono tracking-widest pt-px">
               {formatTime(timeLeft)}
             </span>
           </div>
         </div>
 
+      </div>
 
+      {/* RIGHT: Chat Interface */}
+      <div
+        className={
+          isChatPanelOpen
+            ? 'relative z-0 flex min-h-0 min-w-0 flex-col overflow-hidden border-l border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900'
+            : 'pointer-events-none relative z-0 flex min-h-0 min-w-0 flex-col overflow-hidden border-l border-transparent bg-white dark:border-transparent dark:bg-gray-900'
+        }
+      >
+        {/* Header */}
+        <div className="flex-shrink-0 px-5 py-4 border-b border-gray-200 dark:border-gray-700/60 bg-gray-100/95 dark:bg-gray-800/70 backdrop-blur-xl">
+          <div className="flex items-center gap-3">
+            {userAvatar ? (
+              <img src={userAvatar} alt={userName} className="w-11 h-11 rounded-full border border-blue-500/30 object-cover flex-shrink-0" />
+            ) : (
+              <div className="w-11 h-11 rounded-full flex-shrink-0 bg-gradient-to-br from-blue-500/20 to-blue-600/20 border border-blue-500/30 flex items-center justify-center">
+                <span className="text-sm font-bold text-blue-400">{userName.split(' ').map((n: string) => n[0]).join('')}</span>
+              </div>
+            )}
+            <div className="flex-1 min-w-0">
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-white truncate">{userName}</h3>
+              <p className="text-xs text-gray-600 dark:text-gray-400">{personaMode} · {userRole}</p>
+            </div>
+            <AnimatePresence>
+              {sessionStarted && (
+                <motion.button
+                  initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.8 }}
+                  whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+                  onClick={endSession}
+                  className="px-3.5 py-1.5 rounded-lg flex-shrink-0 bg-red-500/10 border border-red-500/25 text-red-400 text-xs font-medium hover:bg-red-500/20 transition-all"
+                >
+                  End Session
+                </motion.button>
+              )}
+            </AnimatePresence>
+          </div>
+        </div>
 
-        {/* Bottom Status Indicator */}
+        {/* Transcript Area */}
+        <div className="flex-1 min-h-0 overflow-hidden">
+          <ScrollBar className="h-full max-h-full" style={{ height: '100%', maxHeight: '100%' }} direction={direction}>
+            <div className="px-6 py-4 space-y-4 min-h-full box-border bg-white dark:bg-gray-900">
+              {messages.length === 0 ? (
+                <div className="min-h-[min(100%,24rem)] flex items-center justify-center">
+                  <p className="text-gray-500 dark:text-gray-400 text-center text-sm">Transcript will appear here<br /><span className="text-xs text-gray-400 dark:text-gray-500">User's input + AI's response</span></p>
+                </div>
+              ) : (
+                <>
+                  {messages.map((message) => (
+                    <motion.div key={message.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                      <div className={`max-w-[90%] px-4 py-3 rounded-xl ${message.role === 'user' ? 'bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/30' : 'bg-gradient-to-br from-gray-100 to-gray-50 dark:from-gray-900/90 dark:to-gray-800/90 text-gray-800 dark:text-gray-200 border border-gray-200/80 dark:border-gray-700/50 shadow-md'}`}>
+                        <div className="text-sm leading-relaxed" dangerouslySetInnerHTML={{ __html: formatContent(message.content) }} />
+                        <p className="text-xs opacity-50 mt-1.5">{message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                      </div>
+                    </motion.div>
+                  ))}
+                  {isGenerating && (
+                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex justify-start">
+                      <div className="px-4 py-3 rounded-xl bg-gray-100 dark:bg-gray-900/90 border border-gray-200 dark:border-gray-700/50">
+                        <div className="flex gap-1.5">
+                          {[0, 0.2, 0.4].map(delay => (
+                            <motion.div key={delay} animate={{ scale: [1, 1.3, 1] }} transition={{ repeat: Infinity, duration: 0.6, delay }} className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                          ))}
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                  <div ref={messagesEndRef} />
+                </>
+              )}
+            </div>
+          </ScrollBar>
+        </div>
+
+        {/* Hints Panel */}
         <AnimatePresence>
-          {sessionStarted && isMicActive && (
-            <motion.div 
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 20 }}
-              className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[100] pointer-events-none"
-            >
-              <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-black/50 backdrop-blur-md border border-white/10">
-                <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                <span className="text-xs text-gray-300 font-medium">
-                  Listening
-                </span>
+          {showHints && hints[currentHintIndex] && (
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }} className="flex-shrink-0 px-6 py-4 border-t border-blue-500/20 bg-blue-50/50 dark:bg-blue-900/10 backdrop-blur-xl">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <HiLightBulb className="w-5 h-5 text-blue-400" />
+                  <h4 className="text-sm font-semibold text-gray-900 dark:text-white">Session Hint {currentHintIndex + 1}/{hints.length}</h4>
+                </div>
+                <button onClick={() => setShowHints(false)} className="text-xs text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-300">Close</button>
+              </div>
+              <motion.div key={hints[currentHintIndex].id} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="p-4 rounded-xl bg-white/80 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700/50">
+                <h5 className="text-base font-bold text-gray-900 dark:text-white mb-2">{hints[currentHintIndex].title}</h5>
+                <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{hints[currentHintIndex].suggestion}</p>
+              </motion.div>
+              <div className="flex items-center justify-between mt-4">
+                <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={handlePreviousHint} disabled={currentHintIndex === 0} className={`px-4 py-2 rounded-lg text-sm font-medium ${currentHintIndex === 0 ? 'opacity-50 cursor-not-allowed' : 'bg-gray-100 hover:bg-gray-200 dark:bg-gray-800'}`}>Previous</motion.button>
+                <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={handleNextHint} className="px-4 py-2 rounded-lg text-sm font-medium bg-blue-500/20 text-blue-500 hover:bg-blue-500/30">{currentHintIndex === hints.length - 1 ? 'Done' : 'Next'}</motion.button>
               </div>
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Bottom Bar Container */}
+        <div className="flex-shrink-0 px-4 py-3 bg-gray-100/95 dark:bg-gray-800/70 backdrop-blur-2xl border-t border-gray-200 dark:border-gray-700/60">
+          <AnimatePresence mode="wait">
+            {!sessionStarted ? (
+              <motion.div key="start" initial={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }}>
+                <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={handleStartSession} className="w-full py-3.5 rounded-full bg-gradient-to-r from-blue-500 to-blue-600 text-white text-sm font-semibold shadow-lg hover:shadow-xl transition-all">
+                  {hasBackendHistory ? 'Continue Session' : 'Start Session'}
+                </motion.button>
+              </motion.div>
+            ) : (
+              <motion.div key="chat" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-2 bg-white/90 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700/50 rounded-full px-4 py-2">
+                <button className="text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white flex-shrink-0"><HiPaperClip className="w-5 h-5" /></button>
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                  placeholder="Type a message..."
+                  disabled={isGenerating}
+                  className="flex-1 bg-transparent text-gray-900 dark:text-white text-sm focus:outline-none disabled:opacity-50"
+                />
+                <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => setShowHints(!showHints)} className="flex items-center gap-1.5 px-3 py-1 rounded-full flex-shrink-0 bg-blue-500/10 text-blue-500">
+                  <HiLightBulb className="w-3.5 h-3.5" />
+                  <span className="text-xs font-medium">{hints.length - viewedHints.length}</span>
+                </motion.button>
+                {inputValue.trim() ? (
+                  <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={handleSendMessage} disabled={isGenerating} className="w-9 h-9 rounded-full flex-shrink-0 bg-blue-500 text-white flex items-center justify-center">
+                    <HiPaperAirplane className="w-4 h-4" />
+                  </motion.button>
+                ) : (
+                  <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={toggleMic} className={`w-9 h-9 rounded-full flex-shrink-0 flex items-center justify-center ${isMicActive ? 'bg-red-500 text-white shadow-lg' : 'bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-white'}`}>
+                    {isMicActive ? <HiStop className="w-4 h-4" /> : <div className="flex gap-[2px] items-end h-4">{[3, 5, 7, 5, 3].map((h, i) => <div key={i} className="w-[2px] bg-current rounded-full" style={{ height: `${h * 2}px` }} />)}</div>}
+                  </motion.button>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </div>
+      </div>
+    </div>
 
       <ConfirmDialog
         isOpen={showLeaveConfirm}
@@ -1074,391 +950,6 @@ export default function KiloHerzVisualizer() {
       >
         <p>Your current session will be lost. Are you sure you want to leave?</p>
       </ConfirmDialog>
-
-      {/* RIGHT: Chat Interface - 35% */}
-      <div className="w-[35%] h-full flex flex-col bg-white dark:bg-gray-950 border-l border-gray-200 dark:border-transparent">
-        {/* Header: Persona Detail - Compact Row */}
-        <div className="
-          flex-shrink-0 px-5 py-4 border-b border-gray-200 dark:border-gray-800/50
-          bg-gray-50/95 dark:bg-gray-900/60 backdrop-blur-xl
-        ">
-          <div className="flex items-center gap-3">
-            {/* Avatar */}
-            {userAvatar ? (
-              <img
-                src={userAvatar}
-                alt={userName}
-                className="w-11 h-11 rounded-full border border-blue-500/30 object-cover flex-shrink-0"
-              />
-            ) : (
-              <div className="
-                w-11 h-11 rounded-full flex-shrink-0
-                bg-gradient-to-br from-blue-500/20 to-blue-600/20
-                border border-blue-500/30
-                flex items-center justify-center
-              ">
-                <span className="text-sm font-bold text-blue-400">
-                  {userName.split(' ').map(n => n[0]).join('')}
-                </span>
-              </div>
-            )}
-
-            {/* Name & Mode */}
-            <div className="flex-1 min-w-0">
-              <h3 className="text-sm font-semibold text-gray-900 dark:text-white truncate">{userName}</h3>
-              <p className="text-xs text-gray-600 dark:text-gray-400">{personaMode} · {userRole}</p>
-            </div>
-
-            {/* End Session - Top Right */}
-            <AnimatePresence>
-              {sessionStarted && (
-                <motion.button
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.8 }}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={endSession}
-                  className="
-                    px-3.5 py-1.5 rounded-lg flex-shrink-0
-                    bg-red-500/10 border border-red-500/25
-                    text-red-400 text-xs font-medium
-                    hover:bg-red-500/20 hover:border-red-500/40
-                    transition-all duration-200
-                  "
-                >
-                  End Session
-                </motion.button>
-              )}
-            </AnimatePresence>
-          </div>
-        </div>
-
-        {/* Transcript — ScrollBar matches SideNav (SimpleBar + _scrollbar.css) */}
-        <div className="flex-1 min-h-0 overflow-hidden">
-          <ScrollBar
-            className="h-full max-h-full"
-            style={{ height: '100%', maxHeight: '100%' }}
-            direction={direction}
-          >
-            <div className="px-6 py-4 space-y-4 min-h-full box-border bg-white dark:bg-transparent">
-              {messages.length === 0 ? (
-                <div className="min-h-[min(100%,24rem)] flex items-center justify-center">
-                  <p className="text-gray-500 dark:text-gray-500 text-center text-sm">
-                    Transcript will appear here<br />
-                    <span className="text-xs text-gray-500 dark:text-gray-600">User's input + AI's response</span>
-                  </p>
-                </div>
-              ) : (
-                <>
-                  {messages.map((message) => (
-                    <motion.div
-                      key={message.id}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                    >
-                      <div
-                        className={`
-                      max-w-[90%] px-4 py-3 rounded-xl
-                      ${message.role === 'user'
-                        ? 'bg-gradient-to-br from-blue-500 via-blue-600 to-blue-600 text-white shadow-lg shadow-blue-500/30'
-                        : 'bg-gradient-to-br from-gray-100 to-gray-50 dark:from-gray-900/90 dark:to-gray-800/90 text-gray-800 dark:text-gray-200 border border-gray-200/80 dark:border-gray-700/50 shadow-md'
-                      }
-                    `}
-                      >
-                        <div
-                          className="text-sm leading-relaxed"
-                          dangerouslySetInnerHTML={{ __html: formatContent(message.content) }}
-                        />
-                        <p className="text-xs opacity-50 mt-1.5">
-                          {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </p>
-                      </div>
-                    </motion.div>
-                  ))}
-
-                  {isGenerating && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="flex justify-start"
-                    >
-                      <div className="px-4 py-3 rounded-xl bg-gray-100 dark:bg-gray-900/90 border border-gray-200 dark:border-gray-700/50">
-                        <div className="flex gap-1.5">
-                          <motion.div
-                            animate={{ scale: [1, 1.3, 1] }}
-                            transition={{ repeat: Infinity, duration: 0.6, delay: 0 }}
-                            className="w-1.5 h-1.5 rounded-full bg-blue-500"
-                          />
-                          <motion.div
-                            animate={{ scale: [1, 1.3, 1] }}
-                            transition={{ repeat: Infinity, duration: 0.6, delay: 0.2 }}
-                            className="w-1.5 h-1.5 rounded-full bg-blue-500"
-                          />
-                          <motion.div
-                            animate={{ scale: [1, 1.3, 1] }}
-                            transition={{ repeat: Infinity, duration: 0.6, delay: 0.4 }}
-                            className="w-1.5 h-1.5 rounded-full bg-blue-500"
-                          />
-                        </div>
-                      </div>
-                    </motion.div>
-                  )}
-
-                  <div ref={messagesEndRef} />
-                </>
-              )}
-            </div>
-          </ScrollBar>
-        </div>
-
-        {/* Hints Panel - Above Input - One Hint at a Time */}
-        <AnimatePresence>
-          {showHints && currentHint && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 20 }}
-              className="flex-shrink-0 px-6 py-4 border-t border-blue-500/20 dark:border-blue-500/30 bg-gradient-to-br from-blue-500/[0.06] to-blue-600/0 dark:from-blue-500/10 dark:to-blue-600/5 backdrop-blur-xl"
-            >
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <HiLightBulb className="w-5 h-5 text-blue-400" />
-                  <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
-                    Session Hint {currentHintIndex + 1}/{hints.length}
-                  </h4>
-                </div>
-                <button
-                  onClick={() => setShowHints(false)}
-                  className="text-xs text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-300 transition-colors"
-                >
-                  Close
-                </button>
-              </div>
-
-              {/* Current Hint Display */}
-              <motion.div
-                key={currentHint.id}
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                className="p-4 rounded-xl bg-white/80 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700/50"
-              >
-                <div className="flex items-start gap-2 mb-3">
-                  <span className={`
-                    px-3 py-1 rounded-lg text-xs font-semibold flex-shrink-0
-                    ${currentHint.category === 'what' 
-                      ? 'bg-blue-500/20 text-blue-400 border border-blue-500/40' 
-                      : 'bg-purple-500/20 text-purple-400 border border-purple-500/40'
-                    }
-                  `}>
-                    {currentHint.category === 'what' ? '💬 What to Say' : '🎯 How to Say'}
-                  </span>
-                </div>
-                
-                <h5 className="text-base font-bold text-gray-900 dark:text-white mb-2">
-                  {currentHint.title}
-                </h5>
-                
-                <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
-                  {currentHint.suggestion}
-                </p>
-              </motion.div>
-
-              {/* Navigation Buttons */}
-              <div className="flex items-center justify-between mt-4">
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={handlePreviousHint}
-                  disabled={currentHintIndex === 0}
-                  className={`
-                    px-4 py-2 rounded-lg text-sm font-medium
-                    transition-all duration-200
-                    ${currentHintIndex === 0
-                      ? 'bg-gray-200/80 dark:bg-gray-800/30 text-gray-500 dark:text-gray-600 cursor-not-allowed'
-                      : 'bg-gray-100 dark:bg-gray-800/50 text-gray-800 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700/50 border border-gray-300 dark:border-gray-700/50'
-                    }
-                  `}
-                >
-                  ← Previous
-                </motion.button>
-
-                <div className="flex gap-1.5">
-                  {hints.map((_, index) => (
-                    <div
-                      key={index}
-                      className={`
-                        w-2 h-2 rounded-full transition-all duration-300
-                        ${index === currentHintIndex
-                          ? 'bg-blue-400 w-6'
-                          : viewedHints.includes(hints[index].id)
-                            ? 'bg-blue-600/50'
-                            : 'bg-gray-300 dark:bg-gray-600'
-                        }
-                      `}
-                    />
-                  ))}
-                </div>
-
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={handleNextHint}
-                  className="
-                    px-4 py-2 rounded-lg text-sm font-medium
-                    bg-blue-500/20 text-blue-400 border border-blue-500/40
-                    hover:bg-blue-500/30 hover:border-blue-500/60
-                    transition-all duration-200
-                  "
-                >
-                  {currentHintIndex === hints.length - 1 ? 'Done ✓' : 'Next →'}
-                </motion.button>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Bottom Section - Start Session or Chat Input */}
-        <div className="flex-shrink-0 px-4 py-3 bg-gray-50/95 dark:bg-gray-900/60 backdrop-blur-2xl border-t border-gray-200 dark:border-gray-800/50">
-          <AnimatePresence mode="wait">
-            {!sessionStarted ? (
-              /* Start / Continue Session Button */
-              <motion.div
-                key="start-session"
-                initial={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 20, scale: 0.95 }}
-                transition={{ duration: 0.3, ease: "easeInOut" }}
-              >
-                <motion.button
-                  whileHover={{ scale: 1.03 }}
-                  whileTap={{ scale: 0.97 }}
-                  onClick={handleStartSession}
-                  className="
-                    w-full py-3.5 rounded-full
-                    bg-gradient-to-r from-blue-500 to-blue-600
-                    text-white text-sm font-semibold
-                    shadow-lg shadow-blue-500/25
-                    hover:shadow-xl hover:shadow-blue-500/35
-                    transition-all duration-300
-                  "
-                >
-                  {hasBackendHistory ? 'Continue Session' : 'Start Session'}
-                </motion.button>
-              </motion.div>
-            ) : (
-              /* Chat Input Bar */
-              <motion.div
-                key="chat-input"
-                initial={{ opacity: 0, y: 20, scale: 0.95 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                transition={{ duration: 0.4, ease: "easeOut" }}
-                className="
-                  flex items-center gap-2
-                  bg-white/90 dark:bg-gray-800/80 backdrop-blur-xl
-                  border border-gray-200 dark:border-gray-700/50
-                  rounded-full
-                  px-4 py-2
-                  focus-within:border-blue-500/50
-                  transition-all duration-300
-                "
-              >
-                {/* Attachment */}
-                <button className="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors flex-shrink-0">
-                  <HiPaperClip className="w-5 h-5" />
-                </button>
-
-                {/* Input */}
-                <input
-                  ref={inputRef}
-                  type="text"
-                  value={inputValue}
-                  onChange={(e) => setInputValue(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                  placeholder="Type a message..."
-                  disabled={isGenerating}
-                  className="
-                    flex-1 bg-transparent text-gray-900 dark:text-white text-sm
-                    placeholder:text-gray-500 dark:placeholder:text-gray-500
-                    focus:outline-none
-                    disabled:opacity-50 disabled:cursor-not-allowed
-                  "
-                />
-
-                {/* Hints Button */}
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => {
-                    setShowHints(!showHints);
-                    if (!showHints) {
-                      const firstUnviewed = hints.findIndex(h => !viewedHints.includes(h.id));
-                      setCurrentHintIndex(firstUnviewed >= 0 ? firstUnviewed : 0);
-                    }
-                  }}
-                  className="
-                    flex items-center gap-1.5 px-3 py-1 rounded-full flex-shrink-0
-                    bg-blue-500/10 border border-blue-500/30 text-blue-400
-                    hover:bg-blue-500/20 hover:border-blue-500/50
-                    transition-all duration-200
-                  "
-                >
-                  <HiLightBulb className="w-3.5 h-3.5" />
-                  <span className="text-xs font-medium">
-                    {hints.length - viewedHints.length}
-                  </span>
-                </motion.button>
-
-                {/* Send / Mic Button */}
-                {inputValue.trim() ? (
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={handleSendMessage}
-                    disabled={isGenerating}
-                    className="
-                      w-9 h-9 rounded-full flex-shrink-0
-                      bg-gradient-to-br from-blue-500 to-blue-600
-                      text-white shadow-lg shadow-blue-500/20
-                      flex items-center justify-center
-                      transition-all duration-200
-                    "
-                  >
-                    <HiPaperAirplane className="w-4 h-4" />
-                  </motion.button>
-                ) : (
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={toggleMic}
-                    className={`
-                      w-9 h-9 rounded-full flex-shrink-0
-                      flex items-center justify-center
-                      transition-all duration-200
-                      ${isMicActive
-                        ? 'bg-red-500 text-white shadow-lg shadow-red-500/30'
-                        : 'bg-gray-200 text-gray-800 border border-gray-300 hover:bg-gray-300 dark:bg-white/10 dark:text-white dark:border-gray-600 dark:hover:bg-white/20'
-                      }
-                    `}
-                  >
-                    {isMicActive ? (
-                      <HiStop className="w-4 h-4" />
-                    ) : (
-                      <div className="flex gap-[2px] items-end h-4">
-                        {[3, 5, 7, 5, 3].map((h, i) => (
-                          <div key={i} className="w-[2px] bg-gray-800 dark:bg-white rounded-full" style={{ height: `${h * 2}px` }} />
-                        ))}
-                      </div>
-                    )}
-                  </motion.button>
-                )}
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-      </div>
-        </div>
-    );
-
+    </div>
+  );
 }
