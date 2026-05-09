@@ -100,34 +100,48 @@ const CircularAvatarVisualizer = ({
   const blobARef = useRef<HTMLDivElement | null>(null);
   const blobBRef = useRef<HTMLDivElement | null>(null);
   const glowRef = useRef<HTMLDivElement | null>(null);
-  const requestRef = useRef<number>();
+  const requestRef = useRef<number | undefined>(undefined);
   const rotationRef = useRef(0);
   const rotationSpeedRef = useRef(0);
   const targetSpeedRef = useRef(0);
   const lastTsRef = useRef(0);
-  /** Smoothed volume (0..1-ish). Drives swirl scale + glow opacity. */
+  /** Smoothed volume (0..1-ish). Drives swirl scale and blob response. */
   const smoothedVolumeRef = useRef(0);
+  /** Smoothed morph amplitude so edges don't snap when volume jumps. */
+  const smoothedMorphAmpRef = useRef(0);
   /** Phase clock for the liquid morph — accumulates at audio-modulated speed. */
   const morphPhaseRef = useRef(0);
   /** Secondary morph clock so the inner blob counter-rotates and morphs out of phase. */
   const morphPhaseBRef = useRef(0);
+  /** Slow breathing phase for glow / subtle tempo drift. */
+  const breathPhaseRef = useRef(0);
+  /** Turbulence phase — incommensurate frequencies for less repetitive ripples. */
+  const turbPhaseRef = useRef(0);
 
   useEffect(() => {
-    // deg/s -> quick spin while AI is thinking, 25 for a livelier idle drift.
-    targetSpeedRef.current = isAiThinking ? 240 : 25;
+    // deg/s -> quick spin while AI is thinking, 8 for a very stable slow drift.
+    targetSpeedRef.current = isAiThinking ? 90 : 8;
   }, [isAiThinking]);
 
   useEffect(() => {
-    /** Build an organic blob border-radius from 8 sine-driven percentages. */
-    const buildRadius = (phase: number, amp: number) => {
-      const a = 50 + amp * Math.sin(phase);
-      const b = 50 + amp * Math.sin(phase * 1.3 + 1.1);
-      const c = 50 + amp * Math.sin(phase * 0.9 + 2.3);
-      const d = 50 + amp * Math.sin(phase * 1.1 + 3.7);
-      const e = 50 + amp * Math.sin(phase * 0.7 + 0.5);
-      const f = 50 + amp * Math.sin(phase * 1.05 + 1.9);
-      const g = 50 + amp * Math.sin(phase * 0.85 + 4.2);
-      const h = 50 + amp * Math.sin(phase * 1.2 + 5.1);
+    /**
+     * Organic blob radius: layered harmonics + turbulence so motion feels fluid,
+     * not like a single looping sine (more realistic plasma / liquid edge).
+     */
+    const buildRadius = (phase: number, amp: number, turb: number) => {
+      const w = (p: number, mul: number, off: number) =>
+        amp *
+        (0.62 * Math.sin(p * mul + off) +
+          0.22 * Math.sin(p * mul * 2.13 + off * 1.7) +
+          0.16 * Math.sin(p * mul * 3.07 + turb));
+      const a = 50 + w(phase, 1, 0);
+      const b = 50 + w(phase, 1.31, 1.1);
+      const c = 50 + w(phase, 0.91, 2.3);
+      const d = 50 + w(phase, 1.11, 3.7);
+      const e = 50 + w(phase, 0.73, 0.5);
+      const f = 50 + w(phase, 1.07, 1.9);
+      const g = 50 + w(phase, 0.87, 4.2);
+      const h = 50 + w(phase, 1.19, 5.1);
       return `${a}% ${b}% ${c}% ${d}% / ${e}% ${f}% ${g}% ${h}%`;
     };
 
@@ -138,55 +152,79 @@ const CircularAvatarVisualizer = ({
       // --- Audio level (mic + AI playback are merged inside getRangeVolume) ---
       const raw = analyzer ? analyzer.getRangeVolume(80, 8000) * 1.8 : 0;
       const cur = smoothedVolumeRef.current;
-      // Snappy attack, soft release.
-      const k = raw > cur ? 0.55 : 0.12;
+      // Snappy attack, softer release — closer to how we perceive loudness.
+      const k = raw > cur ? 0.42 : 0.09;
       smoothedVolumeRef.current = cur + (raw - cur) * k;
       const vol = Math.min(1, smoothedVolumeRef.current);
 
-      // --- Rotation (thinking / idle drift) ---
+      breathPhaseRef.current += dt * (0.35 + vol * 1.25);
+      turbPhaseRef.current += dt * (1.15 + vol * 3.6);
+
+      const morphAmpTarget = 12 + vol * 18;
+      smoothedMorphAmpRef.current +=
+        (morphAmpTarget - smoothedMorphAmpRef.current) * (1 - Math.exp(-dt * 14));
+      const morphAmp = smoothedMorphAmpRef.current;
+
+      // --- Rotation (thinking / idle drift) + subtle organic wobble ---
       const target = targetSpeedRef.current;
       const curSpeed = rotationSpeedRef.current;
-      const sk = target > curSpeed ? 0.08 : 0.022;
+      const sk = target > curSpeed ? 0.05 : 0.015;
       rotationSpeedRef.current = curSpeed + (target - curSpeed) * sk;
-      rotationRef.current = (rotationRef.current + rotationSpeedRef.current * dt) % 360;
+      const wobble =
+        2.2 * Math.sin(breathPhaseRef.current * 1.03) +
+        1.1 * Math.sin(turbPhaseRef.current * 0.71);
+      const speakingSpin = vol * 22 + vol * vol * 14;
+      rotationRef.current =
+        (rotationRef.current + (rotationSpeedRef.current + wobble + speakingSpin) * dt) % 360;
 
-      // --- Liquid morph: phase advances faster as voice level rises ---
-      const morphSpeed = 1.4 + vol * 4.0;        // primary blob
-      const morphSpeedB = 1.0 + vol * 3.2;       // secondary blob — slower, out of phase
+      const breathFactor = 1 + 0.08 * Math.sin(breathPhaseRef.current);
+      // --- Liquid morph: noticeably faster while speaking (vol-driven) ---
+      const morphSpeed = (0.42 + vol * 2.45) * breathFactor;
+      const morphSpeedB = (0.28 + vol * 1.75) * breathFactor;
       morphPhaseRef.current += dt * morphSpeed;
       morphPhaseBRef.current += dt * morphSpeedB;
 
       // --- Apply to swirl wrapper (rotate + audio-reactive scale) ---
       if (swirlRef.current) {
-        // Bounded scale so it never overflows the glass shell. Idle ~1.0, full audio ~1.16.
-        const scale = 1 + vol * 0.16;
+        const scale = 1 + vol * 0.09 + 0.015 * Math.sin(breathPhaseRef.current * 1.4);
         swirlRef.current.style.transform = `rotate(${rotationRef.current}deg) scale(${scale})`;
-        // Slightly brighter on louder audio.
-        swirlRef.current.style.opacity = String(0.6 + vol * 0.3);
+        swirlRef.current.style.opacity = String(0.62 + vol * 0.28 + 0.04 * Math.sin(breathPhaseRef.current));
       }
+
+      const turb = turbPhaseRef.current;
+      const driftA = 2.8 * Math.sin(turb * 0.83);
+      const driftB = 2.5 * Math.cos(turb * 0.67 + 1.2);
 
       // --- Primary blob: morph + saturate/brighten with audio ---
       if (blobARef.current) {
-        blobARef.current.style.borderRadius = buildRadius(morphPhaseRef.current, 14 + vol * 16);
+        blobARef.current.style.borderRadius = buildRadius(morphPhaseRef.current, morphAmp, turb);
+        blobARef.current.style.transform = `translate(${driftA}px, ${driftB}px)`;
         blobARef.current.style.filter =
-          `blur(4px) saturate(${1 + vol * 0.7}) brightness(${1 + vol * 0.2})`;
+          `blur(3px) saturate(${1.2 + vol * 0.95}) brightness(${1.05 + vol * 0.25})`;
       }
 
       // --- Secondary blob: counter-rotates, fades in with audio for richness ---
       if (blobBRef.current) {
-        blobBRef.current.style.borderRadius = buildRadius(morphPhaseBRef.current * 0.8 + 1.7, 18 + vol * 18);
-        blobBRef.current.style.transform = `rotate(${-rotationRef.current * 0.6}deg)`;
-        // Quiet at idle, becomes a clear secondary highlight as audio comes in.
-        blobBRef.current.style.opacity = String(0.18 + vol * 0.55);
+        blobBRef.current.style.borderRadius = buildRadius(
+          morphPhaseBRef.current * 0.82 + 1.65,
+          morphAmp * 1.08 + 3,
+          turb + 2.1,
+        );
+        blobBRef.current.style.transform = `translate(${-driftA * 0.65}px, ${driftB * 0.55}px) rotate(${-rotationRef.current * 0.58}deg)`;
+        blobBRef.current.style.opacity = String(
+          Math.min(0.92, 0.26 + vol * 0.62 + 0.05 * Math.sin(breathPhaseRef.current)),
+        );
         blobBRef.current.style.filter =
-          `blur(8px) saturate(${1.1 + vol * 0.6}) brightness(${1 + vol * 0.25})`;
+          `blur(2px) saturate(${1.35 + vol * 0.85}) brightness(${1.06 + vol * 0.28})`;
       }
 
-      // --- Apply to glow halo behind avatar ---
+      // --- Soft radial glow behind ring (saturated, audio-reactive) ---
       if (glowRef.current) {
-        const glow = (isMicActive ? 0.35 : 0.12) + vol * 0.5;
-        glowRef.current.style.opacity = String(Math.min(0.9, glow));
-        glowRef.current.style.transform = `scale(${1 + vol * 0.18})`;
+        const breathGlow = 0.05 * Math.sin(breathPhaseRef.current * 1.2);
+        const glowBase = (isMicActive ? 0.38 : 0.16) + vol * 0.52 + breathGlow;
+        glowRef.current.style.opacity = String(Math.min(0.94, Math.max(0.1, glowBase)));
+        const gScale = 1 + vol * 0.16 + 0.04 * Math.sin(breathPhaseRef.current * 0.9);
+        glowRef.current.style.transform = `scale(${gScale})`;
       }
 
       requestRef.current = requestAnimationFrame(animate);
@@ -228,11 +266,11 @@ const CircularAvatarVisualizer = ({
         </div>
 
         <div className="relative flex items-center justify-center">
-          {/* Soft radial glow behind the avatar — pulses with audio level */}
+          {/* Saturated soft halo behind the ring — heavy blur for depth */}
           <div
             ref={glowRef}
-            className="absolute w-[260px] h-[260px] bg-blue-400 dark:bg-sky-500 rounded-full blur-[70px]"
-            style={{ opacity: 0.15, transform: 'scale(1)', willChange: 'opacity, transform' }}
+            className="pointer-events-none absolute w-[280px] h-[280px] rounded-full bg-gradient-to-br from-cyan-400 via-blue-500 to-indigo-600 dark:from-sky-500 dark:via-blue-600 dark:to-cyan-500 blur-[72px] saturate-[1.45]"
+            style={{ opacity: 0.22, transform: 'scale(1)', willChange: 'opacity, transform' }}
           />
 
           {/* --- TRUE LIQUID GLASS AVATAR RING --- */}
@@ -247,26 +285,26 @@ const CircularAvatarVisualizer = ({
               {/* Primary blob — morph + saturate/brighten driven in rAF */}
               <div
                 ref={blobARef}
-                className="absolute inset-0 bg-gradient-to-tr from-cyan-100 via-blue-300 to-blue-500 dark:from-indigo-950 dark:via-blue-900 dark:to-cyan-800"
-                style={{ willChange: 'border-radius, filter', borderRadius: '50%', filter: 'blur(4px)' }}
+                className="absolute inset-0 bg-gradient-to-tr from-cyan-300 via-blue-500 to-indigo-600 dark:from-indigo-800 dark:via-blue-600 dark:to-cyan-600"
+                style={{ willChange: 'border-radius, filter', borderRadius: '50%' }}
               />
-              {/* Secondary blob — counter-rotates and fades in with audio for a liquid 'second highlight' */}
+              {/* Secondary blob — smoky highlight layer */}
               <div
                 ref={blobBRef}
-                className="absolute inset-[8%] bg-gradient-to-br from-white/80 via-cyan-200 to-blue-400 dark:from-sky-300/25 dark:via-cyan-500/35 dark:to-blue-600/50"
+                className="absolute inset-[4%] bg-gradient-to-br from-white/75 via-cyan-300/85 to-blue-500/85 dark:from-sky-400/35 dark:via-blue-500/45 dark:to-indigo-500/55"
                 style={{
                   willChange: 'border-radius, transform, opacity, filter',
                   borderRadius: '50%',
-                  opacity: 0.18,
+                  opacity: 0.32,
                   mixBlendMode: 'screen',
-                  filter: 'blur(8px)',
+                  filter: 'blur(2px) saturate(1.35)',
                 }}
               />
             </div>
             
             {/* 2. The Proper Outer Glass Shell */}
-            <div className="absolute inset-[6px] rounded-full bg-white/10 dark:bg-gray-900/45 backdrop-blur-2xl border border-white/60 dark:border-white/15 shadow-[inset_0_4px_30px_rgba(255,255,255,0.7),_0_8px_32px_rgba(37,99,235,0.2)] dark:shadow-[inset_0_4px_28px_rgba(255,255,255,0.05),_0_8px_36px_rgba(56,189,248,0.18)] z-10 overflow-hidden">
-              <div className="absolute inset-0 rounded-full bg-gradient-to-b from-white/40 via-transparent to-black/5 dark:from-white/[0.06] dark:via-transparent dark:to-black/50 pointer-events-none" />
+            <div className="absolute inset-[6px] rounded-full bg-white/12 dark:bg-gray-900/45 backdrop-blur-2xl border border-white/60 dark:border-white/15 shadow-[inset_0_4px_30px_rgba(255,255,255,0.7),_0_8px_32px_rgba(37,99,235,0.22)] dark:shadow-[inset_0_4px_28px_rgba(255,255,255,0.06),_0_8px_36px_rgba(56,189,248,0.2)] z-10 overflow-hidden">
+              <div className="absolute inset-0 rounded-full bg-gradient-to-b from-white/40 via-transparent to-black/5 dark:from-white/[0.07] dark:via-transparent dark:to-black/50 pointer-events-none" />
             </div>
             
             {/* 3. Deep inner shadow ring for 3D depth */}
