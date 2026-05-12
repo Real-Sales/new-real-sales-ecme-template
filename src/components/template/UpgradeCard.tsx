@@ -26,7 +26,7 @@ const CircleProgress = ({ percent }: { percent: number }) => {
                 fill="none"
                 stroke="currentColor"
                 strokeWidth={strokeWidth}
-                className="text-gray-200 dark:text-gray-700"
+                className="text-gray-700"
             />
             <circle
                 cx={size / 2}
@@ -97,19 +97,19 @@ const UpgradeCard = () => {
     const showDash = loading || !userId
 
     return (
-        <div className="p-2.5 mx-4 mt-4 mb-2 rounded-lg bg-gray-100 border border-gray-200 shadow-md hover:shadow-lg transition-all duration-300 dark:bg-gray-900/90 dark:border-gray-700">
+        <div className="p-2.5 mx-4 mt-4 mb-2 rounded-lg border border-gray-700/80 bg-gray-900/75 shadow-md backdrop-blur-sm transition-all duration-300 hover:border-gray-600 hover:shadow-lg">
             <div className="flex items-center gap-2 mb-2">
                 <CircleProgress percent={showDash ? 0 : usagePercent} />
-                <h5 className="font-bold text-sm text-gray-900 dark:text-white">
+                <h5 className="font-bold text-sm text-white">
                     Balance
                 </h5>
             </div>
             <div className="space-y-1 mb-2">
                 <div className="flex items-center justify-between">
-                    <span className="text-[10px] text-gray-500 dark:text-gray-400">
+                    <span className="text-[10px] text-gray-400">
                         Total
                     </span>
-                    <span className="text-xs font-bold text-gray-900 dark:text-white">
+                    <span className="text-xs font-bold text-white">
                         {showDash ? (
                             <span className="tabular-nums">—</span>
                         ) : (
@@ -123,10 +123,10 @@ const UpgradeCard = () => {
                     </span>
                 </div>
                 <div className="flex items-center justify-between">
-                    <span className="text-[10px] text-gray-500 dark:text-gray-400">
+                    <span className="text-[10px] text-gray-400">
                         Remaining
                     </span>
-                    <span className="text-xs font-bold text-gray-900 dark:text-white">
+                    <span className="text-xs font-bold text-white">
                         {showDash ? (
                             <span className="tabular-nums">—</span>
                         ) : (
@@ -143,7 +143,7 @@ const UpgradeCard = () => {
                 <Button
                     block
                     size="sm"
-                    className="bg-gray-200/90 hover:bg-gray-300 text-gray-800 hover:text-gray-900 border border-gray-300 flex justify-between items-center px-2.5 py-1.5 h-auto rounded-lg transition-all dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-200 dark:hover:text-white dark:border-gray-600"
+                    className="border border-gray-600 bg-gray-800/90 px-2.5 py-1.5 h-auto rounded-lg text-gray-100 transition-all hover:border-gray-500 hover:bg-gray-700 flex items-center justify-between"
                 >
                     <span className="text-xs font-semibold">upgrade your plan</span>
                     <HiArrowRight className="text-sm" />
