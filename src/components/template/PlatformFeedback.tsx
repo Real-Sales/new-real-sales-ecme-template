@@ -8,9 +8,9 @@ const PlatformFeedback = () => {
     }
 
     return (
-        <div className="p-2.5 mx-4 mb-2 rounded-lg bg-gray-900/90 border border-gray-700 shadow-md hover:shadow-lg transition-all duration-300">
-            <h5 className="mb-1 font-bold text-sm text-white">Platform Feedback</h5>
-            <p className="mb-2 text-xs text-gray-400">
+        <div className="p-2.5 mx-4 mb-2 rounded-lg bg-gray-100 border border-gray-200 shadow-md hover:shadow-lg transition-all duration-300 dark:bg-gray-900/90 dark:border-gray-700">
+            <h5 className="mb-1 font-bold text-sm text-gray-900 dark:text-white">Platform Feedback</h5>
+            <p className="mb-2 text-xs text-gray-600 dark:text-gray-400">
                 Help us improve! Share your thoughts
             </p>
             <Button

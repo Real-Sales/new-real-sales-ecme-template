@@ -13,6 +13,7 @@ import type { ChatHistoryItem } from '@/services/GeminiService';
 import ConfirmDialog from '@/components/shared/ConfirmDialog';
 import Loading from '@/components/shared/Loading';
 import ScrollBar from '@/components/ui/ScrollBar';
+import { toast, Notification } from '@/components/ui';
 import { useAppSelector } from '@/store/hook';
 
 // --- 1. Audio Analyzer Hook ---
@@ -351,6 +352,13 @@ const AVAILABLE_HINTS: Hint[] = [
 
 const SESSION_DURATION = 1800;
 
+/** Minimum finished user/assistant lines in the transcript before POST /performance-reports/ can succeed meaningfully. */
+const MIN_TRANSCRIPT_MESSAGES_FOR_REPORT = 5;
+
+function countFinishedTranscriptMessages(msgs: Message[]): number {
+  return msgs.filter((m) => m.finished === true && m.content.trim().length > 0).length;
+}
+
 /** Track sizes for the main / side column split (`gridTemplateColumns`). */
 const CHAT_PANEL_VIS_FR = 13;
 const CHAT_PANEL_SIDE_FR = 7;
@@ -531,9 +539,13 @@ export default function InteractiveVisualizerSession() {
       const elapsed = Math.floor((Date.now() - origin) / 1000);
       const remaining = Math.max(0, SESSION_DURATION - elapsed);
       setTimeLeft(remaining);
-      if (remaining <= 0) clearInterval(timer);
+      if (remaining <= 0) {
+        clearInterval(timer);
+        finishSession({ timerExpired: true });
+      }
     }, 1000);
     return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionStarted]);
 
   const formatTime = (seconds: number) => {
@@ -690,8 +702,7 @@ export default function InteractiveVisualizerSession() {
 
   const handleConfirmLeave = () => {
     setShowLeaveConfirm(false);
-    endSession();
-    navigateTo('/overview');
+    endSession('/overview');
   };
 
   const handleSendMessage = () => {
@@ -726,7 +737,9 @@ export default function InteractiveVisualizerSession() {
     }
   };
 
-  const endSession = () => {
+  const finishingRef = useRef(false);
+
+  const endSession = (destination: string = '/overview') => {
     document.dispatchEvent(new CustomEvent('liveAudioStopMic'));
     stopAudio();
     setMessages([]);
@@ -737,7 +750,51 @@ export default function InteractiveVisualizerSession() {
     setCurrentHintIndex(0);
     sessionStorage.removeItem(storageKey('session_started'));
     sessionStorage.removeItem(storageKey('session_start_timestamp'));
-    navigateTo('/overview');
+    navigateTo(destination);
+  };
+
+  /** Flush any unsynced finished pair (best-effort) before redirecting to the report page. */
+  const finishSession = (options?: { timerExpired?: boolean }) => {
+    if (finishingRef.current) return;
+
+    const msgs = messagesRef.current;
+    const transcriptCount = countFinishedTranscriptMessages(msgs);
+    if (transcriptCount < MIN_TRANSCRIPT_MESSAGES_FOR_REPORT) {
+      toast.push(
+        <Notification type="warning" title="Not enough conversation">
+          A performance report needs at least {MIN_TRANSCRIPT_MESSAGES_FOR_REPORT} finished messages in this
+          session (user and assistant). You have {transcriptCount}.
+          {options?.timerExpired
+            ? ' The session timer has ended; returning to overview.'
+            : ' Continue the conversation, then end the session again.'}
+        </Notification>,
+      );
+      if (options?.timerExpired) {
+        finishingRef.current = true;
+        endSession('/overview');
+      }
+      return;
+    }
+
+    finishingRef.current = true;
+
+    const sid = sessionIdRef.current;
+    if (sid) {
+      const toFlush: { role: 'human' | 'assistant'; content: string }[] = [];
+      for (let i = 0; i < msgs.length - 1; i++) {
+        const a = msgs[i];
+        const b = msgs[i + 1];
+        if (a.role === 'user' && a.finished && !a.synced && b.role === 'assistant' && b.finished && !b.synced && b.content.trim()) {
+          toFlush.push({ role: 'human', content: a.content });
+          toFlush.push({ role: 'assistant', content: b.content });
+        }
+      }
+      if (toFlush.length) {
+        flushSessionMessagesBatchKeepalive(sid, toFlush);
+      }
+    }
+
+    endSession(sid ? `/sessions/${sid}/report` : '/overview');
   };
 
   const handleStartSession = async () => {
@@ -864,7 +921,7 @@ export default function InteractiveVisualizerSession() {
                 <motion.button
                   initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.8 }}
                   whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-                  onClick={endSession}
+                  onClick={() => finishSession()}
                   className="px-3.5 py-1.5 rounded-lg flex-shrink-0 bg-red-500/10 border border-red-500/25 text-red-400 text-xs font-medium hover:bg-red-500/20 transition-all"
                 >
                   End Session
