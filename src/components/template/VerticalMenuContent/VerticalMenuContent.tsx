@@ -25,6 +25,8 @@ export interface VerticalMenuContentProps {
     direction?: Direction
     translationSetup?: boolean
     userAuthority: string[]
+    /** Force the Upgrade / Feedback cards into the dark palette (used by the always-dark desktop side nav). */
+    forceDarkCards?: boolean
 }
 
 const { MenuGroup } = Menu
@@ -40,6 +42,7 @@ const VerticalMenuContent = (props: VerticalMenuContentProps) => {
         direction = themeConfig.direction,
         translationSetup,
         userAuthority,
+        forceDarkCards = false,
     } = props
 
     const { t } = useTranslation(!translationSetup)
@@ -141,8 +144,8 @@ const VerticalMenuContent = (props: VerticalMenuContentProps) => {
 
     return (
         <>
-            {!collapsed && <UpgradeCard />}
-            {!collapsed && <PlatformFeedback />}
+            {!collapsed && <UpgradeCard forceDark={forceDarkCards} />}
+            {!collapsed && <PlatformFeedback forceDark={forceDarkCards} />}
             <Menu
                 className="px-4 pb-4"
                 sideCollapsed={collapsed}

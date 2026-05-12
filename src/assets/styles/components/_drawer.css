@@ -18,6 +18,10 @@
   
   .drawer-header {
     @apply flex items-center justify-between py-4 px-6 border-b border-gray-200 dark:border-gray-700;
+
+    h4 {
+      @apply text-lg font-semibold text-gray-900 dark:text-gray-100;
+    }
   }
   
   .drawer-body {

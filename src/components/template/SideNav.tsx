@@ -84,6 +84,7 @@ const SideNav = ({
                             direction={direction}
                             translationSetup={translationSetup}
                             userAuthority={userAuthority || []}
+                            forceDarkCards
                         />
                        
                     </ScrollBar>
