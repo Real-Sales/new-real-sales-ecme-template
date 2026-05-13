@@ -165,3 +165,95 @@ export async function apiManagerCreateSession(data: CreateSessionManagerRequest)
         data,
     })
 }
+
+/** Canonical performance report shape from GET/POST /performance-reports. */
+export type ReportCategory = {
+    name?: string
+    score?: number
+    comment?: string
+}
+
+export type CoachingSummary = {
+    summary?: string
+    strengths?: string[]
+    areas_for_improvement?: string[]
+}
+
+export type PerformanceReportPayload = {
+    overall_score?: number
+    categories?: ReportCategory[]
+    coaching_summary?: CoachingSummary
+    scenario_evaluation?: string | null
+}
+
+export async function apiCreatePerformanceReport(sessionId: string) {
+    return ApiService.fetchDataWithAxios<PerformanceReportPayload>({
+        url: endpointConfig.performanceReportCreate,
+        method: 'post',
+        data: { session_id: sessionId },
+    })
+}
+
+export async function apiGetPerformanceReport(sessionId: string) {
+    return ApiService.fetchDataWithAxios<PerformanceReportPayload>({
+        url: endpointConfig.performanceReportBySession(sessionId),
+        method: 'get',
+    })
+}
+
+export async function apiDownloadPerformanceReportPdf(sessionId: string) {
+    return ApiService.fetchDataWithAxios<Blob>({
+        url: endpointConfig.performanceReportPdf(sessionId),
+        method: 'get',
+        responseType: 'blob',
+    })
+}
+
+/** In-flight ensure per session — dedupes React Strict Mode dev double-mount and parallel navigations. */
+const ensurePerformanceReportPromises = new Map<
+    string,
+    Promise<PerformanceReportPayload>
+>()
+
+/**
+ * Fetch the saved report for `sessionId`, generating it only if the DB doesn't have one yet.
+ *  1. GET /performance-reports/{sessionId}             -> 200, return the saved blob.
+ *  2. If GET returned 404, POST /performance-reports/  -> generate and return the new blob.
+ *  3. If the POST race-loses with another writer (`400 already exists`), GET once more.
+ *
+ * Concurrent callers (Strict Mode double-mount, etc.) share a single in-flight promise.
+ */
+export function apiEnsurePerformanceReport(
+    sessionId: string,
+): Promise<PerformanceReportPayload> {
+    let pending = ensurePerformanceReportPromises.get(sessionId)
+    if (!pending) {
+        pending = (async () => {
+            try {
+                return await apiGetPerformanceReport(sessionId)
+            } catch (err: unknown) {
+                const status = (err as { response?: { status?: number } })?.response
+                    ?.status
+                if (status !== 404) throw err
+            }
+
+            try {
+                return await apiCreatePerformanceReport(sessionId)
+            } catch (err: unknown) {
+                const ax = err as {
+                    response?: { status?: number; data?: { detail?: string } }
+                }
+                const status = ax?.response?.status
+                const detail: string = ax?.response?.data?.detail ?? ''
+                if (status === 400 && /already exists/i.test(detail)) {
+                    return await apiGetPerformanceReport(sessionId)
+                }
+                throw err
+            }
+        })().finally(() => {
+            ensurePerformanceReportPromises.delete(sessionId)
+        })
+        ensurePerformanceReportPromises.set(sessionId, pending)
+    }
+    return pending
+}

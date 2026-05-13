@@ -68,6 +68,16 @@ const salesRoute: Routes = [
         },
     },
     {
+        key: 'salesManager.sessionReport',
+        path: '/sessions/:sessionId/report',
+        component: lazy(() => import('@/views/sales/SessionReport')),
+        authority: [],
+        meta: {
+            layout: 'blank',
+            pageContainerType: 'gutterless',
+        },
+    },
+    {
         key: 'companyGroup.company',
         path: '/sales-division',
         component: lazy(() => import('@/views/sales/company/CompanyList')),

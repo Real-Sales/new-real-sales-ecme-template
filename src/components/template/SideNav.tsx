@@ -2,7 +2,6 @@ import classNames from '@/utils/classNames'
 import ScrollBar from '@/components/ui/ScrollBar'
 import Logo from '@/components/template/Logo'
 import VerticalMenuContent from '@/components/template/VerticalMenuContent'
-import UpgradeCard from '@/components/template/UpgradeCard'
 import { useAppSelector } from '@/store/hook'
 import navigationConfig from '@/configs/navigation.config'
 import appConfig from '@/configs/app.config'
@@ -85,6 +84,7 @@ const SideNav = ({
                             direction={direction}
                             translationSetup={translationSetup}
                             userAuthority={userAuthority || []}
+                            forceDarkCards
                         />
                        
                     </ScrollBar>

@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, useCallback } from 'react';
+import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLocation, useParams, useNavigate } from 'react-router-dom';
 import { HiStop, HiPaperAirplane, HiPaperClip, HiLightBulb, HiChevronLeft, HiChevronRight } from 'react-icons/hi2';
@@ -13,6 +13,7 @@ import type { ChatHistoryItem } from '@/services/GeminiService';
 import ConfirmDialog from '@/components/shared/ConfirmDialog';
 import Loading from '@/components/shared/Loading';
 import ScrollBar from '@/components/ui/ScrollBar';
+import { toast, Notification, Tooltip } from '@/components/ui';
 import { useAppSelector } from '@/store/hook';
 
 // --- 1. Audio Analyzer Hook ---
@@ -236,31 +237,32 @@ const CircularAvatarVisualizer = ({
 
   return (
     <div className="relative w-full h-full flex items-center justify-center bg-gray-50 dark:bg-gray-900 overflow-hidden">
-      
-      {/* 1. Continuous Background Ripple Animation */}
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
-        {[0, 1, 2, 3].map((i) => (
-          <motion.div
-            key={`bg-ripple-${i}`}
-            className="absolute w-[350px] h-[350px] rounded-full border border-gray-500/45 dark:border-gray-600/30"
-            initial={{ scale: 1, opacity: 0 }}
-            animate={{
-              scale: [1, 4],
-              opacity: [0.4, 0],
-            }}
-            transition={{
-              duration: 8,
-              repeat: Infinity,
-              ease: "linear",
-              delay: i * 2,
-            }}
-          />
-        ))}
-      </div>
+      {/* Ripples + avatar + labels shift up together so background rings stay locked to the portrait */}
+      <div className="absolute inset-0 flex items-center justify-center -translate-y-[15px]">
+        {/* 1. Continuous Background Ripple Animation */}
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
+          {[0, 1, 2, 3].map((i) => (
+            <motion.div
+              key={`bg-ripple-${i}`}
+              className="absolute w-[350px] h-[350px] rounded-full border border-gray-500/45 dark:border-gray-600/30"
+              initial={{ scale: 1, opacity: 0 }}
+              animate={{
+                scale: [1, 4],
+                opacity: [0.4, 0],
+              }}
+              transition={{
+                duration: 8,
+                repeat: Infinity,
+                ease: "linear",
+                delay: i * 2,
+              }}
+            />
+          ))}
+        </div>
 
-      {/* Avatar stays visually centered; name/role sit above it without shifting the circle down */}
-      <div className="relative z-10 flex items-center justify-center">
-        <div className="absolute left-1/2 -translate-x-1/2 bottom-[calc(100%+2rem)] flex w-full max-w-lg flex-col items-center px-4 text-center">
+        {/* Avatar stays visually centered; name/role sit above with extra breathing room */}
+        <div className="relative z-10 flex items-center justify-center">
+          <div className="absolute left-1/2 -translate-x-1/2 bottom-[calc(100%+2.75rem)] flex w-full max-w-lg flex-col items-center px-4 text-center">
           <h2 className="text-[28px] font-extrabold text-gray-900 dark:text-gray-50 tracking-tight">{name}</h2>
           <p className="text-[15px] font-medium text-gray-600 dark:text-gray-400 mt-1 whitespace-nowrap text-center">{role}</p>
         </div>
@@ -320,6 +322,7 @@ const CircularAvatarVisualizer = ({
             </div>
           </div>
         </div>
+        </div>
       </div>
 
     </div>
@@ -351,11 +354,30 @@ const AVAILABLE_HINTS: Hint[] = [
 
 const SESSION_DURATION = 1800;
 
+/** Minimum finished user/assistant lines in the transcript before POST /performance-reports/ can succeed meaningfully. */
+const MIN_TRANSCRIPT_MESSAGES_FOR_REPORT = 5;
+
+function countFinishedTranscriptMessages(msgs: Message[]): number {
+  return msgs.filter((m) => m.finished === true && m.content.trim().length > 0).length;
+}
+
 /** Track sizes for the main / side column split (`gridTemplateColumns`). */
 const CHAT_PANEL_VIS_FR = 13;
 const CHAT_PANEL_SIDE_FR = 7;
 let _msgIdCounter = 0;
 const nextMsgId = () => `${Date.now()}_${++_msgIdCounter}`;
+
+function formatMessageContentHtml(content: string) {
+  let formatted = content.replace(
+    /\*\*(.*?)\*\*/g,
+    '<strong class="font-semibold text-gray-900 dark:text-white">$1</strong>',
+  );
+  formatted = formatted.replace(
+    /`(.*?)`/g,
+    '<code class="px-2 py-0.5 rounded-lg bg-gray-200/90 dark:bg-gray-800/80 text-blue-600 dark:text-blue-400 font-mono text-sm">$1</code>',
+  );
+  return formatted;
+}
 
 // --- 4. Main Component with Chat Interface ---
 export default function InteractiveVisualizerSession() {
@@ -531,9 +553,13 @@ export default function InteractiveVisualizerSession() {
       const elapsed = Math.floor((Date.now() - origin) / 1000);
       const remaining = Math.max(0, SESSION_DURATION - elapsed);
       setTimeLeft(remaining);
-      if (remaining <= 0) clearInterval(timer);
+      if (remaining <= 0) {
+        clearInterval(timer);
+        finishSession({ timerExpired: true });
+      }
     }, 1000);
     return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionStarted]);
 
   const formatTime = (seconds: number) => {
@@ -690,8 +716,7 @@ export default function InteractiveVisualizerSession() {
 
   const handleConfirmLeave = () => {
     setShowLeaveConfirm(false);
-    endSession();
-    navigateTo('/overview');
+    endSession('/overview');
   };
 
   const handleSendMessage = () => {
@@ -726,7 +751,9 @@ export default function InteractiveVisualizerSession() {
     }
   };
 
-  const endSession = () => {
+  const finishingRef = useRef(false);
+
+  const endSession = (destination: string = '/overview') => {
     document.dispatchEvent(new CustomEvent('liveAudioStopMic'));
     stopAudio();
     setMessages([]);
@@ -737,7 +764,51 @@ export default function InteractiveVisualizerSession() {
     setCurrentHintIndex(0);
     sessionStorage.removeItem(storageKey('session_started'));
     sessionStorage.removeItem(storageKey('session_start_timestamp'));
-    navigateTo('/overview');
+    navigateTo(destination);
+  };
+
+  /** Flush any unsynced finished pair (best-effort) before redirecting to the report page. */
+  const finishSession = (options?: { timerExpired?: boolean }) => {
+    if (finishingRef.current) return;
+
+    const msgs = messagesRef.current;
+    const transcriptCount = countFinishedTranscriptMessages(msgs);
+    if (transcriptCount < MIN_TRANSCRIPT_MESSAGES_FOR_REPORT) {
+      toast.push(
+        <Notification type="warning" title="Not enough conversation">
+          A performance report needs at least {MIN_TRANSCRIPT_MESSAGES_FOR_REPORT} finished messages in this
+          session (user and assistant). You have {transcriptCount}.
+          {options?.timerExpired
+            ? ' The session timer has ended; returning to overview.'
+            : ' Continue the conversation, then end the session again.'}
+        </Notification>,
+      );
+      if (options?.timerExpired) {
+        finishingRef.current = true;
+        endSession('/overview');
+      }
+      return;
+    }
+
+    finishingRef.current = true;
+
+    const sid = sessionIdRef.current;
+    if (sid) {
+      const toFlush: { role: 'human' | 'assistant'; content: string }[] = [];
+      for (let i = 0; i < msgs.length - 1; i++) {
+        const a = msgs[i];
+        const b = msgs[i + 1];
+        if (a.role === 'user' && a.finished && !a.synced && b.role === 'assistant' && b.finished && !b.synced && b.content.trim()) {
+          toFlush.push({ role: 'human', content: a.content });
+          toFlush.push({ role: 'assistant', content: b.content });
+        }
+      }
+      if (toFlush.length) {
+        flushSessionMessagesBatchKeepalive(sid, toFlush);
+      }
+    }
+
+    endSession(sid ? `/sessions/${sid}/report` : '/overview');
   };
 
   const handleStartSession = async () => {
@@ -762,11 +833,28 @@ export default function InteractiveVisualizerSession() {
     if (currentHintIndex > 0) setCurrentHintIndex(currentHintIndex - 1);
   };
 
-  const formatContent = (content: string) => {
-    let formatted = content.replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold text-gray-900 dark:text-white">$1</strong>');
-    formatted = formatted.replace(/`(.*?)`/g, '<code class="px-2 py-0.5 rounded-lg bg-gray-200/90 dark:bg-gray-800/80 text-blue-600 dark:text-blue-400 font-mono text-sm">$1</code>');
-    return formatted;
-  };
+  const floatingAiCaption = useMemo(() => {
+    if (isChatPanelOpen || !sessionStarted) {
+      return { show: false, html: '', thinking: false, plain: '' };
+    }
+    const last = messages[messages.length - 1];
+    const assistantStreaming =
+      last?.role === 'assistant' &&
+      last.content.trim().length > 0 &&
+      last.finished !== true;
+    if (assistantStreaming) {
+      return {
+        show: true,
+        html: formatMessageContentHtml(last.content),
+        thinking: false,
+        plain: last.content,
+      };
+    }
+    if (isGenerating) {
+      return { show: true, html: '', thinking: true, plain: '' };
+    }
+    return { show: false, html: '', thinking: false, plain: '' };
+  }, [isChatPanelOpen, sessionStarted, messages, isGenerating]);
 
   if (!tokenReady) {
     return (
@@ -793,7 +881,7 @@ export default function InteractiveVisualizerSession() {
             gridTemplateColumns: isChatPanelOpen
               ? `minmax(0,${CHAT_PANEL_VIS_FR}fr) minmax(0,${CHAT_PANEL_SIDE_FR}fr)`
               : 'minmax(0,1fr) minmax(0,0fr)',
-            transition: 'grid-template-columns 300ms linear',
+            transition: `grid-template-columns 300ms cubic-bezier(0.4, 0, 0.2, 1) ${isChatPanelOpen ? '200ms' : '0ms'}`,
           }}
         >
         {/* LEFT: Enhanced Liquid Glass Visualizer */}
@@ -824,6 +912,106 @@ export default function InteractiveVisualizerSession() {
           name={userName}
           role={userRole}
         />
+
+        {/* Live AI transcript (voice / stream) below avatar — only when chat panel is collapsed */}
+        <AnimatePresence>
+          {floatingAiCaption.show && (
+            <motion.div
+              key="floating-ai-transcript"
+              role="status"
+              aria-live="polite"
+              aria-label={floatingAiCaption.thinking ? 'AI is preparing a reply' : 'AI speaking'}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0, transition: { delay: 0.3, duration: 0.4, ease: [0.25, 0.1, 0.25, 1] } }}
+              exit={{ opacity: 0, y: 8, transition: { delay: 0, duration: 0.18, ease: 'easeIn' } }}
+              className="pointer-events-auto absolute left-1/2 top-[calc(50%+145px)] z-[108] w-[min(36rem,calc(100%-2.5rem))] -translate-x-1/2 px-4"
+            >
+              {floatingAiCaption.thinking ? (
+                <div className="flex items-center justify-center gap-1.5 py-1">
+                  {[0, 0.2, 0.4].map((delay) => (
+                    <motion.div
+                      key={delay}
+                      aria-hidden
+                      animate={{ scale: [1, 1.3, 1] }}
+                      transition={{ repeat: Infinity, duration: 0.6, delay }}
+                      className="h-1.5 w-1.5 rounded-full bg-blue-500"
+                    />
+                  ))}
+                  <span className="sr-only">AI is preparing a reply</span>
+                </div>
+              ) : (
+                <>
+                  <span className="sr-only">{floatingAiCaption.plain}</span>
+                  <div
+                    className="max-h-[min(28vh,14rem)] overflow-y-auto text-center text-sm leading-relaxed text-gray-800 dark:text-gray-100 [&_code]:text-xs"
+                    dangerouslySetInnerHTML={{ __html: floatingAiCaption.html }}
+                  />
+                </>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Floating End Session pill (visible only when right chat panel is collapsed) */}
+        <AnimatePresence>
+          {!isChatPanelOpen && sessionStarted && (
+            <motion.button
+              key="floating-end-session"
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0, transition: { delay: 0.3, duration: 0.4, ease: [0.25, 0.1, 0.25, 1] } }}
+              exit={{ opacity: 0, y: -10, transition: { delay: 0, duration: 0.2, ease: "easeIn" } }}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => finishSession()}
+              className="absolute top-6 left-6 z-[110] px-3.5 py-1.5 rounded-lg bg-red-500/10 border border-red-500/25 text-red-400 text-xs font-medium hover:bg-red-500/20 backdrop-blur-md shadow-md"
+            >
+              End Session
+            </motion.button>
+          )}
+        </AnimatePresence>
+
+        {/* Floating message input bar (visible only when right chat panel is collapsed) */}
+        <AnimatePresence>
+          {!isChatPanelOpen && sessionStarted && (
+            <motion.div
+              key="floating-chat-bar"
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0, transition: { delay: 0.3, duration: 0.4, ease: [0.25, 0.1, 0.25, 1] } }}
+              exit={{ opacity: 0, y: 24, transition: { delay: 0, duration: 0.2, ease: "easeIn" } }}
+              className="absolute bottom-8 left-1/2 -translate-x-1/2 z-[110] w-[min(720px,calc(100%-3rem))] flex items-center gap-2 bg-white/90 dark:bg-gray-800/85 border border-gray-200 dark:border-gray-700/60 rounded-full px-4 py-2 backdrop-blur-xl shadow-lg shadow-black/10 dark:shadow-black/40"
+            >
+              <button className="text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white flex-shrink-0"><HiPaperClip className="w-5 h-5" /></button>
+              <input
+                type="text"
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                placeholder="Type a message..."
+                disabled={isGenerating}
+                className="flex-1 bg-transparent text-gray-900 dark:text-white text-sm focus:outline-none disabled:opacity-50"
+              />
+              <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => setShowHints(!showHints)} className="flex items-center gap-1.5 px-3 py-1 rounded-full flex-shrink-0 bg-blue-500/10 text-blue-500">
+                <HiLightBulb className="w-3.5 h-3.5" />
+                <span className="text-xs font-medium">{hints.length - viewedHints.length}</span>
+              </motion.button>
+              {inputValue.trim() ? (
+                <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={handleSendMessage} disabled={isGenerating} className="w-9 h-9 rounded-full flex-shrink-0 bg-blue-500 text-white flex items-center justify-center">
+                  <HiPaperAirplane className="w-4 h-4" />
+                </motion.button>
+              ) : isMicActive ? (
+                <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={toggleMic} className="w-9 h-9 rounded-full flex-shrink-0 flex items-center justify-center bg-red-500 text-white shadow-lg">
+                  <HiStop className="w-4 h-4" />
+                </motion.button>
+              ) : (
+                <Tooltip title="use voice mode" className="!bg-gray-900 dark:!bg-gray-900">
+                  <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={toggleMic} className="w-9 h-9 rounded-full flex-shrink-0 flex items-center justify-center bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-white">
+                    <div className="flex gap-[2.5px] items-center h-4">{[2.5, 4.5, 6.5, 4.5, 2.5].map((h, i) => <div key={i} className="w-[3px] bg-current rounded-full" style={{ height: `${h * 2}px` }} />)}</div>
+                  </motion.button>
+                </Tooltip>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Top Right: Glassmorphism Timer Pill */}
         <div className="absolute top-6 right-12 z-[100] pointer-events-none">
@@ -864,7 +1052,7 @@ export default function InteractiveVisualizerSession() {
                 <motion.button
                   initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.8 }}
                   whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-                  onClick={endSession}
+                  onClick={() => finishSession()}
                   className="px-3.5 py-1.5 rounded-lg flex-shrink-0 bg-red-500/10 border border-red-500/25 text-red-400 text-xs font-medium hover:bg-red-500/20 transition-all"
                 >
                   End Session
@@ -887,7 +1075,7 @@ export default function InteractiveVisualizerSession() {
                   {messages.map((message) => (
                     <motion.div key={message.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                       <div className={`max-w-[90%] px-4 py-3 rounded-xl ${message.role === 'user' ? 'bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/30' : 'bg-gradient-to-br from-gray-100 to-gray-50 dark:from-gray-900/90 dark:to-gray-800/90 text-gray-800 dark:text-gray-200 border border-gray-200/80 dark:border-gray-700/50 shadow-md'}`}>
-                        <div className="text-sm leading-relaxed" dangerouslySetInnerHTML={{ __html: formatContent(message.content) }} />
+                        <div className="text-sm leading-relaxed" dangerouslySetInnerHTML={{ __html: formatMessageContentHtml(message.content) }} />
                         <p className="text-xs opacity-50 mt-1.5">{message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                       </div>
                     </motion.div>
@@ -963,10 +1151,16 @@ export default function InteractiveVisualizerSession() {
                   <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={handleSendMessage} disabled={isGenerating} className="w-9 h-9 rounded-full flex-shrink-0 bg-blue-500 text-white flex items-center justify-center">
                     <HiPaperAirplane className="w-4 h-4" />
                   </motion.button>
-                ) : (
-                  <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={toggleMic} className={`w-9 h-9 rounded-full flex-shrink-0 flex items-center justify-center ${isMicActive ? 'bg-red-500 text-white shadow-lg' : 'bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-white'}`}>
-                    {isMicActive ? <HiStop className="w-4 h-4" /> : <div className="flex gap-[2px] items-end h-4">{[3, 5, 7, 5, 3].map((h, i) => <div key={i} className="w-[2px] bg-current rounded-full" style={{ height: `${h * 2}px` }} />)}</div>}
+                ) : isMicActive ? (
+                  <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={toggleMic} className="w-9 h-9 rounded-full flex-shrink-0 flex items-center justify-center bg-red-500 text-white shadow-lg">
+                    <HiStop className="w-4 h-4" />
                   </motion.button>
+                ) : (
+                  <Tooltip title="use voice mode" className="!bg-gray-900 dark:!bg-gray-900">
+                    <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={toggleMic} className="w-9 h-9 rounded-full flex-shrink-0 flex items-center justify-center bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-white">
+                      <div className="flex gap-[2.5px] items-center h-4">{[2.5, 4.5, 6.5, 4.5, 2.5].map((h, i) => <div key={i} className="w-[3px] bg-current rounded-full" style={{ height: `${h * 2}px` }} />)}</div>
+                    </motion.button>
+                  </Tooltip>
                 )}
               </motion.div>
             )}

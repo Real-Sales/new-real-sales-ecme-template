@@ -76,7 +76,7 @@ jobs:
             cd "$APP"
             git fetch origin develop
             git checkout develop
-            git pull origin develop
+            git reset --hard origin/develop
             npm ci
             npm run build
             if [ -n "${SYSTEMD_UNIT:-}" ]; then
