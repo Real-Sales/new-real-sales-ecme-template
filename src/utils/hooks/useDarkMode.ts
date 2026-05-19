@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { THEME_ENUM } from '@/constants/theme.constant'
+import { THEME_ENUM, THEME_MODE_STORAGE_KEY } from '@/constants/theme.constant'
 import { useAppSelector, useAppDispatch } from '@/store/hook'
 import { setMode } from '@/store/slices/theme/themeSlice'
 import type { Mode } from '@/@types/theme'
@@ -14,6 +14,11 @@ function useDarkMode(): [
     const isEnabled = mode === MODE_DARK
     const onModeChange = (mode: Mode) => {
         dispatch(setMode(mode))
+        try {
+            localStorage.setItem(THEME_MODE_STORAGE_KEY, mode)
+        } catch {
+            /* ignore */
+        }
     }
     useEffect(() => {
         if (window === undefined) {

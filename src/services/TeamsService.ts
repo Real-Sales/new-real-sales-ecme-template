@@ -21,6 +21,7 @@ export type TeamPerformanceResponse = {
     name: string
     sales_company_id: string
     sales_division_id: string
+    sales_division_name?: string | null
     manager_id: string
     company_team_id: string
     members: {

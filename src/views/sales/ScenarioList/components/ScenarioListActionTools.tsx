@@ -3,9 +3,16 @@ import { TbPlus } from 'react-icons/tb'
 
 type ScenarioListActionToolsProps = {
     onAddNew: () => void
+    showAddButton?: boolean
 }
 
-const ScenarioListActionTools = ({ onAddNew }: ScenarioListActionToolsProps) => {
+const ScenarioListActionTools = ({
+    onAddNew,
+    showAddButton = true,
+}: ScenarioListActionToolsProps) => {
+    if (!showAddButton) {
+        return null
+    }
     return (
         <div className="flex flex-col md:flex-row gap-3">
             <Button

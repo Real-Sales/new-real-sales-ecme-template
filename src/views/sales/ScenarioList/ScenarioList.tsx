@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { injectReducer } from '@/store'
 import Container from '@/components/shared/Container'
 import AdaptiveCard from '@/components/shared/AdaptiveCard'
@@ -8,7 +9,7 @@ import ScenarioListTable from './components/ScenarioListTable'
 import ScenarioListActionTools from './components/ScenarioListActionTools'
 import ScenarioListTableTools from './components/ScenarioListTableTools'
 import ScenarioListSelected from './components/ScenarioListSelected'
-import ScenarioForm, { type ScenarioFormSchema } from './components/ScenarioForm'
+import ScenarioForm, { type ScenarioFormSchema, type ScenarioFormOption } from './components/ScenarioForm'
 import ScenarioDetail from './components/ScenarioDetail'
 import ShareScenarioDialog from './components/ShareScenarioDialog'
 import scenarioLibraryReducer, {
@@ -25,7 +26,8 @@ import scenarioLibraryReducer, {
 import toast from '@/components/ui/toast'
 import Notification from '@/components/ui/Notification'
 import type { Scenario } from './types'
-import type { ScenarioFormOption } from './components/ScenarioForm'
+import { mapSalesRepDashboardRowToScenario } from './types'
+import { apiGetSalesRepScenarioDashboard } from '@/services/ScenarioLibraryService'
 
 type FilterValues = {
     status: string
@@ -37,7 +39,11 @@ type FilterValues = {
 injectReducer('scenarioLibrary', scenarioLibraryReducer)
 
 const ScenarioList = () => {
+    const navigate = useNavigate()
     const dispatch = useAppDispatch()
+    const userRole = useAppSelector((state) => state.auth.user.role)
+    const isSalesRep = userRole === 'sales_person'
+
     const {
         scenariosData,
         scenarioLibraryLoading,
@@ -58,11 +64,50 @@ const ScenarioList = () => {
             }
     )
 
+    const [salesRepScenarios, setSalesRepScenarios] = useState<Scenario[]>([])
+    const [salesRepLoading, setSalesRepLoading] = useState(false)
+    const [salesRepTotalPending, setSalesRepTotalPending] = useState(0)
+
     useEffect(() => {
+        if (isSalesRep) return
         if (!initialized && !scenarioLibraryLoading) {
             dispatch(fetchScenarioLibrary())
         }
-    }, [dispatch, initialized, scenarioLibraryLoading])
+    }, [dispatch, initialized, scenarioLibraryLoading, isSalesRep])
+
+    useEffect(() => {
+        if (!isSalesRep) return
+        let cancelled = false
+        ;(async () => {
+            setSalesRepLoading(true)
+            try {
+                const data = await apiGetSalesRepScenarioDashboard()
+                if (cancelled || !data) return
+                setSalesRepTotalPending(
+                    typeof data.total_pending === 'number' ? data.total_pending : 0,
+                )
+                setSalesRepScenarios(
+                    (data.pending_scenarios ?? []).map(mapSalesRepDashboardRowToScenario),
+                )
+            } catch (e) {
+                console.error('Sales rep dashboard:', e)
+                toast.push(
+                    <Notification title="Error" type="danger">
+                        Failed to load assigned scenarios
+                    </Notification>,
+                )
+                if (!cancelled) {
+                    setSalesRepScenarios([])
+                    setSalesRepTotalPending(0)
+                }
+            } finally {
+                if (!cancelled) setSalesRepLoading(false)
+            }
+        })()
+        return () => {
+            cancelled = true
+        }
+    }, [isSalesRep])
 
     useEffect(() => {
         if (notification) {
@@ -77,9 +122,10 @@ const ScenarioList = () => {
     }, [notification, dispatch])
 
     useEffect(() => {
+        if (isSalesRep) return
         dispatch(fetchPersonas())
         dispatch(fetchModes())
-    }, [dispatch])
+    }, [dispatch, isSalesRep])
     const [searchQuery, setSearchQuery] = useState('')
     const [isDrawerOpen, setIsDrawerOpen] = useState(false)
     const [isViewDrawerOpen, setIsViewDrawerOpen] = useState(false)
@@ -99,28 +145,39 @@ const ScenarioList = () => {
         pageSize: 10,
     })
 
+    const rawScenarios = isSalesRep ? salesRepScenarios : scenariosData
+    const listLoading = isSalesRep ? salesRepLoading : scenarioLibraryLoading
+
+    const handleSalesRepOpenSession = (scenario: Scenario) => {
+        if (!scenario.session_id) return
+        navigate(`/audio-visualizer/${scenario.session_id}`)
+    }
+
+    const handleSalesRepViewReport = (scenario: Scenario) => {
+        if (!scenario.session_id) return
+        navigate(`/sessions/${scenario.session_id}/report`)
+    }
+
     // Filter and sort scenarios based on search and filters
     const filteredScenarios = useMemo(() => {
-        return scenariosData
+        return rawScenarios
             .filter((scenario) => {
-                // Search filter
+                const q = searchQuery.toLowerCase()
                 const matchesSearch =
                     searchQuery === '' ||
-                    scenario.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                    scenario.scenario_id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                    scenario.persona?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                    scenario.mode?.name?.toLowerCase().includes(searchQuery.toLowerCase())
+                    scenario.title?.toLowerCase().includes(q) ||
+                    scenario.scenario_id.toLowerCase().includes(q) ||
+                    scenario.persona?.name?.toLowerCase().includes(q) ||
+                    scenario.mode?.name?.toLowerCase().includes(q) ||
+                    (scenario.session_id?.toLowerCase().includes(q) ?? false)
 
-                // Status filter (derived from persona.status_active)
                 const derivedStatus = scenario.persona?.status_active && scenario.mode?.status_active ? 'active' : 'inactive'
                 const matchesStatus =
                     filters.status === 'all' || derivedStatus === filters.status
 
-                // Mode filter
                 const matchesMode =
                     filters.mode === 'all' || scenario.mode?.name === filters.mode
 
-                // Persona filter
                 const matchesPersona =
                     filters.persona === 'all' || scenario.persona?.name === filters.persona
 
@@ -132,7 +189,7 @@ const ScenarioList = () => {
                 const titleB = b.title || ''
                 return titleA.localeCompare(titleB, undefined, { sensitivity: 'base' })
             })
-    }, [scenariosData, searchQuery, filters])
+    }, [rawScenarios, searchQuery, filters])
 
     // Paginate filtered scenarios
     const paginatedScenarios = useMemo(() => {
@@ -322,24 +379,31 @@ const ScenarioList = () => {
                     <div className="flex flex-col gap-4">
                         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
                             <div>
-                                <h3 className="text-2xl font-bold">Scenarios</h3>
+                                <h3 className="text-2xl font-bold">
+                                    {isSalesRep ? 'Assigned scenarios' : 'Scenarios'}
+                                </h3>
                                 <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                                    Manage and track sales training scenarios
+                                    {isSalesRep
+                                        ? salesRepTotalPending > 0
+                                            ? `Sessions assigned to you · ${salesRepTotalPending} not completed`
+                                            : 'Sessions assigned to you'
+                                        : 'Manage and track sales training scenarios'}
                                 </p>
                             </div>
                             <ScenarioListActionTools
                                 onAddNew={handleAddNew}
+                                showAddButton={!isSalesRep}
                             />
                         </div>
                         <ScenarioListTableTools
-                            scenarios={scenariosData}
+                            scenarios={rawScenarios}
                             onSearch={handleSearch}
                             onFilterChange={handleFilterChange}
                             filterValues={filters}
                         />
                     <ScenarioListTable 
                         data={paginatedScenarios}
-                        loading={scenarioLibraryLoading}
+                        loading={listLoading}
                         selectedScenarios={selectedScenarios}
                         onRowSelect={handleRowSelect}
                         onAllRowSelect={handleAllRowSelect}
@@ -347,6 +411,9 @@ const ScenarioList = () => {
                         onEdit={handleEdit}
                         onShare={handleShare}
                         onConfirmDeleteScenario={handleConfirmDeleteScenario}
+                        variant={isSalesRep ? 'salesRep' : 'manager'}
+                        onSalesRepOpenSession={handleSalesRepOpenSession}
+                        onSalesRepViewReport={handleSalesRepViewReport}
                         pagingData={{
                             total: filteredScenarios.length,
                             pageIndex: tableData.pageIndex,
@@ -413,11 +480,13 @@ const ScenarioList = () => {
             />
 
             {/* Selected Scenarios Sticky Footer */}
+            {!isSalesRep && (
             <ScenarioListSelected
                 selectedScenarios={selectedScenarios}
                 onClearSelection={handleClearSelection}
                 onDelete={handleDeleteSelected}
             />
+            )}
         </>
     )
 }

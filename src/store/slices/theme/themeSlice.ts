@@ -1,9 +1,26 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit'
 import { themeConfig } from '@/configs/theme.config'
+import { MODE_DARK, MODE_LIGHT, THEME_MODE_STORAGE_KEY } from '@/constants/theme.constant'
 import type { Theme, LayoutType, Mode, Direction } from '@/@types/theme'
+
+function readStoredMode(): Mode {
+    if (typeof window === 'undefined') {
+        return themeConfig.mode
+    }
+    try {
+        const raw = localStorage.getItem(THEME_MODE_STORAGE_KEY)
+        if (raw === MODE_LIGHT || raw === MODE_DARK) {
+            return raw
+        }
+    } catch {
+        /* ignore */
+    }
+    return themeConfig.mode
+}
 
 const initialState: Theme = {
     ...themeConfig,
+    mode: readStoredMode(),
     layout: {
         ...themeConfig.layout,
         previousType: '',

@@ -115,17 +115,47 @@ const SessionHistorySection = () => {
                     })
                 ])
 
-                const formattedSessions: SessionHistoryType[] = sessionData.map(s => ({
-                    id: s.session_id,
-                    persona: personaMap[s.persona_id],
-                    mode: modeMap[s.mode_id],
-                    date: s.start_time,
-                    duration: s.duration,
-                    overallScore: s.performance_report?.overall_score || 0,
-                    status: s.status,
-                    coachingSummary: s.performance_report?.coaching_summary,
-                    metrics: s.performance_report
-                }))
+                const formattedSessions: SessionHistoryType[] = sessionData.map(s => {
+                    const report = s.performance_report
+
+                    // Flatten categories array → { category_key: score, ... }
+                    const flatMetrics: Record<string, number> = {}
+                    if (typeof report?.overall_score === 'number') {
+                        flatMetrics.overall_score = report.overall_score
+                    }
+                    if (Array.isArray(report?.categories)) {
+                        ;(report.categories as { name: string; score: number }[]).forEach((cat) => {
+                            if (cat.name && typeof cat.score === 'number') {
+                                const key = cat.name
+                                    .toLowerCase()
+                                    .replace(/\s+/g, '_')
+                                    .replace(/[^a-z0-9_]/g, '')
+                                flatMetrics[key] = cat.score
+                            }
+                        })
+                    }
+
+                    // Extract coaching summary string from flat or nested shapes
+                    const cs = report?.coaching_summary
+                    const coachingSummaryText: string | undefined =
+                        typeof cs === 'string'
+                            ? cs
+                            : typeof cs?.summary === 'string'
+                              ? cs.summary
+                              : undefined
+
+                    return {
+                        id: s.session_id,
+                        persona: personaMap[s.persona_id],
+                        mode: modeMap[s.mode_id],
+                        date: s.start_time,
+                        duration: s.duration ?? 0,
+                        overallScore: report?.overall_score ?? 0,
+                        status: s.status,
+                        coachingSummary: coachingSummaryText,
+                        metrics: Object.keys(flatMetrics).length > 0 ? flatMetrics : undefined,
+                    }
+                })
 
                 setSessions(formattedSessions)
             } catch (error) {
@@ -342,11 +372,13 @@ const SessionHistorySection = () => {
                     const row = props.row.original
                     return (
                         <span className="text-gray-700 dark:text-gray-300">
-                            {new Date(row.date).toLocaleDateString('en-GB', {
-                                day: '2-digit',
-                                month: 'short',
-                                year: 'numeric',
-                            })}
+                            {row.date
+                                ? new Date(row.date).toLocaleDateString('en-GB', {
+                                      day: '2-digit',
+                                      month: 'short',
+                                      year: 'numeric',
+                                  })
+                                : '—'}
                         </span>
                     )
                 },

@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { injectReducer } from '@/store'
@@ -147,11 +147,21 @@ const PersonaSelection = () => {
     const [selectedIndustry, setSelectedIndustry] = useState('')
     const [selectedDifficulty, setSelectedDifficulty] = useState('')
 
+    /** After a failed fetch, loading is false and data stays empty — avoid re-dispatching forever. */
+    const personasFetchDispatchedRef = useRef(false)
+    const modesFetchDispatchedRef = useRef(false)
+
     useEffect(() => {
-        if (!storePersonas?.length && !personasLoading) {
+        if (
+            !storePersonas?.length &&
+            !personasLoading &&
+            !personasFetchDispatchedRef.current
+        ) {
+            personasFetchDispatchedRef.current = true
             dispatch(fetchPersonas())
         }
-        if (!storeModes?.length && !modesLoading) {
+        if (!storeModes?.length && !modesLoading && !modesFetchDispatchedRef.current) {
+            modesFetchDispatchedRef.current = true
             dispatch(fetchModes())
         }
     }, [dispatch, storePersonas?.length, personasLoading, storeModes?.length, modesLoading])

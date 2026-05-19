@@ -58,6 +58,158 @@ export type ScenarioLibraryItem = {
     assigned_sessions_count: number
     users_assigned_count?: number
     users_completed_count?: number
+    /** Present for sales-rep dashboard rows (one row per assignment session). */
+    session_id?: string
+    session_status?: string
+    is_completed?: boolean
+    days_remaining?: number | null
+    creator_name?: string | null
+    end_time?: string | null
+    user_name?: string
+    user_email?: string
+    user_id?: string
+}
+
+export type InteractionModeDashboardResponse = {
+    mode_id: string
+    name: string
+    description: string | null
+    status_active: boolean
+    created_at: string
+    updated_at: string
+}
+
+export type PersonaDashboardProduct = {
+    persona_product_id: string
+    product: {
+        product_id: string
+        name: string
+        details: string
+        created_at: string
+        updated_at: string
+    } | null
+}
+
+export type PersonaDashboardResponse = {
+    persona_id: string
+    name: string
+    industry: { industry_id: string; name: string }
+    ai_role: { ai_role_id: string; name: string }
+    geography: string | null
+    plant_size_impact: { plant_size_impact_id: string; name: string }
+    manufacturing_model: { manufacturing_model_id: string; name: string }
+    company_size_new: { company_size_id: string; name: string }
+    status_active: boolean
+    profile_pic: string | null
+    gender: string | null
+    voice_id: string | null
+    persona_products: PersonaDashboardProduct[]
+}
+
+/** GET /scenarios/dashboard/sales-rep — one row per assigned session with scenario_id. */
+export type ScenarioDashboardDataForSalesRep = {
+    scenario_id: string
+    session_id: string
+    created_by: string | null
+    user_id: string
+    title: string | null
+    time_limit_days: number
+    created_at: string
+    session_status: string
+    is_completed: boolean
+    days_remaining: number | null
+    user_name: string
+    user_email: string
+    creator_name: string | null
+    mode: InteractionModeDashboardResponse | null
+    persona: PersonaDashboardResponse | null
+    scenario_text: string | null
+    message: string | null
+    end_time: string | null
+}
+
+export type SalesRepDashboardResponse = {
+    pending_scenarios: ScenarioDashboardDataForSalesRep[]
+    total_pending: number
+}
+
+const emptyPersonaForTable = (): ScenarioLibraryPersona => ({
+    persona_id: '',
+    name: '—',
+    industry: { name: '', industry_id: '' },
+    ai_role: { name: '', ai_role_id: '' },
+    geography: '',
+    status_active: true,
+})
+
+const emptyModeForTable = (): ScenarioLibraryMode => ({
+    mode_id: '',
+    name: '—',
+    description: '',
+    status_active: true,
+    created_at: '',
+    updated_at: '',
+})
+
+function personaDashboardToLibrary(p: PersonaDashboardResponse): ScenarioLibraryPersona {
+    return {
+        persona_id: p.persona_id,
+        name: p.name,
+        industry: p.industry,
+        ai_role: p.ai_role,
+        geography: p.geography ?? '',
+        plant_size_impact: p.plant_size_impact,
+        manufacturing_model: p.manufacturing_model,
+        company_size_new: p.company_size_new,
+        status_active: p.status_active,
+        profile_pic: p.profile_pic ?? undefined,
+        gender: p.gender ?? undefined,
+        voice_id: p.voice_id ?? undefined,
+        persona_products: p.persona_products as ScenarioLibraryPersona['persona_products'],
+    }
+}
+
+function modeDashboardToLibrary(m: InteractionModeDashboardResponse): ScenarioLibraryMode {
+    return {
+        mode_id: m.mode_id,
+        name: m.name,
+        description: m.description ?? undefined,
+        status_active: m.status_active,
+        created_at: m.created_at,
+        updated_at: m.updated_at,
+    }
+}
+
+export function mapSalesRepDashboardRowToScenario(
+    row: ScenarioDashboardDataForSalesRep,
+): ScenarioLibraryItem {
+    const persona = row.persona ? personaDashboardToLibrary(row.persona) : emptyPersonaForTable()
+    const mode = row.mode ? modeDashboardToLibrary(row.mode) : emptyModeForTable()
+    return {
+        scenario_id: row.scenario_id,
+        session_id: row.session_id,
+        session_status: row.session_status,
+        is_completed: row.is_completed,
+        days_remaining: row.days_remaining,
+        creator_name: row.creator_name,
+        end_time: row.end_time,
+        user_name: row.user_name,
+        user_email: row.user_email,
+        user_id: row.user_id,
+        created_by: row.created_by ?? '',
+        creator_role: '',
+        persona,
+        mode,
+        title: row.title ?? '',
+        scenario_text: row.scenario_text ?? '',
+        message: row.message ?? '',
+        time_limit_days: row.time_limit_days,
+        created_at: row.created_at,
+        updated_at: row.created_at,
+        assigned_sessions_count: 0,
+        users_assigned_count: 0,
+        users_completed_count: row.is_completed ? 1 : 0,
+    }
 }
 
 export type ScenarioLibraryResponse = {

@@ -367,6 +367,8 @@ const CHAT_PANEL_SIDE_FR = 7;
 let _msgIdCounter = 0;
 const nextMsgId = () => `${Date.now()}_${++_msgIdCounter}`;
 
+const audioVizSessionMetaKey = (sessionId: string) => `audio_viz_meta_${sessionId}`;
+
 function formatMessageContentHtml(content: string) {
   let formatted = content.replace(
     /\*\*(.*?)\*\*/g,
@@ -385,7 +387,40 @@ export default function InteractiveVisualizerSession() {
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigateTo = useNavigate();
   const direction = useAppSelector((state) => state.theme.direction);
-  const sessionData = location.state as any;
+
+  const sessionData = useMemo(() => {
+    const fromState = location.state as Record<string, unknown> | null | undefined;
+    if (fromState && typeof fromState === 'object' && (fromState as { persona?: unknown }).persona) {
+      return fromState as {
+        mode?: string
+        persona?: { name?: string; role?: string; avatar?: string }
+        scenarios?: string[]
+      };
+    }
+    if (sessionId) {
+      try {
+        const raw = sessionStorage.getItem(audioVizSessionMetaKey(sessionId));
+        if (raw) {
+          const parsed = JSON.parse(raw) as { persona?: unknown; mode?: string };
+          if (parsed?.persona) return parsed as typeof parsed & {
+            persona: { name?: string; role?: string; avatar?: string }
+          };
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+    return (fromState as { mode?: string; persona?: { name?: string; role?: string; avatar?: string } }) ?? null;
+  }, [location.state, sessionId]);
+
+  useEffect(() => {
+    if (!sessionId || !sessionData?.persona) return;
+    try {
+      sessionStorage.setItem(audioVizSessionMetaKey(sessionId), JSON.stringify(sessionData));
+    } catch {
+      /* ignore */
+    }
+  }, [sessionId, sessionData]);
 
   const { startAudio, stopAudio, getMicRangeVolume, isReady } = useAudioAnalyzer();
   const liveAudioRef = useRef<any>(null);
@@ -457,11 +492,12 @@ export default function InteractiveVisualizerSession() {
   const [isChatPanelOpen, setIsChatPanelOpen] = useState(true);
   const [tokenReady, setTokenReady] = useState(false);
   const [hasBackendHistory, setHasBackendHistory] = useState(false);
-  const [personaMode] = useState(
-    sessionData?.mode 
-      ? sessionData.mode.charAt(0).toUpperCase() + sessionData.mode.slice(1)
-      : 'Discovering'
-  );
+  const personaMode = useMemo(() => {
+    const m = sessionData?.mode;
+    return typeof m === 'string' && m
+      ? m.charAt(0).toUpperCase() + m.slice(1)
+      : 'Discovering';
+  }, [sessionData?.mode]);
   
   const [timeLeft, setTimeLeft] = useState(() => {
     const stored = sessionStorage.getItem(storageKey('session_start_timestamp'));
@@ -472,9 +508,9 @@ export default function InteractiveVisualizerSession() {
     return SESSION_DURATION;
   });
   
-  const [userName] = useState(sessionData?.persona?.name || 'Tony Romano');
-  const [userRole] = useState(sessionData?.persona?.role || 'Prospecting · Operations Manager');
-  const [userAvatar] = useState(sessionData?.persona?.avatar);
+  const userName = sessionData?.persona?.name || 'Tony Romano';
+  const userRole = sessionData?.persona?.role || 'Prospecting · Operations Manager';
+  const userAvatar = sessionData?.persona?.avatar;
 
   const [hints, setHints] = useState<Hint[]>(AVAILABLE_HINTS);
   const [currentHintIndex, setCurrentHintIndex] = useState(0);
