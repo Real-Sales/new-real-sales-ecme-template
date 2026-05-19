@@ -4,6 +4,7 @@ import Badge from '@/components/ui/Badge'
 import Chart from '@/components/shared/Chart'
 import classNames from '@/utils/classNames'
 import { NumericFormat } from 'react-number-format'
+import { TbChartRadar } from 'react-icons/tb'
 import type { SessionHistory } from './performanceData'
 
 type SessionDetailDrawerProps = {
@@ -54,14 +55,14 @@ const SessionDetailDrawer = ({ isOpen, onClose, session }: SessionDetailDrawerPr
     const seconds = session.duration % 60
 
     const getGraphColor = (score: number) => {
-        if (score >= 80) return '#22C55E' // green
-        if (score < 40) return '#EF4444' // red
-        return '#3B82F6' // primary blue
+        if (score >= 80) return '#22C55E'
+        if (score < 40) return '#EF4444'
+        return '#3B82F6'
     }
 
     const detailedMetrics = useMemo(() => {
         if (!session.metrics) return []
-        
+
         const metrics = { ...session.metrics }
         delete (metrics as any).overall_score
         delete (metrics as any).coaching_summary
@@ -69,9 +70,17 @@ const SessionDetailDrawer = ({ isOpen, onClose, session }: SessionDetailDrawerPr
         return Object.entries(metrics).map(([key, value]) => ({
             label: formatLabel(key),
             short: formatLabel(key).split(' ')[0],
-            value: Number(value)
+            value: Number(value),
         }))
     }, [session.metrics])
+
+    const formattedDate = session.date
+        ? new Date(session.date).toLocaleDateString('en-GB', {
+              day: '2-digit',
+              month: 'short',
+              year: 'numeric',
+          })
+        : '—'
 
     return (
         <Drawer
@@ -98,15 +107,11 @@ const SessionDetailDrawer = ({ isOpen, onClose, session }: SessionDetailDrawerPr
                             content={session.mode}
                         />
                         <span className="text-xs text-gray-500 dark:text-gray-400">
-                            {new Date(session.date).toLocaleDateString('en-GB', {
-                                day: '2-digit',
-                                month: 'short',
-                                year: 'numeric',
-                            })}
+                            {formattedDate}
                         </span>
                         <span className="text-xs text-gray-400">•</span>
                         <span className="text-xs text-gray-500 dark:text-gray-400">
-                            {minutes}m {seconds}s
+                            {session.duration > 0 ? `${minutes}m ${seconds}s` : '—'}
                         </span>
                     </div>
                 </div>
@@ -126,81 +131,85 @@ const SessionDetailDrawer = ({ isOpen, onClose, session }: SessionDetailDrawerPr
                 </div>
             </div>
 
-            {/* Radar Chart */}
-            {detailedMetrics.length > 0 && (
-                <div className="mb-2">
-                    <Chart
-                        key={session.id}
-                        type="radar"
-                        height={280}
-                        series={[
-                            {
-                                name: 'Score',
-                                data: detailedMetrics.map((m) => m.value),
-                            },
-                        ]}
-                        customOptions={{
-                            colors: [getGraphColor(session.overallScore)],
-                            xaxis: {
-                                categories: detailedMetrics.map((m) => m.short),
-                                labels: {
-                                    formatter: (val: string) => {
-                                        const index = detailedMetrics.findIndex((m) => m.short === val)
-                                        return index !== -1 ? `${index + 1}` : val
+            {/* Radar Chart + Score List — only when category scores exist */}
+            {detailedMetrics.length > 0 ? (
+                <>
+                    <div className="mb-2">
+                        <Chart
+                            key={session.id}
+                            type="radar"
+                            height={280}
+                            series={[
+                                {
+                                    name: 'Score',
+                                    data: detailedMetrics.map((m) => m.value),
+                                },
+                            ]}
+                            customOptions={{
+                                colors: [getGraphColor(session.overallScore)],
+                                xaxis: {
+                                    categories: detailedMetrics.map((m) => m.short),
+                                    labels: {
+                                        formatter: (val: string) => {
+                                            const index = detailedMetrics.findIndex((m) => m.short === val)
+                                            return index !== -1 ? `${index + 1}` : val
+                                        },
                                     },
                                 },
-                            },
-                            yaxis: { show: false, max: 100, min: 0 },
-                            tooltip: {
-                                custom: function ({ dataPointIndex }: { dataPointIndex: number }) {
-                                    return `
-                                        <div class="py-2 px-4 rounded-xl">
-                                            <div class="flex items-center gap-2">
-                                                <div class="h-[10px] w-[10px] rounded-full" style="background-color: ${getGraphColor(session.overallScore)}"></div>
-                                                <div class="flex gap-2">${detailedMetrics[dataPointIndex].label}: <span class="font-bold">${detailedMetrics[dataPointIndex].value.toFixed(1)}</span></div>
+                                yaxis: { show: false, max: 100, min: 0 },
+                                tooltip: {
+                                    custom: function ({ dataPointIndex }: { dataPointIndex: number }) {
+                                        return `
+                                            <div class="py-2 px-4 rounded-xl">
+                                                <div class="flex items-center gap-2">
+                                                    <div class="h-[10px] w-[10px] rounded-full" style="background-color: ${getGraphColor(session.overallScore)}"></div>
+                                                    <div class="flex gap-2">${detailedMetrics[dataPointIndex].label}: <span class="font-bold">${detailedMetrics[dataPointIndex].value.toFixed(1)}</span></div>
+                                                </div>
                                             </div>
-                                        </div>
-                                    `
+                                        `
+                                    },
                                 },
-                            },
-                        }}
-                    />
+                            }}
+                        />
+                    </div>
+
+                    {/* Numbered Score List */}
+                    <div className="flex flex-col gap-3 mb-8">
+                        {detailedMetrics.map((metric, index) => (
+                            <div key={index} className="flex items-center gap-4">
+                                <div className="flex items-center gap-2">
+                                    <div className="rounded-full h-7 w-7 border-2 border-gray-200 dark:border-gray-600 font-bold text-xs heading-text flex items-center justify-center">
+                                        {index + 1}
+                                    </div>
+                                    <div className="heading-text text-sm whitespace-nowrap">{metric.label}</div>
+                                </div>
+                                <div className="border-dashed border-[1.5px] border-gray-300 dark:border-gray-500 flex-1" />
+                                <span
+                                    className={classNames(
+                                        'rounded-full px-2 py-0.5 text-xs font-semibold text-white',
+                                        metric.value >= 75 && 'bg-success',
+                                        metric.value <= 30 && 'bg-error',
+                                        metric.value > 30 && metric.value < 75 && 'bg-warning',
+                                    )}
+                                >
+                                    {metric.value.toFixed(1)}%
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                </>
+            ) : (
+                <div className="flex flex-col items-center justify-center gap-3 py-12 mb-8 rounded-xl bg-white/60 dark:bg-gray-800/40 border border-dashed border-gray-200 dark:border-gray-700">
+                    <TbChartRadar className="text-3xl text-gray-300 dark:text-gray-600" />
+                    <p className="text-sm text-gray-500 dark:text-gray-400 text-center">
+                        No category breakdown available for this session
+                    </p>
                 </div>
             )}
 
-            {/* Numbered Score List */}
-            <div className="flex flex-col gap-3 mb-8">
-                {detailedMetrics.map((metric, index) => (
-                    <div
-                        key={index}
-                        className="flex items-center gap-4"
-                    >
-                        <div className="flex items-center gap-2">
-                            <div className="rounded-full h-7 w-7 border-2 border-gray-200 dark:border-gray-600 font-bold text-xs heading-text flex items-center justify-center">
-                                {index + 1}
-                            </div>
-                            <div className="heading-text text-sm whitespace-nowrap">{metric.label}</div>
-                        </div>
-                        <div className="border-dashed border-[1.5px] border-gray-300 dark:border-gray-500 flex-1" />
-                        <span
-                            className={classNames(
-                                'rounded-full px-2 py-0.5 text-xs font-semibold text-white',
-                                metric.value >= 75 && 'bg-success',
-                                metric.value <= 30 && 'bg-error',
-                                metric.value > 30 &&
-                                    metric.value < 75 &&
-                                    'bg-warning',
-                            )}
-                        >
-                            {metric.value.toFixed(1)}%
-                        </span>
-                    </div>
-                ))}
-            </div>
-
             {/* Coaching Summary */}
             {session.coachingSummary && (
-                <div className="mt-8 border-t border-gray-200 dark:border-gray-700 pt-6">
+                <div className="mt-2 border-t border-gray-200 dark:border-gray-700 pt-6">
                     <h4 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider mb-4">
                         Coaching Summary
                     </h4>

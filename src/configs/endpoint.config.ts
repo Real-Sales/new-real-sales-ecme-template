@@ -48,6 +48,7 @@ const endpointConfig = {
     companyUsers: (companyId: string) => `sales-companies/${companyId}`,
     addTeamMember: 'company-teams-members/',
     teamScenariosDashboard: 'scenarios/dashboard/manager',
+    salesRepScenariosDashboard: 'scenarios/dashboard/sales-rep',
     unassignScenario: (sessionId: string) => `scenarios/unassign/${sessionId}`,
     sessionsManagerCreate: 'sessions/manager-create',
     assignScenario: (scenarioId: string, sessionId: string) => `scenarios/${scenarioId}/assign/${sessionId}`,

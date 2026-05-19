@@ -137,7 +137,7 @@ const CompanyCard = ({
                     />
                 </div>
             </div>
-            <div className="absolute top-16 left-1/2 -translate-x-1/2 z-10 h-17 w-17 rounded-full border-2 border-gray-300 dark:border-gray-600 bg-gray-900 dark:bg-gray-900 text-primary flex items-center justify-center shadow-lg">
+            <div className="absolute top-16 left-1/2 -translate-x-1/2 z-10 h-17 w-17 rounded-full border-2 border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-primary flex items-center justify-center shadow-lg">
                 <HiOfficeBuilding className="text-4xl" />
             </div>
 
@@ -175,14 +175,14 @@ const CompanyCard = ({
                             size="sm"
                             variant="default"
                             icon={<HiPencil />}
-                            className="bg-gray-800 dark:bg-gray-800 hover:bg-gray-800 dark:hover:bg-gray-800 text-gray-300 hover:text-primary transition-all"
+                            className="bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 hover:text-primary border border-gray-200 dark:border-gray-600 transition-all"
                             onClick={onEdit}
                         />
                         <Button
                             size="sm"
                             variant="default"
-                            icon={<HiTrash className="text-red-500" />}
-                            className="bg-gray-800 dark:bg-gray-800 hover:bg-red-500 dark:hover:bg-gray-800 hover:text-white transition-all"
+                            icon={<HiTrash className="text-red-500 dark:text-red-400" />}
+                            className="bg-gray-100 dark:bg-gray-800 hover:bg-red-500 dark:hover:bg-red-600 text-gray-700 dark:text-red-500 hover:text-white border border-gray-200 dark:border-gray-600 transition-all"
                             onClick={onDelete}
                         />
                     </div>
