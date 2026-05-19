@@ -3,6 +3,9 @@ export const DIR_LTR = 'ltr'
 export const MODE_LIGHT = 'light'
 export const MODE_DARK = 'dark'
 
+/** Persisted light/dark preference (read in theme slice + useDarkMode). */
+export const THEME_MODE_STORAGE_KEY = 'theme_mode'
+
 export const SIDE_NAV_WIDTH = 290
 export const SIDE_NAV_COLLAPSED_WIDTH = 80
 export const SPLITTED_SIDE_NAV_MINI_WIDTH = 80

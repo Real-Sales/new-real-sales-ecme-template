@@ -88,12 +88,13 @@ function AuthProvider({ children }: AuthProviderProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
 
-    // Ensure companyId is fetched if missing but user is authenticated
+    // Ensure companyId is fetched if missing but user is authenticated.
+    // Only managers/owners need this call — sales_person gets company_id from auth/me.
     useEffect(() => {
-        if (authenticated && user.userId && !user.companyId) {
+        const managerRoles = ['sales_manager', 'company_owner', 'admin', 'super_admin']
+        if (authenticated && user.userId && !user.companyId && managerRoles.includes(user.role ?? '')) {
             const fetchCompanyId = async () => {
                 try {
-                    console.log('AuthProvider: Background fetching companyId for:', user.userId)
                     const companyResp = await apiGetSalesCompanyByManager(user.userId as string)
                     let companyId = ''
                     if (Array.isArray(companyResp) && companyResp.length > 0) {
@@ -101,7 +102,6 @@ function AuthProvider({ children }: AuthProviderProps) {
                     } else if (companyResp && (companyResp as any).sales_company_id) {
                         companyId = (companyResp as any).sales_company_id
                     }
-                    
                     if (companyId) {
                         dispatch(setUser({ ...user, companyId }))
                     }
@@ -111,7 +111,7 @@ function AuthProvider({ children }: AuthProviderProps) {
             }
             fetchCompanyId()
         }
-    }, [authenticated, user.userId, user.companyId, dispatch])
+    }, [authenticated, user.userId, user.companyId, user.role, dispatch])
 
     const redirect = () => {
         const search = window.location.search
@@ -130,12 +130,13 @@ function AuthProvider({ children }: AuthProviderProps) {
         if (user) {
             let companyId = user.companyId ?? ''
 
-            if (!companyId && user.userId) {
+            // Only fetch company from the manager endpoint for roles that are allowed to call it.
+            // sales_person gets company_id directly from the auth/me response — calling
+            // sales-companies/manager/{id} returns 403 for that role.
+            const canFetchCompany = ['sales_manager', 'company_owner', 'admin', 'super_admin'].includes(user.role ?? '')
+            if (!companyId && user.userId && canFetchCompany) {
                 try {
-                    console.log('AuthProvider: Fetching company ID for manager:', user.userId)
                     const companyResp = await apiGetSalesCompanyByManager(user.userId)
-                    console.log('AuthProvider: Company response:', companyResp)
-                    
                     if (Array.isArray(companyResp) && companyResp.length > 0) {
                         companyId = companyResp[0].sales_company_id
                     } else if (companyResp && (companyResp as any).sales_company_id) {
@@ -299,16 +300,9 @@ function AuthProvider({ children }: AuthProviderProps) {
         try {
             const resp = await apiVerifyOtp(values)
             if (resp?.token) {
-                await handleSignIn({ accessToken: resp.token }, {
-                    userId: resp.user.user_id,
-                    firstName: resp.user.first_name,
-                    lastName: resp.user.last_name,
-                    email: resp.user.email,
-                    phoneNumber: resp.user.phone_number,
-                    role: resp.user.role,
-                    companyId: (resp.user as any).sales_company_id || (resp.user as any).company_id,
-                    isNewUser: true,
-                } as User)
+                // Decide onboarding gate BEFORE handleSignIn so isNewUser stays in sync with the
+                // navigation target. Otherwise ProtectedRoute would re-redirect invite/joined users
+                // to /onboarding even after we navigate them to /overview.
                 const hasCompanyContext = Boolean(
                     (resp.user as any).sales_company_id || (resp.user as any).company_id,
                 )
@@ -317,6 +311,17 @@ function AuthProvider({ children }: AuthProviderProps) {
                     flow === 'invite' ||
                     hasCompanyContext ||
                     resp.user.role !== 'company_owner'
+
+                await handleSignIn({ accessToken: resp.token }, {
+                    userId: resp.user.user_id,
+                    firstName: resp.user.first_name,
+                    lastName: resp.user.last_name,
+                    email: resp.user.email,
+                    phoneNumber: resp.user.phone_number,
+                    role: resp.user.role,
+                    companyId: (resp.user as any).sales_company_id || (resp.user as any).company_id,
+                    isNewUser: !shouldSkipOnboarding,
+                } as User)
 
                 navigatorRef.current?.navigate(shouldSkipOnboarding ? '/overview' : '/onboarding')
                 return {

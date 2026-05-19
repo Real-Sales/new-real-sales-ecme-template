@@ -161,7 +161,7 @@ const SkillBreakdown = ({ data, loading }: SkillBreakdownProps) => {
             </div>
 
             {/* Graph section - chart left, labels right */}
-            {activeData ? (
+            {activeData && activeData.series.length > 0 ? (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-center">
                     {/* Left - Radar chart */}
                     <div>
@@ -234,8 +234,13 @@ const SkillBreakdown = ({ data, loading }: SkillBreakdownProps) => {
                     </div>
                 </div>
             ) : (
-                <div className="h-[300px] flex items-center justify-center">
-                    <span className="text-gray-500">No data available for this skill mode</span>
+                <div className="h-[300px] flex flex-col items-center justify-center gap-2">
+                    <TbTargetArrow className="text-3xl text-gray-300 dark:text-gray-600" />
+                    <span className="text-sm text-gray-500 dark:text-gray-400">
+                        {activeData
+                            ? 'No category breakdown available for this mode yet'
+                            : 'No data available for this skill mode'}
+                    </span>
                 </div>
             )}
         </Card>

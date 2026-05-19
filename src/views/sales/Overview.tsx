@@ -148,7 +148,7 @@ const Overview = () => {
                         <Button
                             variant="solid"
                             size="md"
-                            className="bg-gray-800 hover:bg-gray-700 text-white border-none whitespace-nowrap"
+                            className="bg-white hover:bg-white/90 text-primary shadow-md border-none whitespace-nowrap"
                             icon={<HiArrowRight />}
                             iconAlignment="end"
                             onClick={() => setIsSetupOpen(true)}

@@ -8,6 +8,7 @@ import type {
     ScenarioLibraryItem,
     InteractionModeListItem,
     AiPersonaListItem,
+    SalesRepDashboardResponse,
 } from '@/views/sales/ScenarioList/types'
 import AxiosBase from './axios/AxiosBase'
 
@@ -95,4 +96,23 @@ export async function apiGetScenarioAssignmentStatus(scenarioId: string, teamId:
         url: endpointConfig.scenarioAssignmentStatus(scenarioId, teamId),
         method: 'get',
     })
+}
+
+/**
+ * Single-flight + short-TTL cache for the sales-rep dashboard.
+ * React Strict Mode unmounts and remounts within milliseconds; the 1-second
+ * window is enough to deduplicate those rapid duplicate calls without holding
+ * stale data for normal refreshes.
+ */
+let salesRepDashboardInflight: Promise<SalesRepDashboardResponse> | null = null
+
+export async function apiGetSalesRepScenarioDashboard() {
+    if (salesRepDashboardInflight) return salesRepDashboardInflight
+    salesRepDashboardInflight = ApiService.fetchDataWithAxios<SalesRepDashboardResponse>({
+        url: endpointConfig.salesRepScenariosDashboard,
+        method: 'get',
+    }).finally(() => {
+        setTimeout(() => { salesRepDashboardInflight = null }, 1000)
+    })
+    return salesRepDashboardInflight
 }

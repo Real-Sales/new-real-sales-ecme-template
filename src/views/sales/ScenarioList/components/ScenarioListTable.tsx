@@ -1,12 +1,11 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import Badge from '@/components/ui/Badge'
 import Tooltip from '@/components/ui/Tooltip'
 import DataTable from '@/components/shared/DataTable'
 import Progress from '@/components/ui/Progress'
 import ConfirmDialog from '@/components/shared/ConfirmDialog'
 import classNames from '@/utils/classNames'
-import { TbTrash, TbPencil, TbUserPlus } from 'react-icons/tb'
-import { FiShare2 } from 'react-icons/fi'
+import { TbTrash, TbPencil, TbPlayerPlay, TbUserPlus, TbRefresh } from 'react-icons/tb'
 import Button from '@/components/ui/Button'
 import { NumericFormat } from 'react-number-format'
 import dayjs from 'dayjs'
@@ -25,6 +24,26 @@ const statusLabel: Record<string, string> = {
 
 const getDerivedStatus = (row: Scenario) =>
     row.persona?.status_active && row.mode?.status_active ? 'active' : 'inactive'
+
+function sessionStatusBadgeClass(status: string) {
+    const s = status.toLowerCase()
+    if (s === 'completed') {
+        return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+    }
+    if (s === 'active') {
+        return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+    }
+    if (s === 'pending') {
+        return 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300'
+    }
+    if (s === 'abandoned') {
+        return 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-400'
+    }
+    if (s === 'expired') {
+        return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
+    }
+    return 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300'
+}
 
 const ActionColumn = ({ 
     row, 
@@ -92,10 +111,14 @@ type ScenarioListTableProps = {
     }
     onPaginationChange: (page: number) => void
     onSelectChange: (value: number) => void
+    variant?: 'manager' | 'salesRep'
+    /** Start / Resume — navigate to existing session (ephemeral token + chat_history). */
+    onSalesRepOpenSession?: (scenario: Scenario) => void
+    onSalesRepViewReport?: (scenario: Scenario) => void
 }
 
-const ScenarioListTable = ({ 
-    data, 
+const ScenarioListTable = ({
+    data,
     loading = false,
     selectedScenarios,
     onRowSelect,
@@ -107,6 +130,9 @@ const ScenarioListTable = ({
     pagingData,
     onPaginationChange,
     onSelectChange,
+    variant = 'manager',
+    onSalesRepOpenSession,
+    onSalesRepViewReport,
 }: ScenarioListTableProps) => {
     const [deleteConfirmationOpen, setDeleteConfirmationOpen] = useState(false)
     const [toDeleteScenario, setToDeleteScenario] = useState<Scenario | null>(null)
@@ -116,10 +142,10 @@ const ScenarioListTable = ({
         setToDeleteScenario(null)
     }
 
-    const handleDelete = (scenario: Scenario) => {
+    const handleDelete = useCallback((scenario: Scenario) => {
         setDeleteConfirmationOpen(true)
         setToDeleteScenario(scenario)
-    }
+    }, [])
 
     const handleConfirmDelete = async () => {
         if (toDeleteScenario) {
@@ -129,7 +155,7 @@ const ScenarioListTable = ({
         setToDeleteScenario(null)
     }
 
-    const columns: ColumnDef<Scenario>[] = useMemo(
+    const managerColumns: ColumnDef<Scenario>[] = useMemo(
         () => [
             {
                 header: 'Title',
@@ -270,13 +296,194 @@ const ScenarioListTable = ({
                 ),
             },
         ],
-        [handleDelete, onEdit],
+        [handleDelete, onEdit, onShare, onRowClick],
     )
 
+    const salesRepColumns: ColumnDef<Scenario>[] = useMemo(
+        () => [
+            {
+                header: 'Title',
+                accessorKey: 'title',
+                enableSorting: false,
+                cell: (props) => {
+                    const row = props.row.original
+                    return (
+                        <span
+                            className={classNames(
+                                'font-bold heading-text cursor-pointer hover:text-primary',
+                                row.is_completed && 'text-gray-500 dark:text-gray-500',
+                            )}
+                            onClick={() => onRowClick(row)}
+                        >
+                            {row.title || '—'}
+                        </span>
+                    )
+                },
+            },
+            {
+                header: 'Session',
+                accessorKey: 'session_status',
+                enableSorting: false,
+                cell: (props) => {
+                    const row = props.row.original
+                    if (!row.session_status) {
+                        return <span className="text-gray-500">—</span>
+                    }
+                    const label = row.session_status.replace(/_/g, ' ')
+                    return (
+                        <Badge
+                            innerClass={`${sessionStatusBadgeClass(row.session_status)} px-2 py-0.5 text-xs font-medium capitalize`}
+                            content={label}
+                        />
+                    )
+                },
+            },
+            {
+                header: 'Days left',
+                id: 'days_remaining',
+                enableSorting: false,
+                cell: (props) => {
+                    const row = props.row.original
+                    const d = row.days_remaining
+                    if (d === null || d === undefined) {
+                        return <span className="text-gray-500">—</span>
+                    }
+                    return (
+                        <span className="font-semibold tabular-nums">
+                            {d} {d === 1 ? 'day' : 'days'}
+                        </span>
+                    )
+                },
+            },
+            {
+                header: 'Mode',
+                id: 'mode_name',
+                enableSorting: false,
+                cell: (props) => (
+                    <span className="capitalize">
+                        {props.row.original.mode?.name || '—'}
+                    </span>
+                ),
+            },
+            {
+                header: 'Persona',
+                id: 'persona_name',
+                enableSorting: false,
+                cell: (props) => <span>{props.row.original.persona?.name || '—'}</span>,
+            },
+            {
+                header: 'Assigned by',
+                id: 'creator_name',
+                enableSorting: false,
+                cell: (props) => (
+                    <span className="text-gray-600 dark:text-gray-400">
+                        {props.row.original.creator_name || '—'}
+                    </span>
+                ),
+            },
+            {
+                header: 'Created',
+                accessorKey: 'created_at',
+                enableSorting: false,
+                cell: (props) => (
+                    <span className="font-semibold">
+                        {dayjs(props.row.original.created_at).format('DD/MM/YYYY')}
+                    </span>
+                ),
+            },
+            {
+                header: 'Action',
+                id: 'action_rep',
+                width: 148,
+                cell: (props) => {
+                    const row = props.row.original
+                    const sid = row.session_id
+                    const st = (row.session_status ?? '').toLowerCase()
+
+                    if (st === 'expired') {
+                        return (
+                            <Button
+                                size="xs"
+                                variant="default"
+                                disabled
+                                className="h-8 min-w-[5.5rem] cursor-not-allowed opacity-70"
+                            >
+                                Expired
+                            </Button>
+                        )
+                    }
+
+                    if (st === 'completed') {
+                        return (
+                            <Button
+                                size="xs"
+                                variant="solid"
+                                className="h-8 min-w-[5.5rem] bg-primary hover:bg-primary-deep text-white border-none"
+                                disabled={!sid}
+                                onClick={() => sid && onSalesRepViewReport?.(row)}
+                            >
+                                View Report
+                            </Button>
+                        )
+                    }
+
+                    if (st === 'pending') {
+                        return (
+                            <Button
+                                size="xs"
+                                variant="solid"
+                                className="h-8 min-w-[5.5rem] bg-primary hover:bg-primary-deep text-white border-none gap-1"
+                                disabled={!sid}
+                                icon={<TbPlayerPlay className="text-sm" />}
+                                onClick={() => sid && onSalesRepOpenSession?.(row)}
+                            >
+                                Start
+                            </Button>
+                        )
+                    }
+
+                    if (st === 'active' || st === 'abandoned') {
+                        return (
+                            <Button
+                                size="xs"
+                                variant="solid"
+                                className="h-8 min-w-[5.5rem] bg-primary hover:bg-primary-deep text-white border-none gap-1"
+                                disabled={!sid}
+                                icon={<TbRefresh className="text-sm" />}
+                                onClick={() => sid && onSalesRepOpenSession?.(row)}
+                            >
+                                Resume
+                            </Button>
+                        )
+                    }
+
+                    if (sid) {
+                        return (
+                            <Button
+                                size="xs"
+                                variant="solid"
+                                className="h-8 min-w-[5.5rem] bg-primary hover:bg-primary-deep text-white border-none gap-1"
+                                icon={<TbPlayerPlay className="text-sm" />}
+                                onClick={() => onSalesRepOpenSession?.(row)}
+                            >
+                                Open
+                            </Button>
+                        )
+                    }
+
+                    return <span className="text-gray-500">—</span>
+                },
+            },
+        ],
+        [onRowClick, onSalesRepOpenSession, onSalesRepViewReport],
+    )
+
+    const columns = variant === 'salesRep' ? salesRepColumns : managerColumns
+    const selectable = variant === 'manager'
     return (
         <>
             <DataTable
-                selectable
+                selectable={selectable}
                 columns={columns}
                 data={data}
                 noData={!loading && data.length === 0}
@@ -290,19 +497,22 @@ const ScenarioListTable = ({
                 onPaginationChange={onPaginationChange}
                 onSelectChange={onSelectChange}
             />
-            <ConfirmDialog
-                isOpen={deleteConfirmationOpen}
-                type="danger"
-                title="Remove scenario"
-                onClose={handleCancel}
-                onRequestClose={handleCancel}
-                onCancel={handleCancel}
-                onConfirm={handleConfirmDelete}
-            >
-                <p>
-                    Are you sure you want to remove <strong>{toDeleteScenario?.title}</strong>? This action can&apos;t be undone.
-                </p>
-            </ConfirmDialog>
+            {variant === 'manager' && (
+                <ConfirmDialog
+                    isOpen={deleteConfirmationOpen}
+                    type="danger"
+                    title="Remove scenario"
+                    onClose={handleCancel}
+                    onRequestClose={handleCancel}
+                    onCancel={handleCancel}
+                    onConfirm={handleConfirmDelete}
+                >
+                    <p>
+                        Are you sure you want to remove <strong>{toDeleteScenario?.title}</strong>?
+                        This action can&apos;t be undone.
+                    </p>
+                </ConfirmDialog>
+            )}
         </>
     )
 }
