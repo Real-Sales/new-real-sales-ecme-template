@@ -1,10 +1,10 @@
-import { useState, Suspense, lazy } from 'react'
+import { useState, Suspense, lazy, useMemo } from 'react'
 import classNames from 'classnames'
 import Drawer from '@/components/ui/Drawer'
 import NavToggle from '@/components/shared/NavToggle'
 import { DIR_RTL } from '@/constants/theme.constant'
 import withHeaderItem, { WithHeaderItemProps } from '@/utils/hoc/withHeaderItem'
-import navigationConfig from '@/configs/navigation.config'
+import { getNavigationTree } from '@/utils/navigationTree'
 import appConfig from '@/configs/app.config'
 import { useAppSelector } from '@/store/hook'
 
@@ -41,6 +41,11 @@ const MobileNav = ({
     const currentRouteKey = useAppSelector((state) => state.routeKey.currentRouteKey)
 
     const userAuthority = useAppSelector((state) => state.auth.user.authority)
+    const userRole = useAppSelector((state) => state.auth.user.role)
+    const navigationTree = useMemo(
+        () => getNavigationTree(userRole),
+        [userRole],
+    )
 
     return (
         <>
@@ -60,7 +65,7 @@ const MobileNav = ({
                     {isOpen && (
                         <VerticalMenuContent
                             collapsed={false}
-                            navigationTree={navigationConfig}
+                            navigationTree={navigationTree}
                             routeKey={currentRouteKey}
                             userAuthority={userAuthority as string[]}
                             direction={direction}

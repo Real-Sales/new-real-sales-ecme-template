@@ -52,7 +52,6 @@ const Performance = () => {
     const {
         performanceReport,
         performanceLoading,
-        initialized,
         notification,
     } = useAppSelector(
         (state) =>
@@ -69,10 +68,10 @@ const Performance = () => {
     )
 
     useEffect(() => {
-        if (userId && !initialized && !performanceLoading) {
+        if (userId) {
             dispatch(fetchPerformanceByMode(userId))
         }
-    }, [dispatch, userId, initialized, performanceLoading])
+    }, [dispatch, userId])
 
     useEffect(() => {
         if (notification) {

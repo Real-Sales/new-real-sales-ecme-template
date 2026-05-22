@@ -78,6 +78,12 @@ const salesRoute: Routes = [
         },
     },
     {
+        key: 'companyGroup.members',
+        path: '/company-members',
+        component: lazy(() => import('@/views/sales/members/MemberList')),
+        authority: ['sales_manager', 'company_owner', 'manager'],
+    },
+    {
         key: 'companyGroup.company',
         path: '/sales-division',
         component: lazy(() => import('@/views/sales/company/CompanyList')),
