@@ -35,6 +35,7 @@ const endpointConfig = {
     salesCompanies: 'sales-companies/',
     salesCompanyByManager: (managerId: string) => `sales-companies/manager/${managerId}`,
     salesCompanyDetail: (companyId: string) => `sales-companies/${companyId}`,
+    salesCompanyMembers: (companyId: string) => `sales-companies/${companyId}/members`,
     salesDivisions: (companyId: string) => `sales-divisions/company/${companyId}`,
     salesDivisionsCreate: 'sales-divisions/',
     salesDivisionsUpdate: (divisionId: string) => `sales-divisions/${divisionId}`,

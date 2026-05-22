@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import {
     SPLITTED_SIDE_NAV_MINI_WIDTH,
     STACKED_SIDE_NAV_SECONDARY_WIDTH,
@@ -11,7 +11,7 @@ import useResponsive from '@/utils/hooks/useResponsive'
 import { useThemeStore } from '@/store/themeStore'
 import { useRouteKeyStore } from '@/store/routeKeyStore'
 import { useSessionUser } from '@/store/authStore'
-import navigationConfig from '@/configs/navigation.config'
+import { getNavigationTree } from '@/utils/navigationTree'
 import appConfig from '@/configs/app.config'
 import isEmpty from 'lodash/isEmpty'
 import useTranslation from '@/utils/hooks/useTranslation'
@@ -37,6 +37,11 @@ const StackedSideNav = ({
     const currentRouteKey = useRouteKeyStore((state) => state.currentRouteKey)
 
     const userAuthority = useSessionUser((state) => state.user.authority)
+    const userRole = useSessionUser((state) => state.user.role)
+    const navigationTree = useMemo(
+        () => getNavigationTree(userRole),
+        [userRole],
+    )
 
     const { larger } = useResponsive()
 
@@ -85,7 +90,7 @@ const StackedSideNav = ({
                         activeKeys={activeKeys}
                         mode={mode}
                         direction={direction}
-                        navigationTree={navigationConfig}
+                        navigationTree={navigationTree}
                         userAuthority={userAuthority || []}
                         selectedMenu={selectedMenu}
                         t={t as TraslationFn}

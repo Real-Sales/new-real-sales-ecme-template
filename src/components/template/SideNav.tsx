@@ -1,9 +1,10 @@
+import { useMemo } from 'react'
 import classNames from '@/utils/classNames'
 import ScrollBar from '@/components/ui/ScrollBar'
 import Logo from '@/components/template/Logo'
 import VerticalMenuContent from '@/components/template/VerticalMenuContent'
 import { useAppSelector } from '@/store/hook'
-import navigationConfig from '@/configs/navigation.config'
+import { getNavigationTree } from '@/utils/navigationTree'
 import appConfig from '@/configs/app.config'
 import { Link } from 'react-router-dom'
 import {
@@ -45,6 +46,11 @@ const SideNav = ({
     const sideNavCollapse = useAppSelector((state) => state.theme.layout.sideNavCollapse)
     const currentRouteKey = useAppSelector((state) => state.routeKey.currentRouteKey)
     const userAuthority = useAppSelector((state) => state.auth.user.authority)
+    const userRole = useAppSelector((state) => state.auth.user.role)
+    const navigationTree = useMemo(
+        () => getNavigationTree(userRole),
+        [userRole],
+    )
 
     return (
         <div
@@ -79,7 +85,7 @@ const SideNav = ({
                     <ScrollBar style={{ height: '100%', maxHeight: 'calc(100vh - 120px)' }} direction={direction}>
                         <VerticalMenuContent
                             collapsed={sideNavCollapse}
-                            navigationTree={navigationConfig}
+                            navigationTree={navigationTree}
                             routeKey={currentRouteKey}
                             direction={direction}
                             translationSetup={translationSetup}

@@ -35,10 +35,10 @@ const PerformanceLineChart = () => {
     )
 
     useEffect(() => {
-        if (userId && !monthlyTrend) {
+        if (userId) {
             dispatch(fetchMonthlyTrend(userId))
         }
-    }, [dispatch, userId, monthlyTrend])
+    }, [dispatch, userId])
 
     const trendData = monthlyTrend
     const loading = trendLoading
