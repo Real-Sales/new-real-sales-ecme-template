@@ -16,6 +16,11 @@ import { REDIRECT_URL_KEY } from '@/constants/app.constant'
 import { useNavigate } from 'react-router-dom'
 import Cookies from 'js-cookie'
 import { apiGetSalesCompanyByManager } from '@/services/SalesCompanyService'
+import { resetPerformanceData } from '@/store/slices/performance'
+import { resetScenarioLibraryData } from '@/views/sales/ScenarioList/store/scenarioLibrarySlice'
+import { resetCompanyMembersData } from '@/views/sales/members/store/companyMembersSlice'
+import { resetTeamsData } from '@/store/slices/teams'
+import { resetSalesDivisionsData } from '@/store/slices/salesDivisions'
 
 const AUTH_TOKEN_COOKIE = 'auth_token'
 const useCookies = appConfig.accessTokenPersistStrategy === 'cookies'
@@ -175,6 +180,11 @@ function AuthProvider({ children }: AuthProviderProps) {
     }
 
     const handleSignOut = () => {
+        dispatch(resetPerformanceData())
+        dispatch(resetScenarioLibraryData())
+        dispatch(resetCompanyMembersData())
+        dispatch(resetTeamsData())
+        dispatch(resetSalesDivisionsData())
         dispatch(signOutSuccess())
         dispatch(setUser({}))
         clearAuthCookie()

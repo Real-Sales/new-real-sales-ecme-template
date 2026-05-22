@@ -70,6 +70,16 @@ const salesNavigationConfig: NavigationTree[] = [
         authority: [],
         subMenu: [
             {
+                key: 'companyGroup.members',
+                path: '/company-members',
+                title: 'Company Members',
+                translateKey: '',
+                icon: 'members',
+                type: NAV_ITEM_TYPE_ITEM,
+                authority: MANAGER_ROLES,
+                subMenu: [],
+            },
+            {
                 key: 'companyGroup.company',
                 path: '/sales-division',
                 title: 'Sales Divisions',

@@ -82,12 +82,22 @@ export type CompanyUser = {
     first_name: string
     last_name: string
     user_id: string
+    status_active?: boolean
+    role?: { name: string; role_id?: string }
     [key: string]: any
 }
 
 export type CompanyResponse = {
     sales_company_id: string
     name: string
+    manager_id?: string
+    manager?: {
+        user_id: string
+        first_name: string
+        last_name: string
+        email: string
+        status_active?: boolean
+    }
     users: CompanyUser[]
     [key: string]: any
 }

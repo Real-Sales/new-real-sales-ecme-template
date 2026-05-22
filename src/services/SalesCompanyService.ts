@@ -138,3 +138,32 @@ export async function apiGetSalesDivisionInfo(divisionId: string) {
         method: 'get',
     })
 }
+
+export type CompanyMemberResponse = {
+    user_id: string
+    email: string
+    first_name: string
+    last_name: string
+    phone_number?: string | null
+    company_id?: string
+    status_active: boolean
+    is_verified?: boolean
+    role?: { role_id?: string; name?: string; description?: string; status_active?: boolean }
+    team_id?: string | null
+    team_name?: string | null
+    sales_division_id?: string | null
+    sales_division_name?: string | null
+}
+
+export type CompanyMembersListResponse = {
+    total_members: number
+    active_members: number
+    members: CompanyMemberResponse[]
+}
+
+export async function apiGetCompanyMembers(salesCompanyId: string) {
+    return ApiService.fetchDataWithAxios<CompanyMembersListResponse>({
+        url: endpointConfig.salesCompanyMembers(salesCompanyId),
+        method: 'get',
+    })
+}

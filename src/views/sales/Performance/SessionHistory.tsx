@@ -82,9 +82,13 @@ const SessionHistorySection = () => {
     const userId = useAppSelector((state) => state.auth.user.userId)
 
     useEffect(() => {
+        if (!userId) {
+            setSessions([])
+            setLoading(false)
+            return
+        }
+
         const fetchSessions = async () => {
-            if (!userId) return
-            
             try {
                 setLoading(true)
                 const sessionData = await apiGetSessionsByUser(userId)
@@ -136,7 +140,7 @@ const SessionHistorySection = () => {
                     }
 
                     // Extract coaching summary string from flat or nested shapes
-                    const cs = report?.coaching_summary
+                    const cs = report?.coaching_summary as string | { summary?: string } | undefined
                     const coachingSummaryText: string | undefined =
                         typeof cs === 'string'
                             ? cs
