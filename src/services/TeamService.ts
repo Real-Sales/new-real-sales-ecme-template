@@ -53,6 +53,13 @@ export async function apiCreateTeam(data: CreateTeamRequest) {
     })
 }
 
+export async function apiDeleteTeam(teamId: string) {
+    return ApiService.fetchDataWithAxios<void>({
+        url: endpointConfig.deleteCompanyTeam(teamId),
+        method: 'delete',
+    })
+}
+
 export type MonthlyPerformance = {
     session_count: number
     average_overall_score: number | null
@@ -168,11 +175,56 @@ export type TeamScenariosDashboardResponse = {
     completion_rate: number
 }
 
-export async function apiAddTeamMember(data: { user_id: string; company_team_id: string }) {
+export async function apiAddTeamMember(data: {
+    user_id: string
+    company_team_id: string
+}) {
     return ApiService.fetchDataWithAxios({
         url: endpointConfig.addTeamMember,
         method: 'post',
         data,
+    })
+}
+
+export type CompanyTeamMembership = {
+    member_id: string
+    company_team_id: string
+    user_id: string
+    [key: string]: any
+}
+
+export async function apiGetTeamMembershipsByUser(userId: string) {
+    return ApiService.fetchDataWithAxios<CompanyTeamMembership[]>({
+        url: endpointConfig.teamMembershipsByUser(userId),
+        method: 'get',
+    })
+}
+
+export async function apiUpdateTeamMember(
+    memberId: string,
+    data: { company_team_id: string },
+) {
+    return ApiService.fetchDataWithAxios<CompanyTeamMembership>({
+        url: endpointConfig.updateTeamMember(memberId),
+        method: 'put',
+        data,
+    })
+}
+
+export type CompanyTeamListItem = {
+    company_team_id: string
+    name: string
+    sales_company_id: string
+    sales_division_id: string | null
+    sales_division_name?: string | null
+    manager_id?: string
+    [key: string]: any
+}
+
+export async function apiGetCompanyTeamsBySalesCompany(companyId: string) {
+    return ApiService.fetchDataWithAxios<CompanyTeamListItem[]>({
+        url: endpointConfig.companyTeamsBySalesCompany(companyId),
+        method: 'get',
     })
 }
 
