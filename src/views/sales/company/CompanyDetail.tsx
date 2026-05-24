@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Card, Button, Badge, Spinner, Input } from '@/components/ui'
+import { Card, Button, Badge, Spinner, Input, Dialog } from '@/components/ui'
 import Container from '@/components/shared/Container'
 import Avatar from '@/components/ui/Avatar'
 import DataTable from '@/components/shared/DataTable'
+import AddDivisionMemberContent from './components/AddDivisionMemberContent'
 import { HiArrowLeft, HiUser } from 'react-icons/hi'
-import { TbSearch, TbUsers, TbUsersGroup, TbBuildingCommunity } from 'react-icons/tb'
+import { TbSearch, TbUsers, TbUsersGroup, TbBuildingCommunity, TbUserPlus } from 'react-icons/tb'
 import {
     useAppSelector,
     useAppDispatch,
@@ -34,6 +35,7 @@ const CompanyDetail = () => {
     const [searchTerm, setSearchTerm] = useState('')
     const [currentPage, setCurrentPage] = useState(1)
     const [pageSize, setPageSize] = useState(10)
+    const [dialogOpen, setDialogOpen] = useState(false)
 
     const {
         divisionInfo,
@@ -73,6 +75,16 @@ const CompanyDetail = () => {
     })
 
     const teamCount = new Set(members.map((m) => m.team_id).filter(Boolean)).size
+    const divisionMemberIds = members.map((m) => m.user_id)
+
+    const refreshDivision = () => {
+        if (id) {
+            dispatch(fetchDivisionInfo(id))
+        }
+    }
+
+    const openDialog = () => setDialogOpen(true)
+    const onDialogClose = () => setDialogOpen(false)
 
     // Pagination
     const startIndex = (currentPage - 1) * pageSize
@@ -178,26 +190,39 @@ const CompanyDetail = () => {
                 ) : (
                     <>
                         {/* Division Header */}
-                        <div className="flex items-center gap-3 mb-6">
-                            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                                <TbBuildingCommunity className="text-xl" />
+                        <div className="flex items-center justify-between gap-4 mb-6">
+                            <div className="flex items-center gap-3 min-w-0">
+                                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                                    <TbBuildingCommunity className="text-xl" />
+                                </div>
+                                <div className="min-w-0">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                                            {division?.name}
+                                        </h1>
+                                        <Badge
+                                            innerClass={`px-2.5 py-0.5 text-xs font-medium ${
+                                                division?.is_active
+                                                    ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                                                    : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
+                                            }`}
+                                            content={division?.is_active ? 'Active' : 'Inactive'}
+                                        />
+                                    </div>
+                                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                                        {division?.division_category}
+                                    </p>
+                                </div>
                             </div>
-                            <div>
-                                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                                    {division?.name}
-                                </h1>
-                                <p className="text-sm text-gray-500 dark:text-gray-400">
-                                    {division?.division_category}
-                                </p>
-                            </div>
-                            <Badge
-                                innerClass={`ml-2 px-2.5 py-0.5 text-xs font-medium ${
-                                    division?.is_active
-                                        ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                                        : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
-                                }`}
-                                content={division?.is_active ? 'Active' : 'Inactive'}
-                            />
+                            <Button
+                                variant="solid"
+                                size="sm"
+                                icon={<TbUserPlus />}
+                                className="bg-primary hover:bg-primary-deep text-neutral border-none whitespace-nowrap rounded-md shrink-0"
+                                onClick={openDialog}
+                            >
+                                Add Members
+                            </Button>
                         </div>
 
                         {/* Stats */}
@@ -286,6 +311,22 @@ const CompanyDetail = () => {
                     </>
                 )}
             </Container>
+
+            <Dialog
+                isOpen={dialogOpen}
+                onClose={onDialogClose}
+                onRequestClose={onDialogClose}
+            >
+                {division && (
+                    <AddDivisionMemberContent
+                        salesCompanyId={division.sales_company_id}
+                        salesDivisionId={division.sales_division_id}
+                        divisionMemberIds={divisionMemberIds}
+                        onUpdate={refreshDivision}
+                        onClose={onDialogClose}
+                    />
+                )}
+            </Dialog>
         </div>
     )
 }

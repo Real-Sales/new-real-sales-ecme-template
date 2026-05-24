@@ -7,7 +7,9 @@ export type CompanyMemberRow = {
     email: string
     status_active: boolean
     role?: { name?: string }
+    team_id?: string | null
     team_name?: string | null
+    sales_division_id?: string | null
     sales_division_name?: string | null
 }
 
@@ -19,7 +21,9 @@ export function mapCompanyMember(member: CompanyMemberResponse): CompanyMemberRo
         email: member.email,
         status_active: member.status_active,
         role: member.role,
+        team_id: member.team_id,
         team_name: member.team_name,
+        sales_division_id: member.sales_division_id,
         sales_division_name: member.sales_division_name,
     }
 }

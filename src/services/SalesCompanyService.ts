@@ -167,3 +167,20 @@ export async function apiGetCompanyMembers(salesCompanyId: string) {
         method: 'get',
     })
 }
+
+export type CompanyMemberAssignmentUpdate = {
+    sales_division_id?: string | null
+    company_team_id?: string | null
+}
+
+export async function apiAssignCompanyMember(
+    salesCompanyId: string,
+    userId: string,
+    data: CompanyMemberAssignmentUpdate,
+) {
+    return ApiService.fetchDataWithAxios<CompanyMemberResponse>({
+        url: endpointConfig.salesCompanyMemberAssignment(salesCompanyId, userId),
+        method: 'patch',
+        data,
+    })
+}
