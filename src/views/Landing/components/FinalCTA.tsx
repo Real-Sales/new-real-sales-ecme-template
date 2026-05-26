@@ -1,33 +1,19 @@
-import { motion, useInView } from 'framer-motion'
-import { useRef, useEffect, useState } from 'react'
-import { Button } from '@/components/ui'
+import { motion } from 'framer-motion'
+import { TbArrowRight } from 'react-icons/tb'
 import { useNavigate } from 'react-router-dom'
+import { useState } from 'react'
 import { useAppSelector } from '@/store'
 import SessionSetupPanel from '@/components/shared/SessionSetupPanel'
-import type { ConversationMode, AIPersona } from '@/components/shared/SessionSetupPanel'
-import Container from './LandingContainer'
+import type { ConversationMode } from '@/components/shared/SessionSetupPanel'
 import type { Mode } from '@/@types/theme'
 
 const FinalCTA = ({ mode }: { mode: Mode }) => {
     const navigate = useNavigate()
-    const ref = useRef(null)
-    const isInView = useInView(ref, { once: true, margin: '-100px' })
-    const [pulseGlow, setPulseGlow] = useState(false)
     const [isSetupOpen, setIsSetupOpen] = useState(false)
-    
-    // Check if user is authenticated
     const signedIn = useAppSelector((state) => state.auth.session.signedIn)
 
-    useEffect(() => {
-        if (isInView) {
-            setPulseGlow(true)
-        }
-    }, [isInView])
-
-    const handleStartPracticing = () => {
-        // Check if user is authenticated
+    const handleStart = () => {
         if (!signedIn) {
-            // Redirect to sign in with return URL
             navigate('/sign-in?redirect=/audio-visualizer')
             return
         }
@@ -35,88 +21,79 @@ const FinalCTA = ({ mode }: { mode: Mode }) => {
     }
 
     const handleNavigateToPersonas = (
-        mode: ConversationMode,
+        conversationMode: ConversationMode,
         scenarios?: string[],
-        files?: File[]
+        files?: File[],
     ) => {
-        // Navigate to persona selection page with session data
-        navigate('/persona-selection', {
-            state: {
-                mode,
-                scenarios,
-                files,
-            },
-        })
-    }
-
-    const handleBookWalkthrough = () => {
-        // Handle book walkthrough
-        console.log('Book a live walkthrough')
+        navigate('/persona-selection', { state: { mode: conversationMode, scenarios, files } })
     }
 
     return (
-        <section ref={ref} className="py-20 md:py-32 bg-white dark:bg-gray-950 relative overflow-hidden">
-            <Container>
+        <section className="py-24 md:py-32 relative overflow-hidden">
+            {/* Background glow */}
+            <div className="absolute inset-0 pointer-events-none">
+                <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-[500px] bg-[radial-gradient(ellipse_at_center,_rgba(255,255,255,0.05)_0%,_transparent_65%)]" />
+            </div>
+
+            <div className="max-w-7xl mx-auto px-4 relative z-10">
                 <motion.div
-                    initial={{ opacity: 0, y: 40 }}
+                    initial={{ opacity: 0, y: 32 }}
                     whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    transition={{ duration: 0.6 }}
-                    className="text-center max-w-4xl mx-auto relative z-10"
+                    viewport={{ once: true, margin: '-80px' }}
+                    transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+                    className="relative rounded-3xl border border-white/[0.1] bg-white/[0.02] overflow-hidden px-8 py-16 md:py-20 text-center"
                 >
-                    <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-6 text-gray-900 dark:text-white leading-tight">
-                        You Don't Lose Deals Because You're Bad at Sales.
-                    </h2>
-                    <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-8 text-gray-900 dark:text-white leading-tight">
-                        You Lose Them Because You Didn't Get to Practice.
-                    </h2>
-                    <p className="text-lg md:text-xl text-gray-600 dark:text-gray-300 mb-12 leading-relaxed">
-                        RealSales gives your team a place to fail, learn, and improve—before real revenue is on the line.
-                    </p>
-                    <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                        <motion.div
-                            animate={pulseGlow ? {
-                                boxShadow: [
-                                    '0 0 0 0 rgba(42, 133, 255, 0.4)',
-                                    '0 0 0 10px rgba(42, 133, 255, 0)',
-                                    '0 0 0 0 rgba(42, 133, 255, 0)',
-                                ],
-                            } : {}}
-                            transition={{
-                                duration: 2,
-                                repeat: Infinity,
-                                ease: 'easeInOut',
-                            }}
-                            className="relative"
-                        >
-                            <Button
-                                variant="solid"
-                                size="lg"
-                                className="bg-primary hover:bg-primary-deep text-white relative overflow-hidden"
-                                onClick={handleStartPracticing}
+                    {/* Inner grid decoration */}
+                    <div
+                        style={{
+                            backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40' width='40' height='40' fill='none'%3e%3ccircle cx='20' cy='20' r='1' fill='rgba(255,255,255,0.05)'/%3e%3c/svg%3e")`,
+                        }}
+                        className="absolute inset-0 [mask-image:radial-gradient(ellipse_at_center,_white_20%,_transparent_70%)] pointer-events-none"
+                    />
+
+                    <div className="relative z-10 max-w-2xl mx-auto">
+                        <p className="text-xs font-medium text-[#6B7280] uppercase tracking-[0.2em] mb-6">
+                            Ready to train?
+                        </p>
+                        <h2 className="text-4xl md:text-5xl font-bold text-[#F5F5F5] tracking-[-0.02em] leading-tight mb-5">
+                            Stop losing deals you should have won
+                        </h2>
+                        <p className="text-[#6B7280] leading-relaxed mb-10 max-w-lg mx-auto">
+                            Your team has all the knowledge. They just need the reps. RealSales gives them a place to fail safely, so they stop failing in front of real customers.
+                        </p>
+
+                        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                            <motion.button
+                                onClick={handleStart}
+                                whileHover={{ scale: 1.02 }}
+                                whileTap={{ scale: 0.97 }}
+                                transition={{ type: 'spring', stiffness: 400, damping: 20 }}
+                                className="group flex items-center justify-center gap-2.5 px-7 py-3.5 text-sm font-semibold text-[#050505] bg-[#F5F5F5] hover:bg-white rounded-full transition-colors duration-200"
                             >
-                                <motion.span
-                                    className="absolute inset-0 bg-white/20"
-                                    initial={{ scale: 0, opacity: 0 }}
-                                    whileTap={{ scale: 2, opacity: [1, 0] }}
-                                    transition={{ duration: 0.6 }}
+                                Start training free
+                                <TbArrowRight
+                                    size={16}
+                                    className="group-hover:translate-x-0.5 transition-transform duration-200"
                                 />
-                                <span className="relative z-10">Start Practicing Now</span>
-                            </Button>
-                        </motion.div>
-                        <Button
-                            variant="plain"
-                            size="lg"
-                            className="border border-gray-300 dark:border-gray-600"
-                            onClick={handleBookWalkthrough}
-                        >
-                            Book a Live Walkthrough
-                        </Button>
+                            </motion.button>
+                            <motion.a
+                                href="mailto:hello@realsales.ai"
+                                whileHover={{ scale: 1.02 }}
+                                whileTap={{ scale: 0.97 }}
+                                transition={{ type: 'spring', stiffness: 400, damping: 20 }}
+                                className="flex items-center justify-center px-7 py-3.5 text-sm font-semibold text-[#9CA3AF] hover:text-[#F5F5F5] border border-white/[0.1] hover:border-white/[0.2] rounded-full transition-all duration-200"
+                            >
+                                Talk to the team
+                            </motion.a>
+                        </div>
+
+                        <p className="mt-6 text-xs text-[#4B5563]">
+                            Free plan available - no credit card needed
+                        </p>
                     </div>
                 </motion.div>
-            </Container>
+            </div>
 
-            {/* Session Setup Panel */}
             <SessionSetupPanel
                 isOpen={isSetupOpen}
                 onClose={() => setIsSetupOpen(false)}
