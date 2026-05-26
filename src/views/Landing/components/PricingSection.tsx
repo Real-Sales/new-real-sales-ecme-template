@@ -1,6 +1,8 @@
 import { motion } from 'framer-motion'
 import { TbCheck, TbArrowRight } from 'react-icons/tb'
 import { Link } from 'react-router-dom'
+import { useLandingTheme } from '../LandingThemeProvider'
+import { sectionBadge } from './landingUi'
 
 const tiers = [
     {
@@ -58,24 +60,24 @@ const tiers = [
 ]
 
 const PricingSection = () => {
+    const t = useLandingTheme()
+
     return (
         <section id="pricing" className="py-24 md:py-32">
             <div className="max-w-7xl mx-auto px-4">
-                {/* Header */}
                 <div className="text-center mb-16">
-                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/[0.08] bg-white/[0.02] mb-5">
-                        <div className="w-1.5 h-1.5 rounded-full bg-white/50" />
-                        <span className="text-xs font-medium text-[#9CA3AF] tracking-wide">Pricing</span>
-                    </div>
-                    <h2 className="text-3xl md:text-4xl font-bold text-[#F5F5F5] tracking-[-0.015em] leading-tight mb-4">
+                    {sectionBadge(t, 'Pricing')}
+                    <h2
+                        className="text-3xl md:text-4xl font-bold tracking-[-0.015em] leading-tight mb-4"
+                        style={{ color: t.text }}
+                    >
                         Straightforward pricing, no surprises
                     </h2>
-                    <p className="text-[#6B7280] max-w-md mx-auto">
+                    <p className="max-w-md mx-auto" style={{ color: t.textFaint }}>
                         Start free. Upgrade when your team is ready to scale. No annual lock-in on monthly plans.
                     </p>
                 </div>
 
-                {/* Pricing cards */}
                 <div className="grid md:grid-cols-3 gap-4 items-stretch">
                     {tiers.map((tier, i) => (
                         <motion.div
@@ -84,45 +86,63 @@ const PricingSection = () => {
                             whileInView={{ opacity: 1, y: 0 }}
                             viewport={{ once: true, margin: '-60px' }}
                             transition={{ duration: 0.6, delay: i * 0.1, ease: [0.16, 1, 0.3, 1] }}
-                            className={[
-                                'relative rounded-2xl flex flex-col transition-all duration-300',
-                                tier.highlight
-                                    ? 'border border-white/[0.2] bg-white/[0.05] shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_32px_64px_rgba(0,0,0,0.5)]'
-                                    : 'border border-white/[0.08] bg-white/[0.02] hover:border-white/[0.14] hover:bg-white/[0.04]',
-                            ].join(' ')}
+                            className="relative rounded-2xl flex flex-col transition-all duration-300"
+                            style={{
+                                border: `1px solid ${tier.highlight ? t.accent : t.border}`,
+                                backgroundColor: tier.highlight ? t.accentSubtle : t.surface,
+                                boxShadow: tier.highlight
+                                    ? `0 0 0 1px ${t.accent}22, 0 32px 64px ${t.isLight ? 'rgba(12,175,96,0.12)' : 'rgba(0,0,0,0.5)'}`
+                                    : undefined,
+                            }}
                         >
                             {tier.highlight && (
-                                <div className="absolute -top-px left-1/2 -translate-x-1/2 px-4 py-1 rounded-b-full border border-t-0 border-white/[0.15] bg-white/[0.08]">
-                                    <span className="text-[10px] font-semibold text-[#F5F5F5] whitespace-nowrap">
+                                <div
+                                    className="absolute -top-px left-1/2 -translate-x-1/2 px-4 py-1 rounded-b-full border border-t-0"
+                                    style={{
+                                        borderColor: t.accent,
+                                        backgroundColor: t.accent,
+                                    }}
+                                >
+                                    <span className="text-[10px] font-semibold whitespace-nowrap" style={{ color: t.onAccent }}>
                                         Most popular
                                     </span>
                                 </div>
                             )}
 
                             <div className="p-7 flex flex-col flex-1">
-                                {/* Tier header */}
                                 <div className="mb-6">
-                                    <p className="text-sm font-semibold text-[#9CA3AF] mb-3">{tier.name}</p>
+                                    <p className="text-sm font-semibold mb-3" style={{ color: t.textMuted }}>
+                                        {tier.name}
+                                    </p>
                                     <div className="flex items-baseline gap-1 mb-3">
-                                        <span className="text-4xl font-bold text-[#F5F5F5] tracking-tight">
+                                        <span className="text-4xl font-bold tracking-tight" style={{ color: t.text }}>
                                             {tier.price}
                                         </span>
                                         {tier.period && (
-                                            <span className="text-sm text-[#6B7280]">{tier.period}</span>
+                                            <span className="text-sm" style={{ color: t.textFaint }}>
+                                                {tier.period}
+                                            </span>
                                         )}
                                     </div>
-                                    <p className="text-sm text-[#6B7280] leading-relaxed">{tier.description}</p>
+                                    <p className="text-sm leading-relaxed" style={{ color: t.textFaint }}>
+                                        {tier.description}
+                                    </p>
                                 </div>
 
-                                {/* CTA */}
                                 <Link
                                     to={tier.ctaTo}
-                                    className={[
-                                        'group flex items-center justify-center gap-2 w-full py-3 rounded-full text-sm font-semibold mb-7 transition-all duration-200 active:scale-[0.97]',
+                                    className="group flex items-center justify-center gap-2 w-full py-3 rounded-full text-sm font-semibold mb-7 transition-all duration-200 active:scale-[0.97]"
+                                    style={
                                         tier.highlight
-                                            ? 'bg-[#F5F5F5] text-[#050505] hover:bg-white'
-                                            : 'border border-white/[0.1] text-[#9CA3AF] hover:text-[#F5F5F5] hover:border-white/[0.2] hover:bg-white/[0.04]',
-                                    ].join(' ')}
+                                            ? {
+                                                  backgroundColor: t.primaryBtnBg,
+                                                  color: t.primaryBtnText,
+                                              }
+                                            : {
+                                                  border: `1px solid ${t.border}`,
+                                                  color: t.textMuted,
+                                              }
+                                    }
                                 >
                                     {tier.cta}
                                     <TbArrowRight
@@ -131,16 +151,12 @@ const PricingSection = () => {
                                     />
                                 </Link>
 
-                                {/* Feature list */}
-                                <div className="border-t border-white/[0.06] pt-6 flex-1">
+                                <div className="pt-6 flex-1" style={{ borderTop: `1px solid ${t.border}` }}>
                                     <ul className="space-y-3">
                                         {tier.features.map((feature, j) => (
                                             <li key={j} className="flex items-start gap-3">
-                                                <TbCheck
-                                                    size={14}
-                                                    className="text-[#9CA3AF] mt-0.5 shrink-0"
-                                                />
-                                                <span className="text-sm text-[#9CA3AF] leading-snug">
+                                                <TbCheck size={14} className="mt-0.5 shrink-0" style={{ color: t.accent }} />
+                                                <span className="text-sm leading-snug" style={{ color: t.textMuted }}>
                                                     {feature}
                                                 </span>
                                             </li>
@@ -152,7 +168,7 @@ const PricingSection = () => {
                     ))}
                 </div>
 
-                <p className="text-center text-xs text-[#4B5563] mt-8">
+                <p className="text-center text-xs mt-8" style={{ color: t.textDim }}>
                     All plans include a 14-day free trial on paid tiers. No credit card required for Starter.
                 </p>
             </div>

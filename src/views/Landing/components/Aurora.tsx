@@ -18,6 +18,7 @@ uniform float uAmplitude;
 uniform vec3 uColorStops[3];
 uniform vec2 uResolution;
 uniform float uBlend;
+uniform float uLightMode;
 
 out vec4 fragColor;
 
@@ -95,17 +96,24 @@ void main() {
   vec3 rampColor;
   COLOR_RAMP(colors, uv.x, rampColor);
 
-  float height = snoise(vec2(uv.x * 2.0 + uTime * 0.1, uTime * 0.25)) * 0.5 * uAmplitude;
-  height = exp(height);
-  height = (uv.y * 2.0 - height + 0.2);
-  float intensity = 0.6 * height;
+  float noise = snoise(vec2(uv.x * 2.0 + uTime * 0.1, uTime * 0.25)) * 0.5 * uAmplitude;
+  float wave = exp(noise);
+  float height = uv.y * 2.0 - wave + 0.2;
 
-  float midPoint = 0.20;
-  float auroraAlpha = smoothstep(midPoint - uBlend * 0.5, midPoint + uBlend * 0.5, intensity);
-
-  vec3 auroraColor = intensity * rampColor;
-
-  fragColor = vec4(auroraColor * auroraAlpha, auroraAlpha);
+  if (uLightMode > 0.5) {
+    // Positive-only soft white mist — negative intensity reads as dark on light backgrounds
+    float glow = max(0.0, height);
+    glow = pow(glow, 1.8) * 0.22;
+    float auroraAlpha = smoothstep(0.02, 0.35, glow) * uBlend;
+    vec3 auroraColor = rampColor * glow;
+    fragColor = vec4(auroraColor * auroraAlpha, auroraAlpha);
+  } else {
+    float intensity = 0.6 * height;
+    float midPoint = 0.20;
+    float auroraAlpha = smoothstep(midPoint - uBlend * 0.5, midPoint + uBlend * 0.5, intensity);
+    vec3 auroraColor = intensity * rampColor;
+    fragColor = vec4(auroraColor * auroraAlpha, auroraAlpha);
+  }
 }
 `
 
@@ -113,6 +121,7 @@ interface AuroraProps {
     colorStops?: string[]
     amplitude?: number
     blend?: number
+    lightMode?: boolean
     time?: number
     speed?: number
     className?: string
@@ -123,6 +132,7 @@ export default function Aurora(props: AuroraProps) {
         colorStops = ['#7cff67', '#B497CF', '#5227FF'],
         amplitude = 1.0,
         blend = 0.5,
+        lightMode = false,
         className,
     } = props
 
@@ -180,6 +190,7 @@ export default function Aurora(props: AuroraProps) {
                 uColorStops: { value: colorStopsArray },
                 uResolution: { value: [ctn.offsetWidth, ctn.offsetHeight] },
                 uBlend: { value: blend },
+                uLightMode: { value: lightMode ? 1 : 0 },
             },
         })
 
@@ -195,6 +206,7 @@ export default function Aurora(props: AuroraProps) {
             program.uniforms.uTime.value = time * speed * 0.1
             program.uniforms.uAmplitude.value = propsRef.current.amplitude ?? 1.0
             program.uniforms.uBlend.value = propsRef.current.blend ?? blend
+            program.uniforms.uLightMode.value = (propsRef.current.lightMode ?? lightMode) ? 1 : 0
             const stops = propsRef.current.colorStops ?? colorStops
             program.uniforms.uColorStops.value = stops.map((hex: string) => {
                 const c = new Color(hex)
@@ -214,7 +226,7 @@ export default function Aurora(props: AuroraProps) {
             }
             gl.getExtension('WEBGL_lose_context')?.loseContext()
         }
-    }, [amplitude, blend, colorStops])
+    }, [amplitude, blend, colorStops, lightMode])
 
     return <div ref={ctnDom} className={`aurora-container ${className ?? ''}`.trim()} />
 }

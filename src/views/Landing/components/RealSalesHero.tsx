@@ -6,9 +6,9 @@ import { useAppSelector } from '@/store'
 import { useInView } from 'framer-motion'
 import SessionSetupPanel from '@/components/shared/SessionSetupPanel'
 import type { ConversationMode } from '@/components/shared/SessionSetupPanel'
-import type { Mode } from '@/@types/theme'
 import Aurora from './Aurora'
 import SplitText from './SplitText'
+import { useLandingTheme } from '../LandingThemeProvider'
 
 const objections = [
     '"Your competitor costs half as much."',
@@ -58,6 +58,7 @@ const StatItem = ({
     started: boolean
 }) => {
     const count = useCountUp(stat.value, 1.4, started)
+    const t = useLandingTheme()
 
     return (
         <motion.div
@@ -66,18 +67,24 @@ const StatItem = ({
             transition={{ duration: 0.6, delay: 0.6 + index * 0.1, ease: [0.16, 1, 0.3, 1] }}
             className="flex flex-col items-center text-center px-6 py-6"
         >
-            <span className="text-3xl md:text-4xl font-bold text-[#F5F5F5] tracking-[-0.02em] tabular-nums">
+            <span
+                className="text-3xl md:text-4xl font-bold tracking-[-0.02em] tabular-nums"
+                style={{ color: t.text }}
+            >
                 {stat.prefix}
                 {stat.value % 1 !== 0 ? (count as number).toFixed(1) : count.toLocaleString()}
                 {stat.suffix}
             </span>
-            <span className="mt-1.5 text-xs text-[#6B7280] font-medium">{stat.label}</span>
+            <span className="mt-1.5 text-xs font-medium" style={{ color: t.textFaint }}>
+                {stat.label}
+            </span>
         </motion.div>
     )
 }
 
-const RealSalesHero = ({ mode }: { mode: Mode }) => {
+const RealSalesHero = () => {
     const navigate = useNavigate()
+    const t = useLandingTheme()
     const [currentObjection, setCurrentObjection] = useState(0)
     const [isSetupOpen, setIsSetupOpen] = useState(false)
     const signedIn = useAppSelector((state) => state.auth.session.signedIn)
@@ -109,52 +116,57 @@ const RealSalesHero = ({ mode }: { mode: Mode }) => {
 
     return (
         <section className="relative min-h-[100dvh] flex flex-col items-center justify-center overflow-hidden pt-24 pb-0">
-            {/* Aurora WebGL background */}
             <Aurora
-                colorStops={['#ffffff', '#9CA3AF', '#0A0A0A']}
-                amplitude={1.0}
-                blend={0.5}
+                colorStops={t.auroraStops}
+                amplitude={t.isLight ? 0.5 : 1.0}
+                blend={t.isLight ? 0.55 : 0.5}
+                lightMode={t.isLight}
                 speed={1}
             />
 
-            {/* Dark radial vignette — keeps edges dark, lets center aurora glow through */}
-            <div
-                className="absolute inset-0 pointer-events-none"
-                style={{
-                    background:
-                        'radial-gradient(ellipse 90% 70% at 50% 40%, transparent 0%, rgba(5,5,5,0.18) 52%, rgba(5,5,5,0.75) 100%)',
-                }}
-            />
+            {!t.isLight && (
+                <div
+                    className="absolute inset-0 pointer-events-none"
+                    style={{ background: t.vignette }}
+                />
+            )}
 
-            {/* Star dots pattern */}
-            <div
-                style={{
-                    backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 80' width='80' height='80' fill='none'%3e%3ccircle cx='40' cy='40' r='0.8' fill='rgba(255,255,255,0.15)'/%3e%3c/svg%3e")`,
-                }}
-                className="absolute inset-0 [mask-image:radial-gradient(ellipse_at_center,_white_10%,_transparent_70%)] pointer-events-none opacity-40"
-            />
+            {!t.isLight && (
+                <div
+                    style={{
+                        backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 80' width='80' height='80' fill='none'%3e%3ccircle cx='40' cy='40' r='0.8' fill='${encodeURIComponent(t.starDot)}'/%3e%3c/svg%3e")`,
+                    }}
+                    className="absolute inset-0 [mask-image:radial-gradient(ellipse_at_center,_white_10%,_transparent_70%)] pointer-events-none opacity-40"
+                />
+            )}
 
-            {/* Content - centered */}
             <div className="relative z-10 max-w-5xl mx-auto px-4 w-full text-center flex flex-col items-center flex-1 justify-center py-16">
-                {/* Eyebrow */}
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
                 >
-                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/[0.1] bg-white/[0.04] mb-10">
-                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                        <span className="text-xs font-medium text-[#9CA3AF] tracking-wide">
+                    <div
+                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full mb-10"
+                        style={{
+                            border: `1px solid ${t.border}`,
+                            backgroundColor: t.surface,
+                        }}
+                    >
+                        <div
+                            className="w-1.5 h-1.5 rounded-full animate-pulse"
+                            style={{ backgroundColor: t.accent }}
+                        />
+                        <span className="text-xs font-medium tracking-wide" style={{ color: t.textMuted }}>
                             AI-Powered Sales Training
                         </span>
                     </div>
                 </motion.div>
 
-                {/* H1 */}
                 <h1 className="text-6xl sm:text-7xl md:text-8xl lg:text-[96px] font-bold leading-[1.02] tracking-[-0.03em] mb-8 w-full text-center">
                     <SplitText
                         text="Train Smarter"
-                        className="text-[#F5F5F5] leading-[1.02] block"
+                        className="leading-[1.02] block"
                         delay={35}
                         duration={1.25}
                         ease="power3.out"
@@ -165,10 +177,11 @@ const RealSalesHero = ({ mode }: { mode: Mode }) => {
                         rootMargin="-100px"
                         textAlign="center"
                         tag="div"
+                        style={{ color: t.text }}
                     />
                     <SplitText
                         text="Close Faster"
-                        className="text-[#F5F5F5]/40 leading-[1.02] block"
+                        className="leading-[1.02] block"
                         delay={35}
                         duration={1.25}
                         ease="power3.out"
@@ -179,20 +192,20 @@ const RealSalesHero = ({ mode }: { mode: Mode }) => {
                         rootMargin="-100px"
                         textAlign="center"
                         tag="div"
+                        style={{ color: t.isLight ? `${t.accent}99` : `${t.text}66` }}
                     />
                 </h1>
 
-                {/* Subtitle */}
                 <motion.p
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.7, delay: 0.25, ease: [0.16, 1, 0.3, 1] }}
-                    className="text-base md:text-lg text-[#9CA3AF] leading-relaxed mb-4 max-w-[520px]"
+                    className="text-base md:text-lg leading-relaxed mb-4 max-w-[520px]"
+                    style={{ color: t.textMuted }}
                 >
                     Practice high-stakes sales conversations with AI buyers that challenge, interrupt, and negotiate like real prospects.
                 </motion.p>
 
-                {/* Cycling objection */}
                 <motion.div
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
@@ -206,14 +219,14 @@ const RealSalesHero = ({ mode }: { mode: Mode }) => {
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: -14 }}
                             transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-                            className="text-sm text-[#6B7280] italic"
+                            className="text-sm italic"
+                            style={{ color: t.textFaint }}
                         >
                             {objections[currentObjection]}
                         </motion.p>
                     </AnimatePresence>
                 </motion.div>
 
-                {/* CTAs */}
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -225,7 +238,11 @@ const RealSalesHero = ({ mode }: { mode: Mode }) => {
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.97 }}
                         transition={{ type: 'spring', stiffness: 400, damping: 20 }}
-                        className="group flex items-center justify-center gap-2.5 px-7 py-3.5 text-sm font-semibold text-[#050505] bg-[#F5F5F5] hover:bg-white rounded-full transition-colors duration-200"
+                        className="group flex items-center justify-center gap-2.5 px-7 py-3.5 text-sm font-semibold rounded-full transition-colors duration-200"
+                        style={{
+                            backgroundColor: t.primaryBtnBg,
+                            color: t.primaryBtnText,
+                        }}
                     >
                         Start Training Free
                         <TbArrowRight
@@ -237,7 +254,11 @@ const RealSalesHero = ({ mode }: { mode: Mode }) => {
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.97 }}
                         transition={{ type: 'spring', stiffness: 400, damping: 20 }}
-                        className="flex items-center justify-center px-7 py-3.5 text-sm font-semibold text-[#9CA3AF] hover:text-[#F5F5F5] border border-white/[0.1] hover:border-white/[0.2] rounded-full transition-all duration-200"
+                        className="flex items-center justify-center px-7 py-3.5 text-sm font-semibold rounded-full transition-all duration-200"
+                        style={{
+                            color: t.secondaryBtnText,
+                            border: `1px solid ${t.secondaryBtnBorder}`,
+                        }}
                         onClick={() => {
                             document.querySelector('#workflow')?.scrollIntoView({ behavior: 'smooth' })
                         }}
@@ -250,21 +271,31 @@ const RealSalesHero = ({ mode }: { mode: Mode }) => {
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ duration: 0.7, delay: 0.55 }}
-                    className="mt-5 text-xs text-[#4B5563]"
+                    className="mt-5 text-xs"
+                    style={{ color: t.textDim }}
                 >
                     No credit card required · 10 free sessions monthly
                 </motion.p>
             </div>
 
-            {/* Stats strip at bottom of hero */}
             <div
                 ref={statsRef}
-                className="relative z-10 w-full border-t border-white/[0.06] bg-[#050505]/60 backdrop-blur-sm"
+                className="relative z-10 w-full border-t backdrop-blur-sm"
+                style={{
+                    borderColor: t.border,
+                    backgroundColor: t.isLight ? 'rgba(255,255,255,0.7)' : 'rgba(5,5,5,0.6)',
+                }}
             >
                 <div className="max-w-5xl mx-auto px-4">
-                    <div className="grid grid-cols-2 lg:grid-cols-4 divide-x divide-y lg:divide-y-0 divide-white/[0.06]">
+                    <div className="grid grid-cols-2 lg:grid-cols-4">
                         {stats.map((stat, i) => (
-                            <StatItem key={i} stat={stat} index={i} started={statsInView} />
+                            <div
+                                key={i}
+                                className="[&:not(:nth-child(2n))]:border-r lg:[&:not(:last-child)]:border-r [&:nth-child(-n+2)]:border-b lg:[&:nth-child(-n+2)]:border-b-0"
+                                style={{ borderColor: t.border }}
+                            >
+                                <StatItem stat={stat} index={i} started={statsInView} />
+                            </div>
                         ))}
                     </div>
                 </div>

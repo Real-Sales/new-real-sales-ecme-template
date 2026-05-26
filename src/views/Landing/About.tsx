@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import NavigationBar from './components/NavigationBar'
+import LandingNavSentinel from './components/LandingNavSentinel'
 import LandingFooter from './components/LandingFooter'
 import Container from './components/LandingContainer'
 import { Button } from '@/components/ui'
@@ -68,6 +69,7 @@ const About = () => {
 
     return (
         <main className="px-4 lg:px-0 text-base">
+            <LandingNavSentinel />
             <NavigationBar toggleMode={toggleMode} mode={mode} />
             
             {/* Hero Section */}

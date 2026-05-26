@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion'
-import type { Mode } from '@/@types/theme'
+import { useLandingTheme } from '../LandingThemeProvider'
+import { sectionBadge } from './landingUi'
 
 const testimonials = [
     {
@@ -57,50 +58,68 @@ const integrationNames = [
     'Zoom', 'Microsoft Teams', 'Slack', 'Pipedrive', 'Salesforce', 'HubSpot',
 ]
 
-const SocialProof = ({ mode }: { mode: Mode }) => {
+const SocialProof = () => {
+    const t = useLandingTheme()
+
     return (
         <section className="py-24 md:py-32">
             <div className="max-w-7xl mx-auto px-4">
-                {/* Section header */}
                 <div className="text-center mb-16">
-                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/[0.08] bg-white/[0.02] mb-5">
-                        <div className="w-1.5 h-1.5 rounded-full bg-white/50" />
-                        <span className="text-xs font-medium text-[#9CA3AF] tracking-wide">Testimonials</span>
-                    </div>
-                    <h2 className="text-3xl md:text-4xl font-bold text-[#F5F5F5] tracking-[-0.015em] leading-tight mb-4">
+                    {sectionBadge(t, 'Testimonials')}
+                    <h2
+                        className="text-3xl md:text-4xl font-bold tracking-[-0.015em] leading-tight mb-4"
+                        style={{ color: t.text }}
+                    >
                         What top sales teams say
                     </h2>
-                    <p className="text-[#6B7280] max-w-md mx-auto">
+                    <p className="max-w-md mx-auto" style={{ color: t.textFaint }}>
                         Revenue teams across industries use RealSales to train faster and close more.
                     </p>
                 </div>
 
-                {/* 3-column testimonial grid */}
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {testimonials.map((t, i) => (
+                    {testimonials.map((item, i) => (
                         <motion.div
                             key={i}
                             initial={{ opacity: 0, y: 28 }}
                             whileInView={{ opacity: 1, y: 0 }}
                             viewport={{ once: true, margin: '-40px' }}
                             transition={{ duration: 0.6, delay: (i % 3) * 0.08, ease: [0.16, 1, 0.3, 1] }}
-                            className="relative rounded-2xl border border-white/[0.08] bg-white/[0.02] hover:border-white/[0.14] hover:bg-white/[0.04] transition-all duration-300 p-6 flex flex-col"
+                            className="relative rounded-2xl p-6 flex flex-col transition-all duration-300"
+                            style={{
+                                border: `1px solid ${t.border}`,
+                                backgroundColor: t.surface,
+                            }}
                         >
-                            {/* Quote marks */}
-                            <div className="text-4xl leading-none text-white/10 font-serif mb-3 select-none">
+                            <div
+                                className="text-4xl leading-none font-serif mb-3 select-none"
+                                style={{ color: t.accentSubtle }}
+                            >
                                 &ldquo;
                             </div>
-                            <p className="text-sm text-[#D1D5DB] leading-relaxed flex-1 mb-6">
-                                {t.quote}
+                            <p className="text-sm leading-relaxed flex-1 mb-6" style={{ color: t.textSecondary }}>
+                                {item.quote}
                             </p>
-                            <div className="flex items-center gap-3 pt-4 border-t border-white/[0.06]">
-                                <div className="flex items-center justify-center w-9 h-9 rounded-full bg-white/[0.06] border border-white/[0.08] text-xs font-semibold text-[#9CA3AF] shrink-0">
-                                    {t.initials}
+                            <div
+                                className="flex items-center gap-3 pt-4"
+                                style={{ borderTop: `1px solid ${t.border}` }}
+                            >
+                                <div
+                                    className="flex items-center justify-center w-9 h-9 rounded-full text-xs font-semibold shrink-0"
+                                    style={{
+                                        backgroundColor: t.accentSubtle,
+                                        border: `1px solid ${t.border}`,
+                                        color: t.accent,
+                                    }}
+                                >
+                                    {item.initials}
                                 </div>
                                 <div>
-                                    <p className="text-xs font-semibold text-[#F5F5F5]">{t.name}</p>
-                                    <p className="text-[10px] text-[#6B7280]">
-                                        {t.role}, {t.company}
+                                    <p className="text-xs font-semibold" style={{ color: t.text }}>
+                                        {item.name}
+                                    </p>
+                                    <p className="text-[10px]" style={{ color: t.textFaint }}>
+                                        {item.role}, {item.company}
                                     </p>
                                 </div>
                             </div>
@@ -108,9 +127,8 @@ const SocialProof = ({ mode }: { mode: Mode }) => {
                     ))}
                 </div>
 
-                {/* Integrations marquee */}
-                <div className="mt-20 pt-16 border-t border-white/[0.06]">
-                    <p className="text-xs text-[#4B5563] text-center mb-8 uppercase tracking-[0.2em]">
+                <div className="mt-20 pt-16" style={{ borderTop: `1px solid ${t.border}` }}>
+                    <p className="text-xs text-center mb-8 uppercase tracking-[0.2em]" style={{ color: t.textDim }}>
                         Works with your existing stack
                     </p>
                     <div className="overflow-hidden">
@@ -123,7 +141,12 @@ const SocialProof = ({ mode }: { mode: Mode }) => {
                                 {[...integrationNames, ...integrationNames].map((name, i) => (
                                     <div
                                         key={i}
-                                        className="px-5 py-2.5 rounded-full border border-white/[0.08] bg-white/[0.02] text-sm text-[#6B7280] font-medium whitespace-nowrap shrink-0"
+                                        className="px-5 py-2.5 rounded-full text-sm font-medium whitespace-nowrap shrink-0"
+                                        style={{
+                                            border: `1px solid ${t.border}`,
+                                            backgroundColor: t.surface,
+                                            color: t.textFaint,
+                                        }}
                                     >
                                         {name}
                                     </div>

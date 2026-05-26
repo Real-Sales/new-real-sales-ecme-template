@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { TbPlus, TbMinus } from 'react-icons/tb'
+import { useLandingTheme } from '../LandingThemeProvider'
+import { sectionBadge } from './landingUi'
 
 const faqs = [
     {
@@ -47,6 +49,7 @@ const faqs = [
 
 const FAQItem = ({ faq, index }: { faq: (typeof faqs)[0]; index: number }) => {
     const [open, setOpen] = useState(false)
+    const t = useLandingTheme()
 
     return (
         <motion.div
@@ -61,18 +64,19 @@ const FAQItem = ({ faq, index }: { faq: (typeof faqs)[0]; index: number }) => {
                 aria-expanded={open}
             >
                 <span
-                    className={[
-                        'text-sm font-medium leading-snug transition-colors duration-200',
-                        open ? 'text-[#F5F5F5]' : 'text-[#9CA3AF] group-hover:text-[#F5F5F5]',
-                    ].join(' ')}
+                    className="text-sm font-medium leading-snug transition-colors duration-200"
+                    style={{ color: open ? t.text : t.textMuted }}
                 >
                     {faq.question}
                 </span>
-                <div className="flex items-center justify-center w-6 h-6 rounded-full border border-white/[0.1] shrink-0 transition-all duration-200 group-hover:border-white/[0.2]">
+                <div
+                    className="flex items-center justify-center w-6 h-6 rounded-full shrink-0 transition-all duration-200"
+                    style={{ border: `1px solid ${open ? t.accent : t.border}` }}
+                >
                     {open ? (
-                        <TbMinus size={12} className="text-[#9CA3AF]" />
+                        <TbMinus size={12} style={{ color: t.accent }} />
                     ) : (
-                        <TbPlus size={12} className="text-[#6B7280]" />
+                        <TbPlus size={12} style={{ color: t.textFaint }} />
                     )}
                 </div>
             </button>
@@ -86,46 +90,47 @@ const FAQItem = ({ faq, index }: { faq: (typeof faqs)[0]; index: number }) => {
                         transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
                         className="overflow-hidden"
                     >
-                        <p className="text-sm text-[#6B7280] leading-relaxed pb-5 max-w-2xl">
+                        <p className="text-sm leading-relaxed pb-5 max-w-2xl" style={{ color: t.textFaint }}>
                             {faq.answer}
                         </p>
                     </motion.div>
                 )}
             </AnimatePresence>
 
-            <div className="h-px bg-white/[0.06]" />
+            <div className="h-px" style={{ backgroundColor: t.border }} />
         </motion.div>
     )
 }
 
 const FAQSection = () => {
+    const t = useLandingTheme()
+
     return (
         <section id="faq" className="py-24 md:py-32">
             <div className="max-w-7xl mx-auto px-4">
                 <div className="grid lg:grid-cols-[320px_1fr] gap-16 xl:gap-24">
-                    {/* Left - sticky header */}
                     <div className="lg:sticky lg:top-28 h-fit">
-                        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/[0.08] bg-white/[0.02] mb-5">
-                            <div className="w-1.5 h-1.5 rounded-full bg-white/50" />
-                            <span className="text-xs font-medium text-[#9CA3AF] tracking-wide">FAQ</span>
-                        </div>
-                        <h2 className="text-3xl font-bold text-[#F5F5F5] tracking-[-0.015em] leading-tight mb-4">
+                        {sectionBadge(t, 'FAQ')}
+                        <h2
+                            className="text-3xl font-bold tracking-[-0.015em] leading-tight mb-4"
+                            style={{ color: t.text }}
+                        >
                             Questions we hear a lot
                         </h2>
-                        <p className="text-sm text-[#6B7280] leading-relaxed">
+                        <p className="text-sm leading-relaxed">
                             Still have questions? Email us at{' '}
                             <a
                                 href="mailto:hello@realsales.ai"
-                                className="text-[#9CA3AF] hover:text-[#F5F5F5] transition-colors underline underline-offset-2"
+                                className="transition-colors underline underline-offset-2"
+                                style={{ color: t.accent }}
                             >
                                 hello@realsales.ai
                             </a>
                         </p>
                     </div>
 
-                    {/* Right - accordion */}
                     <div>
-                        <div className="h-px bg-white/[0.06] mb-0" />
+                        <div className="h-px mb-0" style={{ backgroundColor: t.border }} />
                         {faqs.map((faq, i) => (
                             <FAQItem key={i} faq={faq} index={i} />
                         ))}

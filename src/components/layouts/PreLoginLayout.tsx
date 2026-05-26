@@ -9,9 +9,17 @@ const PreLoginLayout = ({ children }: CommonProps) => {
     const { pathname } = location
 
     const isAuthPath = authRoute.some((route) => route.path === pathname)
+    const isMarketingPage =
+        pathname === '/landing' || pathname === '/about' || pathname === '/faqs'
 
     return (
-        <div className="flex flex-auto flex-col h-[100vh]">
+        <div
+            className={
+                isMarketingPage
+                    ? 'flex flex-auto flex-col min-h-screen'
+                    : 'flex flex-auto flex-col h-[100vh]'
+            }
+        >
             {isAuthPath ? <AuthLayout>{children}</AuthLayout> : children}
         </div>
     )

@@ -22,6 +22,7 @@ interface SplitTextProps {
     rootMargin?: string
     textAlign?: CSSProperties['textAlign']
     tag?: ElementType
+    style?: CSSProperties
     onLetterAnimationComplete?: () => void
 }
 
@@ -48,6 +49,7 @@ const SplitText = ({
     rootMargin = '-100px',
     textAlign = 'center',
     tag = 'p',
+    style: styleProp,
     onLetterAnimationComplete,
 }: SplitTextProps) => {
     const ref = useRef<SplitHostElement | null>(null)
@@ -181,6 +183,7 @@ const SplitText = ({
         whiteSpace: 'normal',
         wordWrap: 'break-word',
         willChange: 'transform, opacity',
+        ...styleProp,
     }
 
     const Tag = tag
