@@ -274,10 +274,6 @@ void mainImage(out vec4 fc,in vec2 frag){
     // on light themes). With uBgColor=black this is equivalent to the original tone*uColor.
     vec3 col=mix(uBgColor, uColor, toneClamped) + dith;
     float alpha=clamp(g(L+w*0.6)+dith*0.6,0.0,1.0);
-    // Halo regions need enough alpha for the bg-tinted color to override the
-    // canvas's transparent-black clear underneath. Lift alpha by the tone value
-    // (matches the color's strength) so painted-bg pixels actually paint.
-    alpha=max(alpha, toneClamped);
     float nxE=abs((frag.x-C.x)*invW),xF=pow(clamp(1.0-smoothstep(EDGE_X0,EDGE_X1,nxE),0.0,1.0),EDGE_X_GAMMA);
     float scene=LF+max(0.0,w)*0.5,hi=smoothstep(EDGE_LUMA_T0,EDGE_LUMA_T1,scene);
     float eM=mix(xF,1.0,hi);

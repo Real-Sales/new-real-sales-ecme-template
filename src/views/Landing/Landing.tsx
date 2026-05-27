@@ -30,7 +30,7 @@ const LandingContent = ({ mode, toggleMode }: LandingContentProps) => {
 
     return (
         <main
-            className="overflow-x-hidden w-full min-h-screen transition-colors duration-300"
+            className="overflow-x-clip w-full min-h-screen transition-colors duration-300"
             style={{
                 backgroundColor: t.bg,
                 color: t.text,
@@ -41,11 +41,6 @@ const LandingContent = ({ mode, toggleMode }: LandingContentProps) => {
             <LandingNavSentinel />
             <NavigationBar mode={mode} toggleMode={toggleMode} />
             <RealSalesHero />
-            {/* Reserve space for the hero's absolutely positioned demo video card */}
-            <div
-                className="mx-auto w-[94vw] max-w-[1700px] aspect-video mb-12 sm:mb-16"
-                aria-hidden
-            />
             <FeatureGrid />
             <VideoSection />
             <DashboardSection />

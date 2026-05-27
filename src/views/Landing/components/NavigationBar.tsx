@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { TbMenu2, TbX } from 'react-icons/tb'
@@ -21,8 +21,6 @@ const navLinks = [
     { label: 'FAQ', href: '#faq' },
 ]
 
-const SENTINEL_ID = 'landing-nav-sentinel'
-
 function getScrollTop() {
     return (
         window.scrollY ||
@@ -35,38 +33,48 @@ function getScrollTop() {
 const Navigation = ({ mode, toggleMode }: NavigationProps) => {
     const [menuOpen, setMenuOpen] = useState(false)
     const [isSticky, setIsSticky] = useState(false)
+    const [isHidden, setIsHidden] = useState(false)
+    const lastScrollY = useRef(0)
     const t = useLandingTheme()
     const isDark = mode === MODE_DARK
     const handleModeChange = () => toggleMode?.()
 
     useEffect(() => {
-        const sentinel = document.getElementById(SENTINEL_ID)
-        if (!sentinel) return
+        lastScrollY.current = getScrollTop()
 
         const updateFromScroll = () => {
             if (menuOpen) return
+
             const scrollY = getScrollTop()
-            setIsSticky(scrollY > 48)
+            const pastTop = scrollY > 48
+            const delta = scrollY - lastScrollY.current
+
+            setIsSticky(pastTop)
+
+            if (scrollY <= 48) {
+                setIsHidden(false)
+            } else if (delta > 4) {
+                setIsHidden(true)
+            } else if (delta < -4) {
+                setIsHidden(false)
+            }
+
+            lastScrollY.current = scrollY
         }
 
-        const observer = new IntersectionObserver(
-            ([entry]) => {
-                if (menuOpen) return
-                setIsSticky(!entry.isIntersecting)
-            },
-            { threshold: 0, root: null, rootMargin: '0px 0px 0px 0px' },
-        )
-
-        observer.observe(sentinel)
         updateFromScroll()
-
         window.addEventListener('scroll', updateFromScroll, { passive: true })
         document.addEventListener('scroll', updateFromScroll, { passive: true })
 
         return () => {
-            observer.disconnect()
             window.removeEventListener('scroll', updateFromScroll)
             document.removeEventListener('scroll', updateFromScroll)
+        }
+    }, [menuOpen])
+
+    useEffect(() => {
+        if (menuOpen) {
+            setIsHidden(false)
         }
     }, [menuOpen])
 
@@ -85,20 +93,31 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
 
     return (
         <>
-            <div
+            <motion.div
                 className={classNames(
-                    'fixed inset-x-0 top-0 z-50 px-4 lg:px-8 xl:px-12',
-                    'transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]',
+                    'fixed inset-x-0 top-0 z-50 flex justify-center',
                     isSticky ? 'pt-4' : 'pt-6',
                 )}
+                initial={false}
+                animate={{
+                    y: isHidden && !menuOpen ? '-120%' : 0,
+                    opacity: isHidden && !menuOpen ? 0 : 1,
+                }}
+                transition={{
+                    duration: 0.45,
+                    ease: [0.22, 1, 0.36, 1],
+                }}
+                style={{
+                    pointerEvents: isHidden && !menuOpen ? 'none' : 'auto',
+                }}
             >
                 <motion.nav
                     initial={{ opacity: 0, y: -20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
                     className={classNames(
-                        'relative flex items-center w-full max-w-7xl mx-auto px-4 py-2.5 rounded-full',
-                        'border transition-all duration-500',
+                        'flex items-center justify-between gap-8 px-4 py-2.5 rounded-full',
+                        'border transition-all duration-500 mx-4 w-full max-w-4xl',
                     )}
                     style={{
                         backgroundColor: isSticky ? t.navStickyBg : 'transparent',
@@ -121,7 +140,7 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
                         />
                     </a>
 
-                    <div className="hidden lg:flex items-center gap-1 absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+                    <div className="hidden lg:flex items-center gap-1">
                         {navLinks.map((link) => (
                             <button
                                 key={link.label}
@@ -145,7 +164,7 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
                         ))}
                     </div>
 
-                    <div className="hidden lg:flex items-center gap-2 ml-auto shrink-0">
+                    <div className="hidden lg:flex items-center gap-2">
                         {toggleMode && (
                             <AnimatedThemeToggler
                                 isDark={isDark}
@@ -188,7 +207,7 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
                     </div>
 
                     <button
-                        className="lg:hidden flex items-center justify-center w-9 h-9 rounded-full transition-all duration-200 ml-auto shrink-0"
+                        className="lg:hidden flex items-center justify-center w-9 h-9 rounded-full transition-all duration-200"
                         style={{
                             border: `1px solid ${t.border}`,
                             color: t.textMuted,
@@ -199,7 +218,7 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
                         <TbMenu2 size={18} />
                     </button>
                 </motion.nav>
-            </div>
+            </motion.div>
 
             <AnimatePresence>
                 {menuOpen && (
