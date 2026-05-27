@@ -174,7 +174,9 @@ const RealSalesHero = () => {
         >
             {/* Laser canvas extends above & below the hero (in % of hero height, not vh)
                 so the flare endpoint always lands exactly at the hero's bottom edge — i.e.
-                right at the top of the demo video card — on any screen size. */}
+                right at the top of the demo video card — on any screen size.
+                `backgroundColor` tells the shader what to fade the halo into, so the laser
+                reads cleanly on both dark and light themes (no soot artifacts). */}
             <motion.div
                 initial="hidden"
                 animate="visible"
@@ -185,6 +187,7 @@ const RealSalesHero = () => {
                     horizontalBeamOffset={0.22}
                     verticalBeamOffset={-0.25}
                     color={t.accent}
+                    backgroundColor={t.bg}
                     horizontalSizing={0.7}
                     verticalSizing={2}
                     wispDensity={1}

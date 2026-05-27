@@ -22,6 +22,10 @@ type Props = {
     falloffStart?: number
     fogFallSpeed?: number
     color?: string
+    /** Background color to blend the laser halo toward. Defaults to black, which is
+     * mathematically equivalent to the original `tone * uColor` formula. Pass the page
+     * background here so the halo fades cleanly into light themes (no dark soot). */
+    backgroundColor?: string
 }
 
 type LaserFlowUniforms = {
@@ -46,6 +50,7 @@ type LaserFlowUniforms = {
     uFalloffStart: { value: number }
     uFogFallSpeed: { value: number }
     uColor: { value: THREE.Vector3 }
+    uBgColor: { value: THREE.Vector3 }
     uFade: { value: number }
 }
 
@@ -85,6 +90,7 @@ uniform float uDecay;
 uniform float uFalloffStart;
 uniform float uFogFallSpeed;
 uniform vec3 uColor;
+uniform vec3 uBgColor;
 uniform float uFade;
 
 #define PI 3.14159265359
@@ -263,8 +269,15 @@ void mainImage(out vec4 fc,in vec2 frag){
     float LF=L+fog;
     float dith=(h21(frag)-0.5)*(DITHER_STRENGTH/255.0);
     float tone=g(LF+w);
-    vec3 col=tone*uColor+dith;
+    float toneClamped=clamp(tone,0.0,1.0);
+    // Mix from page background toward the laser color so the halo fades to bg (no soot
+    // on light themes). With uBgColor=black this is equivalent to the original tone*uColor.
+    vec3 col=mix(uBgColor, uColor, toneClamped) + dith;
     float alpha=clamp(g(L+w*0.6)+dith*0.6,0.0,1.0);
+    // Halo regions need enough alpha for the bg-tinted color to override the
+    // canvas's transparent-black clear underneath. Lift alpha by the tone value
+    // (matches the color's strength) so painted-bg pixels actually paint.
+    alpha=max(alpha, toneClamped);
     float nxE=abs((frag.x-C.x)*invW),xF=pow(clamp(1.0-smoothstep(EDGE_X0,EDGE_X1,nxE),0.0,1.0),EDGE_X_GAMMA);
     float scene=LF+max(0.0,w)*0.5,hi=smoothstep(EDGE_LUMA_T0,EDGE_LUMA_T1,scene);
     float eM=mix(xF,1.0,hi);
@@ -313,6 +326,7 @@ export const LaserFlow: FC<Props> = ({
     falloffStart = 1.2,
     fogFallSpeed = 0.6,
     color = '#FF79C6',
+    backgroundColor = '#000000',
 }) => {
     const mountRef = useRef<HTMLDivElement | null>(null)
     const rendererRef = useRef<THREE.WebGLRenderer | null>(null)
@@ -356,6 +370,8 @@ export const LaserFlow: FC<Props> = ({
         renderer.setPixelRatio(currentDprRef.current)
         renderer.shadowMap.enabled = false
         renderer.outputColorSpace = THREE.SRGBColorSpace
+        // Clear to transparent — the shader handles mixing toward `uBgColor` itself,
+        // so the canvas can sit cleanly over any page background.
         renderer.setClearColor(0x000000, 0)
         const canvas = renderer.domElement
         canvas.style.width = '100%'
@@ -394,6 +410,7 @@ export const LaserFlow: FC<Props> = ({
             uFalloffStart: { value: falloffStart },
             uFogFallSpeed: { value: fogFallSpeed },
             uColor: { value: new THREE.Vector3(1, 1, 1) },
+            uBgColor: { value: new THREE.Vector3(0, 0, 0) },
             uFade: { value: 1 },
         }
         uniformsRef.current = uniforms
@@ -614,6 +631,9 @@ export const LaserFlow: FC<Props> = ({
 
         const { r, g, b } = hexToRGB(color || '#FFFFFF')
         uniforms.uColor.value.set(r, g, b)
+
+        const bg = hexToRGB(backgroundColor || '#000000')
+        uniforms.uBgColor.value.set(bg.r, bg.g, bg.b)
     }, [
         wispDensity,
         mouseTiltStrength,
@@ -631,6 +651,7 @@ export const LaserFlow: FC<Props> = ({
         falloffStart,
         fogFallSpeed,
         color,
+        backgroundColor,
     ])
 
     return (
