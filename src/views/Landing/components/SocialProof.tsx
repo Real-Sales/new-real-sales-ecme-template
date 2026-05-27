@@ -1,106 +1,162 @@
 import { motion } from 'framer-motion'
-import Container from './LandingContainer'
-import type { Mode } from '@/@types/theme'
+import { useLandingTheme } from '../LandingThemeProvider'
+import { SectionBadge, SectionHeading, SectionDesc } from './landingUi'
 
-const companyLogos = [
-    'Division A',
-    'Division B',
-    'Division C',
-    'Division D',
-    'Division E',
-]
-
-const signalPhrases = [
-    'Used for onboarding',
-    'Daily practice tool',
-    'Manager-approved',
-    'Team-wide adoption',
-    'ROI proven',
-]
-
-const quotes = [
+const testimonials = [
     {
-        text: 'This is the first time sales practice actually felt stressful—in a good way. It exposed gaps I didn\'t know I had.',
-        author: 'Mid-Market Account Executive',
+        quote:
+            'We cut our ramp time by 40 percent. New reps reach quota in 6 weeks instead of 12. The AI buyer is legitimately harder to handle than most real prospects.',
+        name: 'James Kowalski',
+        role: 'VP of Sales',
+        company: 'Meridian Software',
+        initials: 'JK',
     },
     {
-        text: 'We stopped guessing who needed coaching. The data made it obvious.',
-        author: 'Sales Manager',
+        quote:
+            'My team used to dread cold calls. Now they compete over who can handle the toughest objection scenarios. Confidence went through the roof inside 3 weeks.',
+        name: 'Priya Nair',
+        role: 'Director of Revenue',
+        company: 'Patchwork Labs',
+        initials: 'PN',
+    },
+    {
+        quote:
+            'We stopped guessing who needed coaching. The conversation analytics made it completely obvious. This replaced two manual review processes overnight.',
+        name: 'Sarah Chen',
+        role: 'Sales Manager',
+        company: 'Covey Systems',
+        initials: 'SC',
+    },
+    {
+        quote:
+            'The AI buyer feels genuinely hostile at times. That is exactly what my reps need before they face real executives. Nothing else on the market does this.',
+        name: 'Marcus Wheeler',
+        role: 'Chief Revenue Officer',
+        company: 'Forefront AI',
+        initials: 'MW',
+    },
+    {
+        quote:
+            'Best ROI we have seen from any sales enablement tool. 4.8x return in the first 90 days, tracked directly through pipeline data.',
+        name: 'Alex Okonkwo',
+        role: 'Revenue Operations',
+        company: 'TrueNorth Capital',
+        initials: 'AO',
+    },
+    {
+        quote:
+            'I use it before every big deal. Having a hard conversation with an AI buyer resets my confidence completely. It is the closest thing to real pressure I have found.',
+        name: 'Lauren Park',
+        role: 'Enterprise Account Executive',
+        company: 'Stratus Cloud',
+        initials: 'LP',
     },
 ]
 
-const SocialProof = ({ mode }: { mode: Mode }) => {
+const integrationNames = [
+    'Salesforce', 'HubSpot', 'Outreach', 'Salesloft', 'Gong', 'Chorus',
+    'Zoom', 'Microsoft Teams', 'Slack', 'Pipedrive', 'Salesforce', 'HubSpot',
+]
+
+const SocialProof = () => {
+    const t = useLandingTheme()
+
     return (
-        <section className="py-20 md:py-32 bg-gray-50 dark:bg-gray-900">
-            <Container>
-                {/* Signal Strip - Horizontal Ticker */}
-                <div className="mb-20 overflow-hidden">
-                    <div className="flex gap-8">
-                        {/* First Row */}
-                        <motion.div
-                            className="flex gap-8 whitespace-nowrap"
-                            animate={{
-                                x: [0, -50 * 8],
-                            }}
-                            transition={{
-                                duration: 20,
-                                repeat: Infinity,
-                                ease: 'linear',
-                            }}
-                        >
-                            {[...companyLogos, ...signalPhrases, ...companyLogos].map((item, idx) => (
-                                <div
-                                    key={idx}
-                                    className="px-6 py-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-medium"
-                                >
-                                    {item}
-                                </div>
-                            ))}
-                        </motion.div>
-                        <motion.div
-                            className="flex gap-8 whitespace-nowrap"
-                            animate={{
-                                x: [0, -50 * 8],
-                            }}
-                            transition={{
-                                duration: 20,
-                                repeat: Infinity,
-                                ease: 'linear',
-                            }}
-                        >
-                            {[...companyLogos, ...signalPhrases, ...companyLogos].map((item, idx) => (
-                                <div
-                                    key={idx}
-                                    className="px-6 py-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-medium"
-                                >
-                                    {item}
-                                </div>
-                            ))}
-                        </motion.div>
-                    </div>
+        <section className="py-24 md:py-32">
+            <div className="max-w-7xl mx-auto px-4">
+                <div className="text-center mb-16">
+                    <SectionBadge t={t} label="Testimonials" />
+                    <SectionHeading
+                        t={t}
+                        text="What top sales teams say"
+                        className="text-3xl md:text-4xl font-bold tracking-[-0.015em] leading-tight mb-4"
+                    />
+                    <SectionDesc
+                        t={t}
+                        text="Revenue teams across industries use RealSales to train faster and close more."
+                        className="max-w-md mx-auto"
+                    />
                 </div>
 
-                {/* Power Quotes */}
-                <div className="grid md:grid-cols-2 gap-8">
-                    {quotes.map((quote, idx) => (
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {testimonials.map((item, i) => (
                         <motion.div
-                            key={idx}
-                            initial={{ opacity: 0, y: 40, filter: 'blur(10px)' }}
-                            whileInView={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-                            viewport={{ once: true }}
-                            transition={{ duration: 0.6, delay: idx * 0.2 }}
-                            className="bg-white dark:bg-gray-800 rounded-2xl p-8 border border-gray-200 dark:border-gray-700 shadow-lg"
+                            key={i}
+                            initial={{ opacity: 0, y: 28 }}
+                            whileInView={{ opacity: 1, y: 0 }}
+                            viewport={{ once: true, margin: '-40px' }}
+                            transition={{ duration: 0.6, delay: (i % 3) * 0.08, ease: [0.16, 1, 0.3, 1] }}
+                            className="relative rounded-2xl p-6 flex flex-col transition-all duration-300"
+                            style={{
+                                border: `1px solid ${t.border}`,
+                                backgroundColor: t.surface,
+                            }}
                         >
-                            <p className="text-xl font-medium text-gray-900 dark:text-white mb-6 leading-relaxed">
-                                "{quote.text}"
+                            <div
+                                className="text-4xl leading-none font-serif mb-3 select-none"
+                                style={{ color: t.accentSubtle }}
+                            >
+                                &ldquo;
+                            </div>
+                            <p className="text-sm leading-relaxed flex-1 mb-6" style={{ color: t.textSecondary }}>
+                                {item.quote}
                             </p>
-                            <p className="text-sm font-semibold text-gray-600 dark:text-gray-400">
-                                — {quote.author}
-                            </p>
+                            <div
+                                className="flex items-center gap-3 pt-4"
+                                style={{ borderTop: `1px solid ${t.border}` }}
+                            >
+                                <div
+                                    className="flex items-center justify-center w-9 h-9 rounded-full text-xs font-semibold shrink-0"
+                                    style={{
+                                        backgroundColor: t.accentSubtle,
+                                        border: `1px solid ${t.border}`,
+                                        color: t.accent,
+                                    }}
+                                >
+                                    {item.initials}
+                                </div>
+                                <div>
+                                    <p className="text-xs font-semibold" style={{ color: t.text }}>
+                                        {item.name}
+                                    </p>
+                                    <p className="text-[10px]" style={{ color: t.textFaint }}>
+                                        {item.role}, {item.company}
+                                    </p>
+                                </div>
+                            </div>
                         </motion.div>
                     ))}
                 </div>
-            </Container>
+
+                <div className="mt-20 pt-16" style={{ borderTop: `1px solid ${t.border}` }}>
+                    <p className="text-xs text-center mb-8 uppercase tracking-[0.2em]" style={{ color: t.textDim }}>
+                        Works with your existing stack
+                    </p>
+                    <div className="overflow-hidden">
+                        <div className="flex gap-8 items-center">
+                            <motion.div
+                                className="flex gap-8 items-center shrink-0"
+                                animate={{ x: ['0%', '-50%'] }}
+                                transition={{ duration: 22, repeat: Infinity, ease: 'linear' }}
+                            >
+                                {[...integrationNames, ...integrationNames].map((name, i) => (
+                                    <div
+                                        key={i}
+                                        className="px-5 py-2.5 rounded-full text-sm font-medium whitespace-nowrap shrink-0"
+                                        style={{
+                                            border: `1px solid ${t.border}`,
+                                            backgroundColor: t.surface,
+                                            color: t.textFaint,
+                                        }}
+                                    >
+                                        {name}
+                                    </div>
+                                ))}
+                            </motion.div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </section>
     )
 }

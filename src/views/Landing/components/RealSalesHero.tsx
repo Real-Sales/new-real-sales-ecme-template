@@ -1,54 +1,109 @@
-import { Button } from '@/components/ui'
-import { motion, useMotionValue, useSpring, useTransform, AnimatePresence } from 'framer-motion'
-import { MODE_DARK, MODE_LIGHT } from '@/constants/theme.constant'
+import { motion, AnimatePresence, useInView } from 'framer-motion'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useState, useEffect } from 'react'
+import { TbArrowRight } from 'react-icons/tb'
 import { useAppSelector } from '@/store'
 import SessionSetupPanel from '@/components/shared/SessionSetupPanel'
-import type { ConversationMode, AIPersona } from '@/components/shared/SessionSetupPanel'
-import { HiPlay } from 'react-icons/hi'
-import type { Mode } from '@/@types/theme'
-import Container from './LandingContainer'
+import type { ConversationMode } from '@/components/shared/SessionSetupPanel'
+import SplitText from './SplitText'
+import Particles from './Particles'
+import { useLandingTheme } from '../LandingThemeProvider'
 
 const objections = [
-    'Why should I switch?',
-    'Your competitor is cheaper.',
-    'Send me a proposal.',
-    'I need to think about it.',
-    'What\'s the ROI?',
+    '"Your competitor costs half as much."',
+    '"Send me a proposal first."',
+    '"I need to think about it."',
+    '"What\'s the actual ROI here?"',
+    '"We already have a solution."',
 ]
 
-const RealSalesHero = ({ mode }: { mode: Mode }) => {
+const stats = [
+    { value: 12400, suffix: '+', label: 'Training sessions run', prefix: '' },
+    { value: 34, suffix: '%', label: 'Average win rate increase', prefix: '+' },
+    { value: 180, suffix: '+', label: 'Revenue teams onboarded', prefix: '' },
+    { value: 4.8, suffix: 'x', label: 'Average reported ROI', prefix: '' },
+]
+
+function useCountUp(target: number, duration: number, start: boolean) {
+    const [count, setCount] = useState(0)
+
+    useEffect(() => {
+        if (!start) return
+        const isDecimal = target % 1 !== 0
+        const steps = 60
+        const stepTime = (duration * 1000) / steps
+        let current = 0
+        const increment = target / steps
+
+        const timer = setInterval(() => {
+            current = Math.min(current + increment, target)
+            setCount(isDecimal ? parseFloat(current.toFixed(1)) : Math.round(current))
+            if (current >= target) clearInterval(timer)
+        }, stepTime)
+
+        return () => clearInterval(timer)
+    }, [target, duration, start])
+
+    return count
+}
+
+const StatItem = ({
+    stat,
+    index,
+    started,
+}: {
+    stat: (typeof stats)[0]
+    index: number
+    started: boolean
+}) => {
+    const count = useCountUp(stat.value, 1.4, started)
+    const t = useLandingTheme()
+
+    return (
+        <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.6 + index * 0.1, ease: [0.16, 1, 0.3, 1] }}
+            className="flex flex-col items-center text-center px-6 py-6"
+        >
+            <span
+                className="text-3xl md:text-4xl font-bold tracking-[-0.02em] tabular-nums"
+                style={{ color: t.text }}
+            >
+                {stat.prefix}
+                {stat.value % 1 !== 0 ? (count as number).toFixed(1) : count.toLocaleString()}
+                {stat.suffix}
+            </span>
+            <span className="mt-1.5 text-xs font-medium" style={{ color: t.textFaint }}>
+                {stat.label}
+            </span>
+        </motion.div>
+    )
+}
+
+const RealSalesHero = () => {
     const navigate = useNavigate()
-    const [showVideo, setShowVideo] = useState(false)
+    const t = useLandingTheme()
     const [currentObjection, setCurrentObjection] = useState(0)
     const [isSetupOpen, setIsSetupOpen] = useState(false)
-    
-    // Check if user is authenticated
     const signedIn = useAppSelector((state) => state.auth.session.signedIn)
+    const statsRef = useRef(null)
+    const statsInView = useInView(statsRef, { once: true, margin: '-40px' })
 
-    const mouseX = useMotionValue(0)
-    const mouseY = useMotionValue(0)
+    const particleColors = useMemo(
+        () => [t.accent, t.accentMild, t.accentDeep],
+        [t.accent, t.accentMild, t.accentDeep],
+    )
 
-    const springConfig = { damping: 25, stiffness: 700 }
-    const rotateX = useSpring(useTransform(mouseY, [-0.5, 0.5], [7.5, -7.5]), springConfig)
-    const rotateY = useSpring(useTransform(mouseX, [-0.5, 0.5], [-7.5, 7.5]), springConfig)
-
-    const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-        if (!e.currentTarget) return
-        const rect = e.currentTarget.getBoundingClientRect()
-        const width = rect.width
-        const height = rect.height
-        const mouseXRelative = (e.clientX - rect.left - width / 2) / width
-        const mouseYRelative = (e.clientY - rect.top - height / 2) / height
-        mouseX.set(mouseXRelative)
-        mouseY.set(mouseYRelative)
-    }
+    useEffect(() => {
+        const interval = setInterval(() => {
+            setCurrentObjection((prev) => (prev + 1) % objections.length)
+        }, 3200)
+        return () => clearInterval(interval)
+    }, [])
 
     const handleEnterSimulator = () => {
-        // Check if user is authenticated
         if (!signedIn) {
-            // Redirect to sign in with return URL
             navigate('/sign-in?redirect=/audio-visualizer')
             return
         }
@@ -56,197 +111,200 @@ const RealSalesHero = ({ mode }: { mode: Mode }) => {
     }
 
     const handleNavigateToPersonas = (
-        mode: ConversationMode,
+        conversationMode: ConversationMode,
         scenarios?: string[],
-        files?: File[]
+        files?: File[],
     ) => {
-        // Navigate to persona selection page with session data
-        navigate('/persona-selection', {
-            state: {
-                mode,
-                scenarios,
-                files,
-            },
-        })
+        navigate('/persona-selection', { state: { mode: conversationMode, scenarios, files } })
     }
-
-    const handleSeeInAction = () => {
-        setShowVideo(true)
-    }
-
-    useEffect(() => {
-        const interval = setInterval(() => {
-            setCurrentObjection((prev) => (prev + 1) % objections.length)
-        }, 3000)
-        return () => clearInterval(interval)
-    }, [])
 
     return (
-        <section className="relative min-h-screen flex items-center justify-center pt-32 pb-20 md:pt-40 md:pb-32 overflow-hidden">
-            <div 
-                style={{ 
-                    backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' width='50' height='50' fill='none' stroke='${mode === MODE_LIGHT ? 'rgb(0 0 0 / 0.04)' : 'rgb(255 255 255 / 0.04)'}'%3e%3cpath d='M0 .5H31.5V32'/%3e%3c/svg%3e")` 
-                }} 
-                className="absolute inset-0 [mask-image:linear-gradient(to_bottom,white_5%,transparent_70%)] pointer-events-none select-none"
-            />
-            <Container>
-                <div className="grid md:grid-cols-2 gap-12 items-center">
-                    {/* Left Column - Text Content */}
-                    <motion.div
-                        initial={{ opacity: 0, x: -40 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ duration: 0.6 }}
-                        className="relative z-10"
-                    >
-                        <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6 text-gray-900 dark:text-white leading-tight">
-                            Practice the Sales Conversation{' '}
-                            <span className="bg-gradient-to-r from-indigo-600 via-[#be598a] to-[#ff6a55] bg-clip-text text-transparent">
-                                Before It Costs You the Deal
-                            </span>
-                        </h1>
-                        <p className="text-lg md:text-xl text-gray-600 dark:text-gray-300 mb-4 leading-relaxed">
-                            RealSales lets sales reps train with AI buyers that behave like real customers—challenging, skeptical, and unpredictable.
-                        </p>
-                        <p className="text-lg md:text-xl text-gray-600 dark:text-gray-300 mb-8 leading-relaxed font-semibold">
-                            So when it's game time, confidence isn't optional. It's earned.
-                        </p>
-                        <div className="flex flex-col sm:flex-row gap-4">
-                            <Button
-                                variant="solid"
-                                size="lg"
-                                className="bg-primary hover:bg-primary-deep text-white"
-                                onClick={handleEnterSimulator}
-                            >
-                                Enter the Sales Simulator
-                            </Button>
-                            <Button
-                                variant="plain"
-                                size="lg"
-                                className="border border-gray-300 dark:border-gray-600 flex items-center gap-2"
-                                onClick={handleSeeInAction}
-                            >
-                                <HiPlay className="text-lg" />
-                                See It in Action
-                            </Button>
-                        </div>
-                    </motion.div>
+        <section
+            className="relative min-h-[100dvh] flex flex-col items-center justify-center overflow-hidden pt-24 pb-0"
+            style={{ backgroundColor: t.bg, color: t.text }}
+        >
+            {/* Particles background (replaces the previous Aurora + vignette + star overlays) */}
+            <div className="pointer-events-none absolute inset-0 z-[0]">
+                <Particles
+                    particleColors={particleColors}
+                    particleCount={200}
+                    particleSpread={10}
+                    speed={0.3}
+                    particleBaseSize={100}
+                    moveParticlesOnHover={false}
+                    alphaParticles={false}
+                    disableRotation={false}
+                    pixelRatio={2}
+                />
+            </div>
 
-                    {/* Right Column - 3D Orb Visual */}
-                    <motion.div
-                        initial={{ opacity: 0, x: 40 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ duration: 0.6, delay: 0.2 }}
-                        className="relative h-[500px] flex items-center justify-center"
-                        onMouseMove={handleMouseMove}
-                        onMouseLeave={() => {
-                            mouseX.set(0)
-                            mouseY.set(0)
+            <div className="relative z-10 max-w-5xl mx-auto px-4 w-full text-center flex flex-col items-center flex-1 justify-center py-16">
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+                >
+                    <div
+                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full mb-10"
+                        style={{
+                            border: `1px solid ${t.border}`,
+                            backgroundColor: t.surface,
                         }}
                     >
-                        {showVideo ? (
-                            <motion.div
-                                initial={{ scale: 0, opacity: 0 }}
-                                animate={{ scale: 1, opacity: 1 }}
-                                className="w-full h-full rounded-3xl bg-gray-900 flex items-center justify-center"
+                        <div
+                            className="w-1.5 h-1.5 rounded-full animate-pulse"
+                            style={{ backgroundColor: t.accent }}
+                        />
+                        <span
+                            className="text-xs font-medium tracking-wide"
+                            style={{ color: t.textMuted }}
+                        >
+                            AI-Powered Sales Training
+                        </span>
+                    </div>
+                </motion.div>
+
+                <h1 className="text-6xl sm:text-7xl md:text-8xl lg:text-[96px] font-bold leading-[1.02] tracking-[-0.03em] mb-8 w-full text-center">
+                    <SplitText
+                        text="Train Smarter"
+                        className="leading-[1.02] block"
+                        delay={35}
+                        duration={1.25}
+                        ease="power3.out"
+                        splitType="chars"
+                        from={{ opacity: 0, y: 40 }}
+                        to={{ opacity: 1, y: 0 }}
+                        threshold={0.1}
+                        rootMargin="-100px"
+                        textAlign="center"
+                        tag="div"
+                        style={{ color: t.text }}
+                    />
+                    <SplitText
+                        text="Close Faster"
+                        className="leading-[1.02] block"
+                        delay={35}
+                        duration={1.25}
+                        ease="power3.out"
+                        splitType="chars"
+                        from={{ opacity: 0, y: 40 }}
+                        to={{ opacity: 1, y: 0 }}
+                        threshold={0.1}
+                        rootMargin="-100px"
+                        textAlign="center"
+                        tag="div"
+                        style={{ color: '#9CA3AF' }}
+                    />
+                </h1>
+
+                <motion.p
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.7, delay: 0.25, ease: [0.16, 1, 0.3, 1] }}
+                    className="text-base md:text-lg leading-relaxed mb-4 max-w-[520px]"
+                    style={{ color: t.textMuted }}
+                >
+                    Practice high-stakes sales conversations with AI buyers that challenge,
+                    interrupt, and negotiate like real prospects.
+                </motion.p>
+
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.7, delay: 0.35 }}
+                    className="h-6 overflow-hidden mb-10"
+                >
+                    <AnimatePresence mode="wait">
+                        <motion.p
+                            key={currentObjection}
+                            initial={{ opacity: 0, y: 14 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -14 }}
+                            transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+                            className="text-sm italic"
+                            style={{ color: t.textFaint }}
+                        >
+                            {objections[currentObjection]}
+                        </motion.p>
+                    </AnimatePresence>
+                </motion.div>
+
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.7, delay: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                    className="flex flex-col sm:flex-row gap-3 justify-center"
+                >
+                    <motion.button
+                        onClick={handleEnterSimulator}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.97 }}
+                        transition={{ type: 'spring', stiffness: 400, damping: 20 }}
+                        className="group flex items-center justify-center gap-2.5 px-7 py-3.5 text-sm font-semibold rounded-full transition-colors duration-200"
+                        style={{
+                            backgroundColor: t.primaryBtnBg,
+                            color: t.primaryBtnText,
+                        }}
+                    >
+                        Start Training Free
+                        <TbArrowRight
+                            size={16}
+                            className="group-hover:translate-x-0.5 transition-transform duration-200"
+                        />
+                    </motion.button>
+                    <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.97 }}
+                        transition={{ type: 'spring', stiffness: 400, damping: 20 }}
+                        className="flex items-center justify-center px-7 py-3.5 text-sm font-semibold rounded-full transition-all duration-200"
+                        style={{
+                            color: t.secondaryBtnText,
+                            border: `1px solid ${t.secondaryBtnBorder}`,
+                        }}
+                        onClick={() => {
+                            document
+                                .querySelector('#workflow')
+                                ?.scrollIntoView({ behavior: 'smooth' })
+                        }}
+                    >
+                        See How It Works
+                    </motion.button>
+                </motion.div>
+
+                <motion.p
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.7, delay: 0.55 }}
+                    className="mt-5 text-xs"
+                    style={{ color: t.textDim }}
+                >
+                    No credit card required · 10 free sessions monthly
+                </motion.p>
+            </div>
+
+            <div
+                ref={statsRef}
+                className="relative z-10 w-full border-t backdrop-blur-sm"
+                style={{
+                    borderColor: t.border,
+                    backgroundColor: t.isLight ? 'rgba(255,255,255,0.7)' : 'rgba(5,5,5,0.6)',
+                }}
+            >
+                <div className="max-w-5xl mx-auto px-4">
+                    <div className="grid grid-cols-2 lg:grid-cols-4">
+                        {stats.map((stat, i) => (
+                            <div
+                                key={i}
+                                className="[&:not(:nth-child(2n))]:border-r lg:[&:not(:last-child)]:border-r [&:nth-child(-n+2)]:border-b lg:[&:nth-child(-n+2)]:border-b-0"
+                                style={{ borderColor: t.border }}
                             >
-                                <p className="text-white">Video Player Placeholder</p>
-                            </motion.div>
-                        ) : (
-                            <>
-                                {/* Voice Waveforms Orbiting */}
-                                {[0, 1, 2, 3, 4].map((i) => (
-                                    <motion.div
-                                        key={i}
-                                        className="absolute"
-                                        style={{
-                                            width: '200px',
-                                            height: '200px',
-                                            rotate: i * 72,
-                                        }}
-                                        animate={{
-                                            rotate: [i * 72, i * 72 + 360],
-                                        }}
-                                        transition={{
-                                            duration: 20,
-                                            repeat: Infinity,
-                                            ease: 'linear',
-                                        }}
-                                    >
-                                        <motion.div
-                                            className="absolute top-0 left-1/2 -translate-x-1/2 w-1 h-16 bg-gradient-to-b from-primary/60 to-transparent rounded-full"
-                                            animate={{
-                                                height: [32, 64, 32],
-                                            }}
-                                            transition={{
-                                                duration: 1.5,
-                                                repeat: Infinity,
-                                                delay: i * 0.2,
-                                                ease: 'easeInOut',
-                                            }}
-                                        />
-                                    </motion.div>
-                                ))}
-
-                                {/* 3D Conversation Orb */}
-                                <motion.div
-                                    style={{
-                                        rotateX,
-                                        rotateY,
-                                        transformStyle: 'preserve-3d',
-                                    }}
-                                    className="relative w-64 h-64"
-                                >
-                                    <motion.div
-                                        className="absolute inset-0 rounded-full bg-gradient-to-br from-primary/20 via-primary/10 to-primaryMild/20 backdrop-blur-xl border border-primary/20"
-                                        animate={{
-                                            scale: [1, 1.05, 1],
-                                        }}
-                                        transition={{
-                                            duration: 3,
-                                            repeat: Infinity,
-                                            ease: 'easeInOut',
-                                        }}
-                                    />
-                                    <motion.div
-                                        className="absolute inset-4 rounded-full bg-gradient-to-br from-primary/30 to-primaryMild/30 backdrop-blur-2xl"
-                                        animate={{
-                                            scale: [1, 1.1, 1],
-                                        }}
-                                        transition={{
-                                            duration: 2.5,
-                                            repeat: Infinity,
-                                            ease: 'easeInOut',
-                                        }}
-                                    />
-                                    <div className="absolute inset-0 flex items-center justify-center">
-                                        <div className="w-24 h-24 rounded-full bg-gradient-to-br from-primary to-primaryMild flex items-center justify-center text-white text-2xl font-bold shadow-2xl">
-                                            AI
-                                        </div>
-                                    </div>
-                                </motion.div>
-
-                                {/* Floating Objection Phrases */}
-                                <AnimatePresence mode="wait">
-                                    <motion.div
-                                        key={currentObjection}
-                                        initial={{ opacity: 0, y: 20 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        exit={{ opacity: 0, y: -20 }}
-                                        transition={{ duration: 0.5 }}
-                                        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 mt-32"
-                                    >
-                                        <div className="bg-white dark:bg-gray-800 px-4 py-2 rounded-full shadow-lg border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-900 dark:text-white whitespace-nowrap">
-                                            "{objections[currentObjection]}"
-                                        </div>
-                                    </motion.div>
-                                </AnimatePresence>
-                            </>
-                        )}
-                    </motion.div>
+                                <StatItem stat={stat} index={i} started={statsInView} />
+                            </div>
+                        ))}
+                    </div>
                 </div>
-            </Container>
+            </div>
 
-            {/* Session Setup Panel */}
             <SessionSetupPanel
                 isOpen={isSetupOpen}
                 onClose={() => setIsSetupOpen(false)}

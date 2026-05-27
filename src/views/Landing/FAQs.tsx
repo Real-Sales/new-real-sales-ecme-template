@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import NavigationBar from './components/NavigationBar'
+import LandingNavSentinel from './components/LandingNavSentinel'
 import LandingFooter from './components/LandingFooter'
 import Container from './components/LandingContainer'
 import { Button } from '@/components/ui'
@@ -156,6 +157,7 @@ const FAQs = () => {
 
     return (
         <main className="px-4 lg:px-0 text-base min-h-screen">
+            <LandingNavSentinel />
             <NavigationBar toggleMode={toggleMode} mode={mode} />
             
             {/* Hero Section */}

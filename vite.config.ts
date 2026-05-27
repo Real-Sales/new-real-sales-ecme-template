@@ -21,6 +21,10 @@ export default defineConfig(({ mode }) => {
             },
         },
         server: {
+            allowedHosts: [
+                'spinach-moonscape-supply.ngrok-free.dev',
+                '.ngrok-free.dev',
+            ],
             // Browser calls /api/* on the Vite origin; forward to local FastAPI (default :8000).
             proxy: {
                 '/api': {
@@ -31,6 +35,9 @@ export default defineConfig(({ mode }) => {
                     secure: false,
                 },
             },
+        },
+        optimizeDeps: {
+            include: ['gsap', 'gsap/ScrollTrigger', '@gsap/react'],
         },
         build: {
             outDir: 'build',

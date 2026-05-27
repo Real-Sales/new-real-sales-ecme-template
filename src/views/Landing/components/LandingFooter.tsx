@@ -1,75 +1,143 @@
-import Container from './LandingContainer'
-import Button from '@/components/ui/Button'
-import AuroraBackground from './AuroraBackground'
-import { motion } from 'framer-motion'
-import { MODE_DARK, MODE_LIGHT } from '@/constants/theme.constant'
-import { useNavigate } from 'react-router-dom'
-import type { Mode } from '@/@types/theme'
+import { useLandingTheme } from '../LandingThemeProvider'
+import { getLenis } from '../smoothScroll'
 
-const LandingFooter = ({mode}: {mode: Mode}) => {
+const footerLinks = {
+    Product: [
+        { label: 'Features', href: '#features' },
+        { label: 'How It Works', href: '#workflow' },
+        { label: 'Pricing', href: '#pricing' },
+        { label: 'Integrations', href: '#' },
+        { label: 'Changelog', href: '#' },
+    ],
+    Resources: [
+        { label: 'FAQ', href: '#faq' },
+        { label: 'Documentation', href: '#' },
+        { label: 'Case Studies', href: '/case-study/food-beverage' },
+        { label: 'Blog', href: '#' },
+        { label: 'Status', href: '#' },
+    ],
+    Company: [
+        { label: 'About', href: '/about' },
+        { label: 'Careers', href: '#' },
+        { label: 'Contact', href: 'mailto:hello@realsales.ai' },
+        { label: 'Partners', href: '#' },
+    ],
+    Legal: [
+        { label: 'Privacy Policy', href: '#' },
+        { label: 'Terms of Service', href: '#' },
+        { label: 'Cookie Policy', href: '#' },
+        { label: 'Security', href: '#' },
+    ],
+}
 
+const LandingFooter = () => {
+    const t = useLandingTheme()
     const year = new Date().getFullYear()
 
-     const navigate = useNavigate()
-    
-    const handlePreview = () => {
-        navigate('/dashboards/ecommerce')
+    const handleNavClick = (href: string) => {
+        if (!href.startsWith('#')) return
+        const el = document.querySelector(href) as HTMLElement | null
+        if (!el) return
+
+        const lenis = getLenis()
+        if (lenis) {
+            lenis.scrollTo(el, { offset: -80, duration: 1.4 })
+        } else {
+            el.scrollIntoView({ behavior: 'smooth' })
+        }
     }
 
     return (
-        <div id="footer" className="relative z-20">
-            <Container className="relative">
-                <div className="py-10 md:py-40">
-                    <AuroraBackground className="rounded-3xl" auroraClassName="rounded-3xl">
-                        <motion.div
-                            initial={{ opacity: 0.0, y: 40 }}
-                            whileInView={{ opacity: 1, y: 0 }}
-                            transition={{
-                                delay: 0.3,
-                                duration: 0.3,
-                                ease: "easeInOut",
-                            }}
-                            className="relative flex flex-col gap-4 items-center justify-center py-20 px-8 text-center"
-                        >
-                            <h2 className="text-5xl">Ready to Get Started?</h2>
-                            <p className="mt-4 max-w-[400px] mx-auto">Build modern, scalable applications effortlessly with Ecme. Take your project to the next level today!</p>
-                            <div className="mt-6">
-                                <Button variant="solid" onClick={handlePreview}>Get Started Now</Button>
-                            </div>
-                        </motion.div>
-                    </AuroraBackground>
+        <footer style={{ borderTop: `1px solid ${t.border}` }}>
+            <div className="max-w-7xl mx-auto px-4">
+                <div className="py-14 grid grid-cols-2 md:grid-cols-[200px_1fr_1fr_1fr_1fr] gap-x-8 gap-y-10">
+                    <div className="col-span-2 md:col-span-1">
+                        <a href="/" className="inline-block mb-4">
+                            <img
+                                src={t.logoSrc}
+                                width={110}
+                                height={36}
+                                alt="RealSales"
+                                className="h-8 w-auto"
+                            />
+                        </a>
+                        <p className="text-xs leading-relaxed max-w-[180px]" style={{ color: t.textDim }}>
+                            AI-powered sales training for revenue teams that want to close more deals.
+                        </p>
+                    </div>
+
+                    {Object.entries(footerLinks).map(([category, links]) => (
+                        <div key={category}>
+                            <p
+                                className="text-xs font-semibold uppercase tracking-[0.15em] mb-4"
+                                style={{ color: t.textFaint }}
+                            >
+                                {category}
+                            </p>
+                            <ul className="space-y-2.5">
+                                {links.map((link) => (
+                                    <li key={link.label}>
+                                        {link.href.startsWith('#') ? (
+                                            <button
+                                                onClick={() => handleNavClick(link.href)}
+                                                className="text-xs transition-colors duration-200"
+                                                style={{ color: t.textDim }}
+                                            >
+                                                {link.label}
+                                            </button>
+                                        ) : link.href.startsWith('mailto') ? (
+                                            <a
+                                                href={link.href}
+                                                className="text-xs transition-colors duration-200"
+                                                style={{ color: t.textDim }}
+                                            >
+                                                {link.label}
+                                            </a>
+                                        ) : (
+                                            <a
+                                                href={link.href}
+                                                className="text-xs transition-colors duration-200"
+                                                style={{ color: t.textDim }}
+                                            >
+                                                {link.label}
+                                            </a>
+                                        )}
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    ))}
                 </div>
-                <div className="py-6 border-t border-gray-200 dark:border-gray-800">
-					<div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-4">
-							<a href="/">
-                                {
-                                    mode === MODE_LIGHT && (
-                                        <img 
-                                            src="/img/logo/logo-light-full.png"
-                                            width={120}
-                                            height={40}
-                                            alt="logo"
-                                        />
-                                    )
-                                }
-                                {
-                                    mode === MODE_DARK && (
-                                        <img 
-                                            src="/img/logo/logo-dark-full.png"
-                                            width={120}
-                                            height={40}
-                                            alt="logo"
-                                        />
-                                    )
-                                }
+
+                <div
+                    className="py-6 flex flex-col sm:flex-row items-center justify-between gap-4"
+                    style={{ borderTop: `1px solid ${t.border}` }}
+                >
+                    <p className="text-[11px]" style={{ color: t.textDim }}>
+                        &copy; {year} RealSales. All rights reserved.
+                    </p>
+                    <div className="flex items-center gap-6">
+                        {['Privacy', 'Terms'].map((label) => (
+                            <a
+                                key={label}
+                                href="#"
+                                className="text-[11px] transition-colors duration-200"
+                                style={{ color: t.textDim }}
+                            >
+                                {label}
                             </a>
-						<p className="text-center">
-							Copyright © {year} Theme_Nate. All rights reserved.
-						</p>
-					</div>
-				</div>
-            </Container>
-        </div>
+                        ))}
+                        <a
+                            href="mailto:hello@realsales.ai"
+                            className="text-[11px] transition-colors duration-200"
+                            style={{ color: t.textDim }}
+                        >
+                            hello@realsales.ai
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </footer>
     )
 }
 

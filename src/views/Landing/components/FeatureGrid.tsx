@@ -1,98 +1,239 @@
 import { motion } from 'framer-motion'
-import { HiLightBulb, HiVolumeUp, HiCursorClick, HiChartBar } from 'react-icons/hi'
-import Container from './LandingContainer'
-import type { Mode } from '@/@types/theme'
+import {
+    TbBrain,
+    TbMicrophone,
+    TbLayersLinked,
+    TbChartBar,
+    TbUsers,
+} from 'react-icons/tb'
+import { useLandingTheme } from '../LandingThemeProvider'
+import { SectionBadge, SectionHeading } from './landingUi'
 
-const features = [
-    {
-        icon: <HiLightBulb className="text-4xl" />,
-        title: 'Real Buyer Behavior',
-        description: 'Practice with AI buyers trained to interrupt, doubt, negotiate, and push back—just like real customers.',
-        color: 'from-purple-500 to-pink-500',
-        bgColor: 'bg-purple-100 dark:bg-purple-900/30',
-        iconColor: 'text-purple-600 dark:text-purple-400',
-    },
-    {
-        icon: <HiVolumeUp className="text-4xl" />,
-        title: 'Talk, Don\'t Type',
-        description: 'Voice-first conversations that train how you speak, not just what you say.',
-        color: 'from-blue-500 to-cyan-500',
-        bgColor: 'bg-blue-100 dark:bg-blue-900/30',
-        iconColor: 'text-blue-600 dark:text-blue-400',
-    },
-    {
-        icon: <HiCursorClick className="text-4xl" />,
-        title: 'Scenario-Based Practice',
-        description: 'Cold calls, discovery, objections, closing—pick the moment you want to master.',
-        color: 'from-emerald-500 to-teal-500',
-        bgColor: 'bg-emerald-100 dark:bg-emerald-900/30',
-        iconColor: 'text-emerald-600 dark:text-emerald-400',
-    },
-    {
-        icon: <HiChartBar className="text-4xl" />,
-        title: 'Performance Intelligence',
-        description: 'Every session turns into insights you can act on, not generic feedback.',
-        color: 'from-blue-500 to-blue-600',
-        bgColor: 'bg-blue-100 dark:bg-blue-900/30',
-        iconColor: 'text-blue-600 dark:text-blue-400',
-    },
-]
+const waveHeights = [12, 22, 32, 22, 16, 28, 36, 26, 16, 22, 30, 18, 32, 22, 12]
 
-const FeatureGrid = ({ mode }: { mode: Mode }) => {
+const BentoCard = ({
+    children,
+    className = '',
+    delay = 0,
+}: {
+    children: React.ReactNode
+    className?: string
+    delay?: number
+}) => {
+    const t = useLandingTheme()
+
     return (
-        <section className="py-20 md:py-32 bg-white dark:bg-gray-950">
-            <Container>
-                <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-                    {features.map((feature, idx) => (
-                        <motion.div
-                            key={idx}
-                            initial={{ opacity: 0, y: 40, scale: 0.96 }}
-                            whileInView={{ opacity: 1, y: 0, scale: 1 }}
-                            viewport={{ once: true }}
-                            transition={{ duration: 0.5, delay: idx * 0.1 }}
-                            whileHover={{ y: -8, scale: 1.02 }}
-                            className="group relative"
-                        >
-                            <div className="relative h-full bg-white dark:bg-gray-800 rounded-2xl p-8 border border-gray-200 dark:border-gray-700 shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden">
-                                {/* Glass-morphic Icon Background */}
-                                <motion.div
-                                    className={`absolute top-0 right-0 w-32 h-32 rounded-full blur-3xl opacity-20 group-hover:opacity-30 transition-opacity bg-gradient-to-br ${feature.color}`}
-                                    animate={{
-                                        scale: [1, 1.1, 1],
-                                    }}
-                                    transition={{
-                                        duration: 3,
-                                        repeat: Infinity,
-                                        ease: 'easeInOut',
-                                    }}
-                                />
-                                
-                                {/* Icon Container */}
-                                <motion.div
-                                    className={`relative z-10 w-16 h-16 ${feature.bgColor} rounded-2xl flex items-center justify-center mb-6 backdrop-blur-sm border border-white/20 ${feature.iconColor} group-hover:scale-110 transition-transform duration-300`}
-                                    style={{
-                                        boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.37)',
-                                    }}
-                                >
-                                    {feature.icon}
-                                </motion.div>
+        <motion.div
+            initial={{ opacity: 0, y: 28 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: '-60px' }}
+            transition={{ duration: 0.6, delay, ease: [0.16, 1, 0.3, 1] }}
+            className={['relative rounded-2xl overflow-hidden transition-all duration-300', className].join(
+                ' ',
+            )}
+            style={{
+                border: `1px solid ${t.border}`,
+                backgroundColor: t.surface,
+            }}
+        >
+            {children}
+        </motion.div>
+    )
+}
 
-                                {/* Content */}
-                                <h3 className="text-xl font-bold mb-3 text-gray-900 dark:text-white relative z-10">
-                                    {feature.title}
-                                </h3>
-                                <motion.p
-                                    initial={{ opacity: 0.7 }}
-                                    whileHover={{ opacity: 1 }}
-                                    className="text-gray-600 dark:text-gray-400 leading-relaxed relative z-10"
-                                >
-                                    {feature.description}
-                                </motion.p>
-                            </div>
-                        </motion.div>
-                    ))}
+const FeatureGrid = () => {
+    const t = useLandingTheme()
+
+    return (
+        <section id="features" className="py-24 md:py-32">
+            <div className="max-w-7xl mx-auto px-4">
+                <div className="mb-16">
+                    <SectionBadge t={t} label="Platform capabilities" />
+                    <SectionHeading
+                        t={t}
+                        text="Everything your team needs to train at scale"
+                        className="text-3xl md:text-4xl font-bold tracking-[-0.015em] leading-tight max-w-[500px]"
+                    />
                 </div>
-            </Container>
+
+                <div className="grid grid-cols-1 md:grid-cols-4 auto-rows-fr gap-4 grid-flow-dense">
+                    <BentoCard className="md:col-span-2 min-h-[280px]" delay={0}>
+                        <div className="p-7 h-full flex flex-col justify-between">
+                            <div>
+                                <div
+                                    className="flex items-center justify-center w-11 h-11 rounded-xl mb-5"
+                                    style={{
+                                        backgroundColor: t.accentSubtle,
+                                        border: `1px solid ${t.border}`,
+                                    }}
+                                >
+                                    <TbBrain size={22} style={{ color: t.accent }} />
+                                </div>
+                                <h3 className="text-lg font-semibold mb-2 tracking-tight" style={{ color: t.text }}>
+                                    Hyper-realistic AI buyers
+                                </h3>
+                                <p className="text-sm leading-relaxed max-w-[300px]" style={{ color: t.textFaint }}>
+                                    Trained on thousands of real sales objections, each AI buyer has a unique personality, industry context, and resistance threshold.
+                                </p>
+                            </div>
+
+                            <div className="mt-6 space-y-2">
+                                {[
+                                    { role: 'AI', msg: '"Your pricing seems steep for what you offer."', align: 'left' },
+                                    { role: 'You', msg: 'Let me show you exactly what that breaks down to...', align: 'right' },
+                                ].map((line, i) => (
+                                    <div key={i} className={`flex gap-2 ${line.align === 'right' ? 'flex-row-reverse' : ''}`}>
+                                        <div className="text-[9px] font-bold mt-1 shrink-0 w-5 text-center" style={{ color: t.textDim }}>
+                                            {line.role}
+                                        </div>
+                                        <div
+                                            className="px-3 py-2 rounded-xl text-xs"
+                                            style={{
+                                                color: t.textSecondary,
+                                                backgroundColor: line.align === 'right' ? t.surfaceStrong : t.bgCard,
+                                                border: line.align === 'right' ? `1px solid ${t.border}` : undefined,
+                                            }}
+                                        >
+                                            {line.msg}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </BentoCard>
+
+                    <BentoCard className="md:col-span-2 min-h-[280px]" delay={0.08}>
+                        <div className="p-7 h-full flex flex-col justify-between">
+                            <div>
+                                <div
+                                    className="flex items-center justify-center w-11 h-11 rounded-xl mb-5"
+                                    style={{
+                                        backgroundColor: t.accentSubtle,
+                                        border: `1px solid ${t.border}`,
+                                    }}
+                                >
+                                    <TbMicrophone size={22} style={{ color: t.accent }} />
+                                </div>
+                                <h3 className="text-lg font-semibold mb-2 tracking-tight" style={{ color: t.text }}>
+                                    Voice-first training
+                                </h3>
+                                <p className="text-sm leading-relaxed max-w-[300px]" style={{ color: t.textFaint }}>
+                                    Real conversations happen over the phone. Practice out loud, improve your delivery, and get scored on tone, pacing, and clarity.
+                                </p>
+                            </div>
+
+                            <div
+                                className="mt-6 flex items-center gap-2 px-3 py-3 rounded-xl"
+                                style={{
+                                    border: `1px solid ${t.border}`,
+                                    backgroundColor: t.surface,
+                                }}
+                            >
+                                <div
+                                    className="w-6 h-6 rounded-full flex items-center justify-center shrink-0"
+                                    style={{ backgroundColor: t.accentSubtle }}
+                                >
+                                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: t.accent }} />
+                                </div>
+                                <div className="flex items-end gap-[3px] flex-1 h-8">
+                                    {waveHeights.map((h, i) => (
+                                        <motion.div
+                                            key={i}
+                                            className="flex-1 rounded-full"
+                                            style={{ minWidth: 2, backgroundColor: t.accent }}
+                                            animate={{ height: [h * 0.5, h, h * 0.6, h], opacity: [0.35, 0.85, 0.45, 0.85] }}
+                                            transition={{ duration: 1.3 + i * 0.04, repeat: Infinity, ease: 'easeInOut', delay: i * 0.06 }}
+                                        />
+                                    ))}
+                                </div>
+                                <span className="text-[10px] font-mono shrink-0" style={{ color: t.accent }}>
+                                    LIVE
+                                </span>
+                            </div>
+                        </div>
+                    </BentoCard>
+
+                    <BentoCard className="md:col-span-1 min-h-[220px]" delay={0.16}>
+                        <div className="p-6 h-full flex flex-col">
+                            <div
+                                className="flex items-center justify-center w-11 h-11 rounded-xl mb-4"
+                                style={{ backgroundColor: t.accentSubtle, border: `1px solid ${t.border}` }}
+                            >
+                                <TbLayersLinked size={22} style={{ color: t.accent }} />
+                            </div>
+                            <h3 className="text-base font-semibold mb-2 tracking-tight leading-snug" style={{ color: t.text }}>
+                                Scenario library
+                            </h3>
+                            <p className="text-xs leading-relaxed" style={{ color: t.textFaint }}>
+                                Cold calls, discovery, objection handling, negotiations - pick the exact moment you need to master.
+                            </p>
+                        </div>
+                    </BentoCard>
+
+                    <BentoCard className="md:col-span-1 min-h-[220px]" delay={0.2}>
+                        <div className="p-6 h-full flex flex-col">
+                            <div
+                                className="flex items-center justify-center w-11 h-11 rounded-xl mb-4"
+                                style={{ backgroundColor: t.accentSubtle, border: `1px solid ${t.border}` }}
+                            >
+                                <TbChartBar size={22} style={{ color: t.accent }} />
+                            </div>
+                            <h3 className="text-base font-semibold mb-2 tracking-tight leading-snug" style={{ color: t.text }}>
+                                Performance analytics
+                            </h3>
+                            <p className="text-xs leading-relaxed" style={{ color: t.textFaint }}>
+                                Every session turns into scored, actionable coaching data. Know what to fix before the next real call.
+                            </p>
+                        </div>
+                    </BentoCard>
+
+                    <BentoCard className="md:col-span-2 min-h-[220px]" delay={0.24}>
+                        <div className="p-6 h-full flex flex-col justify-between">
+                            <div>
+                                <div
+                                    className="flex items-center justify-center w-11 h-11 rounded-xl mb-4"
+                                    style={{ backgroundColor: t.accentSubtle, border: `1px solid ${t.border}` }}
+                                >
+                                    <TbUsers size={22} style={{ color: t.accent }} />
+                                </div>
+                                <h3 className="text-base font-semibold mb-2 tracking-tight" style={{ color: t.text }}>
+                                    Team-wide visibility
+                                </h3>
+                                <p className="text-xs leading-relaxed max-w-xs" style={{ color: t.textFaint }}>
+                                    Managers see who is improving, who needs attention, and exactly where performance gaps live, in real time.
+                                </p>
+                            </div>
+
+                            <div className="mt-5 space-y-2.5">
+                                {[
+                                    { name: 'Objection handling', pct: 82 },
+                                    { name: 'Discovery quality', pct: 67 },
+                                    { name: 'Closing confidence', pct: 74 },
+                                ].map((item, i) => (
+                                    <div key={i}>
+                                        <div className="flex justify-between text-[10px] mb-1" style={{ color: t.textFaint }}>
+                                            <span>{item.name}</span>
+                                            <span className="font-medium" style={{ color: t.accent }}>
+                                                {item.pct}%
+                                            </span>
+                                        </div>
+                                        <div className="h-1 rounded-full" style={{ backgroundColor: t.surfaceStrong }}>
+                                            <motion.div
+                                                className="h-1 rounded-full"
+                                                style={{ backgroundColor: t.accent }}
+                                                initial={{ width: 0 }}
+                                                whileInView={{ width: `${item.pct}%` }}
+                                                viewport={{ once: true }}
+                                                transition={{ duration: 1, delay: i * 0.15 + 0.3, ease: [0.16, 1, 0.3, 1] }}
+                                            />
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </BentoCard>
+                </div>
+            </div>
         </section>
     )
 }
