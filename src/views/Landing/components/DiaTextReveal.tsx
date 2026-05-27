@@ -58,8 +58,6 @@ function measureWidths(el: HTMLElement, texts: string[]) {
     return widths
 }
 
-type EaseFn = (t: number) => number
-
 export interface DiaTextRevealProps
     extends Omit<
         HTMLMotionProps<'span'>,
@@ -76,9 +74,6 @@ export interface DiaTextRevealProps
     once?: boolean
     className?: string
     fixedWidth?: boolean
-    /** Custom easing for the sweep. Default is an ease-in-out cubic. Pass an
-     * ease-out style curve to make the band visibly enter the text immediately. */
-    ease?: EaseFn
 }
 
 export function DiaTextReveal({
@@ -93,7 +88,6 @@ export function DiaTextReveal({
     once = true,
     className,
     fixedWidth = false,
-    ease,
     ...props
 }: DiaTextRevealProps) {
     const texts = Array.isArray(text) ? text : [text]
@@ -101,8 +95,8 @@ export function DiaTextReveal({
     const prefersReducedMotion = useReducedMotion()
 
     const spanRef = useRef<HTMLSpanElement>(null)
-    const optsRef = useRef({ colors, textColor, duration, delay, repeat, repeatDelay, texts, ease })
-    optsRef.current = { colors, textColor, duration, delay, repeat, repeatDelay, texts, ease }
+    const optsRef = useRef({ colors, textColor, duration, delay, repeat, repeatDelay, texts })
+    optsRef.current = { colors, textColor, duration, delay, repeat, repeatDelay, texts }
 
     const indexRef = useRef(0)
     const hasPlayedRef = useRef(false)
@@ -129,12 +123,12 @@ export function DiaTextReveal({
     }, [Array.isArray(text) ? text.join('\0') : text])
 
     playRef.current = () => {
-        const { duration: dur, delay: d, repeat: rpt, repeatDelay: rpd, texts: txts, ease: easeFn } = optsRef.current
+        const { duration: dur, delay: d, repeat: rpt, repeatDelay: rpd, texts: txts } = optsRef.current
         sweepPos.set(SWEEP_START)
         const controls = animate(sweepPos, SWEEP_END, {
             duration: dur,
             delay: d,
-            ease: easeFn ?? sweepEase,
+            ease: sweepEase,
             onComplete() {
                 if (!rpt) return
                 timerRef.current = setTimeout(() => {

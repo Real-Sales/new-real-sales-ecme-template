@@ -5,7 +5,13 @@ import DiaTextReveal from './DiaTextReveal'
 
 const EASE_OUT = [0.22, 1, 0.36, 1] as const
 
-/** Shared reveal timing — badge → heading → description cascade. */
+/** Shared reveal timing — badge → heading → description cascade.
+ * `DiaTextReveal` finishes visually revealing the text at ~87% of its duration
+ * (the gradient band trails off-screen for the remaining 13%), so the description
+ * starts right when the heading is *visually* complete — not when its animation
+ * timeline technically ends. */
+const HEADING_VISIBLE_FRACTION = 0.87
+
 export const SECTION_REVEAL = {
     badgeDelay: 0.25,
     badgeDuration: 1.0,
@@ -15,18 +21,11 @@ export const SECTION_REVEAL = {
 } as const
 
 /** Compute the description's start delay so it begins the moment the heading
- * finishes. Paired with `DESC_EASE` below, the band visibly enters the text on
- * the first frame, eliminating the perceived "dead time" of an ease-in start. */
+ * is *visually* complete (regardless of the heading's exact duration). */
 export const getDescDelay = (
     headingDuration: number = SECTION_REVEAL.headingDuration,
     headingDelay: number = SECTION_REVEAL.headingDelay,
-) => headingDelay + headingDuration
-
-/** Ease-out cubic — fast at the start, slow at the end. Used for the description
- * sweep so the gradient band is visibly entering the text from frame 1, instead
- * of the ease-in-out's slow ramp that hides the band off-screen for the first
- * ~30% of the animation. */
-const DESC_EASE = (t: number) => 1 - Math.pow(1 - t, 3)
+) => headingDelay + headingDuration * HEADING_VISIBLE_FRACTION
 
 export function getRevealColors(t: LandingTheme) {
     return [t.accent, '#FFFFFF', t.accentMild, t.text, t.accentDeep] as const
@@ -111,7 +110,6 @@ export function SectionDesc({
                 colors={[...getRevealColors(t)]}
                 duration={duration}
                 delay={delay}
-                ease={DESC_EASE}
             />
             {children}
         </p>
