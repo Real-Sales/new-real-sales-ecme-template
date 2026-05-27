@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Card, Badge, Spinner, Input, toast, Notification } from '@/components/ui'
+import { Card, Badge, Spinner, Input, Button, toast, Notification } from '@/components/ui'
 import Container from '@/components/shared/Container'
 import Avatar from '@/components/ui/Avatar'
 import DataTable from '@/components/shared/DataTable'
-import { TbSearch, TbUsers, TbUserCheck } from 'react-icons/tb'
+import { TbSearch, TbUsers, TbUserCheck, TbUserPlus, TbArrowsExchange, TbBuildingCommunity } from 'react-icons/tb'
 import { injectReducer } from '@/store'
 import { useAppSelector as useAuthSelector } from '@/store/hook'
 import companyMembersReducer, {
@@ -12,6 +12,7 @@ import companyMembersReducer, {
     fetchCompanyMembers,
     resetNotification,
 } from './store'
+import AssignTeamDialog from './components/AssignTeamDialog'
 import type { CompanyMemberRow } from './types'
 import type { ColumnDef } from '@/components/shared/DataTable'
 
@@ -23,6 +24,31 @@ const getInitials = (firstName: string, lastName: string) =>
 const formatRole = (role?: string) =>
     role ? role.replace(/_/g, ' ') : '—'
 
+const getMemberAction = (row: CompanyMemberRow) => {
+    const hasDivision = !!(row.sales_division_id || row.sales_division_name)
+    const hasTeam = !!row.team_id
+
+    if (!hasDivision) {
+        return {
+            label: 'Assign division',
+            variant: 'solid' as const,
+            icon: <TbBuildingCommunity className="text-sm" />,
+        }
+    }
+    if (!hasTeam) {
+        return {
+            label: 'Assign team',
+            variant: 'solid' as const,
+            icon: <TbUserPlus className="text-sm" />,
+        }
+    }
+    return {
+        label: 'Change team',
+        variant: 'default' as const,
+        icon: <TbArrowsExchange className="text-sm" />,
+    }
+}
+
 const MemberList = () => {
     const dispatch = useAppDispatch()
     const userId = useAuthSelector((state) => state.auth.user.userId)
@@ -33,6 +59,7 @@ const MemberList = () => {
         membersLoading,
         initialized,
         companyName,
+        salesCompanyId,
         totalMembers,
         activeMembers,
         error,
@@ -55,6 +82,29 @@ const MemberList = () => {
     const [searchTerm, setSearchTerm] = useState('')
     const [currentPage, setCurrentPage] = useState(1)
     const [pageSize, setPageSize] = useState(10)
+    const [assignDialogOpen, setAssignDialogOpen] = useState(false)
+    const [memberToAssign, setMemberToAssign] = useState<CompanyMemberRow | null>(
+        null,
+    )
+
+    const openAssignDialog = (member: CompanyMemberRow) => {
+        setMemberToAssign(member)
+        setAssignDialogOpen(true)
+    }
+
+    const closeAssignDialog = () => {
+        setAssignDialogOpen(false)
+        setMemberToAssign(null)
+    }
+
+    const handleAssignSuccess = () => {
+        dispatch(
+            fetchCompanyMembers({
+                userId,
+                companyId: companyIdFromAuth,
+            }),
+        )
+    }
 
     useEffect(() => {
         if ((userId || companyIdFromAuth) && !initialized && !membersLoading) {
@@ -191,6 +241,26 @@ const MemberList = () => {
                     )
                 },
             },
+            {
+                header: 'Action',
+                id: 'actions',
+                enableSorting: false,
+                cell: (props) => {
+                    const row = props.row.original
+                    const action = getMemberAction(row)
+                    return (
+                        <Button
+                            size="xs"
+                            variant={action.variant}
+                            icon={action.icon}
+                            className="h-8 px-2.5 text-xs whitespace-nowrap"
+                            onClick={() => openAssignDialog(row)}
+                        >
+                            {action.label}
+                        </Button>
+                    )
+                },
+            },
         ],
         [],
     )
@@ -293,6 +363,14 @@ const MemberList = () => {
                     </>
                 )}
             </Container>
+
+            <AssignTeamDialog
+                isOpen={assignDialogOpen}
+                member={memberToAssign}
+                salesCompanyId={salesCompanyId}
+                onClose={closeAssignDialog}
+                onSuccess={handleAssignSuccess}
+            />
         </div>
     )
 }

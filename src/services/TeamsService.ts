@@ -68,8 +68,8 @@ export async function apiCreateTeam(data: CreateTeamRequest) {
 }
 
 export async function apiDeleteTeam(teamId: string) {
-    return ApiService.fetchDataWithAxios({
-        url: `company-teams/${teamId}`,
+    return ApiService.fetchDataWithAxios<void>({
+        url: endpointConfig.deleteCompanyTeam(teamId),
         method: 'delete',
     })
 }

@@ -2,9 +2,10 @@ import { useState, useRef, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Card, Button, Badge, Drawer, toast, Notification, Spinner } from '@/components/ui'
 import Container from '@/components/shared/Container'
+import ConfirmDialog from '@/components/shared/ConfirmDialog'
 import { injectReducer } from '@/store'
 import TeamForm, { type TeamFormSchema } from './TeamForm'
-import { apiCreateTeam } from '@/services/TeamService'
+import { apiCreateTeam, apiDeleteTeam } from '@/services/TeamService'
 import teamsReducer, {
     useAppSelector,
     useAppDispatch,
@@ -64,6 +65,8 @@ type TeamCardProps = {
     performance: number
     status?: 'Focus' | 'Stable' | 'New'
     createdAt: string
+    onDelete?: () => void
+    deleting?: boolean
 }
 
 const TeamCard = ({
@@ -76,6 +79,8 @@ const TeamCard = ({
     performance,
     status,
     createdAt,
+    onDelete,
+    deleting = false,
 }: TeamCardProps) => {
     const navigate = useNavigate()
 
@@ -204,12 +209,18 @@ const TeamCard = ({
                             variant="default"
                             icon={<HiPencil />}
                             className="bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 hover:text-primary border border-gray-200 dark:border-gray-600 transition-all"
+                            onClick={(e) => e.stopPropagation()}
                         />
                         <Button
                             size="sm"
                             variant="default"
                             icon={<HiTrash className="text-red-500 dark:text-red-400" />}
                             className="bg-gray-100 dark:bg-gray-800 hover:bg-red-500 dark:hover:bg-red-600 text-gray-700 dark:text-red-500 hover:text-white border border-gray-200 dark:border-gray-600 transition-all"
+                            loading={deleting}
+                            onClick={(e) => {
+                                e.stopPropagation()
+                                onDelete?.()
+                            }}
                         />
                     </div>
                 </div>
@@ -221,6 +232,11 @@ const TeamCard = ({
 const TeamList = () => {
     const dispatch = useAppDispatch()
     const [isDrawerOpen, setIsDrawerOpen] = useState(false)
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+    const [teamToDelete, setTeamToDelete] = useState<{ id: string; name: string } | null>(
+        null,
+    )
+    const [deletingTeamId, setDeletingTeamId] = useState<string | null>(null)
     const formRef = useRef<HTMLFormElement>(null)
     const { userId, companyId } = useAppSelector((state) => state.auth.user)
     
@@ -314,6 +330,43 @@ const TeamList = () => {
                     {error.response?.data?.message || 'Failed to create team'}
                 </Notification>
             )
+        }
+    }
+
+    const openDeleteDialog = (team: { id: string; name: string }) => {
+        setTeamToDelete(team)
+        setDeleteDialogOpen(true)
+    }
+
+    const closeDeleteDialog = () => {
+        setDeleteDialogOpen(false)
+        setTeamToDelete(null)
+    }
+
+    const handleDeleteTeam = async () => {
+        if (!teamToDelete || !companyId) return
+
+        setDeletingTeamId(teamToDelete.id)
+        try {
+            await apiDeleteTeam(teamToDelete.id)
+            toast.push(
+                <Notification title="Success" type="success">
+                    {teamToDelete.name} deleted successfully.
+                </Notification>,
+            )
+            closeDeleteDialog()
+            dispatch(fetchTeams(companyId))
+        } catch (error: unknown) {
+            const err = error as {
+                response?: { data?: { detail?: string } }
+            }
+            toast.push(
+                <Notification title="Error" type="danger">
+                    {err.response?.data?.detail || 'Failed to delete team.'}
+                </Notification>,
+            )
+        } finally {
+            setDeletingTeamId(null)
         }
     }
 
@@ -443,8 +496,18 @@ const TeamList = () => {
                             <Spinner size={40} />
                         </div>
                     ) : (
-                        teams.map((team, index) => (
-                            <TeamCard key={index} {...team} />
+                        teams.map((team) => (
+                            <TeamCard
+                                key={team.id}
+                                {...team}
+                                deleting={deletingTeamId === team.id}
+                                onDelete={() =>
+                                    openDeleteDialog({
+                                        id: team.id,
+                                        name: team.name,
+                                    })
+                                }
+                            />
                         ))
                     )}
                 </div>
@@ -469,6 +532,28 @@ const TeamList = () => {
                     />
                 </div>
             </Drawer>
+
+            <ConfirmDialog
+                isOpen={deleteDialogOpen}
+                type="danger"
+                title="Delete team"
+                confirmText="Delete"
+                cancelText="Cancel"
+                onClose={closeDeleteDialog}
+                onRequestClose={closeDeleteDialog}
+                onCancel={closeDeleteDialog}
+                onConfirm={handleDeleteTeam}
+                confirmButtonProps={{ loading: !!deletingTeamId }}
+            >
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Are you sure you want to delete{' '}
+                    <span className="font-semibold text-gray-900 dark:text-white">
+                        {teamToDelete?.name}
+                    </span>
+                    ? Members will be removed from this team but stay in the
+                    company.
+                </p>
+            </ConfirmDialog>
         </div>
     )
 }
