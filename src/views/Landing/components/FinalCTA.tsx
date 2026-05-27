@@ -6,6 +6,7 @@ import { useAppSelector } from '@/store'
 import SessionSetupPanel from '@/components/shared/SessionSetupPanel'
 import type { ConversationMode } from '@/components/shared/SessionSetupPanel'
 import { useLandingTheme } from '../LandingThemeProvider'
+import { SectionDesc, SectionHeading, SECTION_REVEAL, getDescDelay } from './landingUi'
 
 const FinalCTA = () => {
     const navigate = useNavigate()
@@ -63,15 +64,19 @@ const FinalCTA = () => {
                         <p className="text-xs font-medium uppercase tracking-[0.2em] mb-6" style={{ color: t.accent }}>
                             Ready to train?
                         </p>
-                        <h2
+                        <SectionHeading
+                            t={t}
+                            text="Stop losing deals you should have won"
                             className="text-4xl md:text-5xl font-bold tracking-[-0.02em] leading-tight mb-5"
-                            style={{ color: t.text }}
-                        >
-                            Stop losing deals you should have won
-                        </h2>
-                        <p className="leading-relaxed mb-10 max-w-lg mx-auto" style={{ color: t.textFaint }}>
-                            Your team has all the knowledge. They just need the reps. RealSales gives them a place to fail safely, so they stop failing in front of real customers.
-                        </p>
+                            duration={1.8}
+                            delay={SECTION_REVEAL.headingDelay}
+                        />
+                        <SectionDesc
+                            t={t}
+                            text="Your team has all the knowledge. They just need the reps. RealSales gives them a place to fail safely, so they stop failing in front of real customers."
+                            className="leading-relaxed mb-10 max-w-lg mx-auto"
+                            delay={getDescDelay(1.8)}
+                        />
 
                         <div className="flex flex-col sm:flex-row gap-3 justify-center">
                             <motion.button

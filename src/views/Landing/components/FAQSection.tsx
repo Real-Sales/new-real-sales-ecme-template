@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { TbPlus, TbMinus } from 'react-icons/tb'
 import { useLandingTheme } from '../LandingThemeProvider'
-import { sectionBadge } from './landingUi'
+import { SectionBadge, SectionHeading, SectionDesc } from './landingUi'
 
 const faqs = [
     {
@@ -110,15 +110,18 @@ const FAQSection = () => {
             <div className="max-w-7xl mx-auto px-4">
                 <div className="grid lg:grid-cols-[320px_1fr] gap-16 xl:gap-24">
                     <div className="lg:sticky lg:top-28 h-fit">
-                        {sectionBadge(t, 'FAQ')}
-                        <h2
+                        <SectionBadge t={t} label="FAQ" />
+                        <SectionHeading
+                            t={t}
+                            text="Questions we hear a lot"
                             className="text-3xl font-bold tracking-[-0.015em] leading-tight mb-4"
-                            style={{ color: t.text }}
+                        />
+                        <SectionDesc
+                            t={t}
+                            text="Still have questions? Email us at"
+                            className="text-sm leading-relaxed"
                         >
-                            Questions we hear a lot
-                        </h2>
-                        <p className="text-sm leading-relaxed">
-                            Still have questions? Email us at{' '}
+                            {' '}
                             <a
                                 href="mailto:hello@realsales.ai"
                                 className="transition-colors underline underline-offset-2"
@@ -126,7 +129,7 @@ const FAQSection = () => {
                             >
                                 hello@realsales.ai
                             </a>
-                        </p>
+                        </SectionDesc>
                     </div>
 
                     <div>

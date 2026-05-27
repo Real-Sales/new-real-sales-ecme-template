@@ -1,4 +1,5 @@
 import { useLandingTheme } from '../LandingThemeProvider'
+import { getLenis } from '../smoothScroll'
 
 const footerLinks = {
     Product: [
@@ -34,9 +35,15 @@ const LandingFooter = () => {
     const year = new Date().getFullYear()
 
     const handleNavClick = (href: string) => {
-        if (href.startsWith('#')) {
-            const el = document.querySelector(href)
-            if (el) el.scrollIntoView({ behavior: 'smooth' })
+        if (!href.startsWith('#')) return
+        const el = document.querySelector(href) as HTMLElement | null
+        if (!el) return
+
+        const lenis = getLenis()
+        if (lenis) {
+            lenis.scrollTo(el, { offset: -80, duration: 1.4 })
+        } else {
+            el.scrollIntoView({ behavior: 'smooth' })
         }
     }
 

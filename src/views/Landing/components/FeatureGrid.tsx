@@ -7,7 +7,7 @@ import {
     TbUsers,
 } from 'react-icons/tb'
 import { useLandingTheme } from '../LandingThemeProvider'
-import { sectionBadge } from './landingUi'
+import { SectionBadge, SectionHeading } from './landingUi'
 
 const waveHeights = [12, 22, 32, 22, 16, 28, 36, 26, 16, 22, 30, 18, 32, 22, 12]
 
@@ -48,13 +48,12 @@ const FeatureGrid = () => {
         <section id="features" className="py-24 md:py-32">
             <div className="max-w-7xl mx-auto px-4">
                 <div className="mb-16">
-                    {sectionBadge(t, 'Platform capabilities')}
-                    <h2
+                    <SectionBadge t={t} label="Platform capabilities" />
+                    <SectionHeading
+                        t={t}
+                        text="Everything your team needs to train at scale"
                         className="text-3xl md:text-4xl font-bold tracking-[-0.015em] leading-tight max-w-[500px]"
-                        style={{ color: t.text }}
-                    >
-                        Everything your team needs to train at scale
-                    </h2>
+                    />
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-4 auto-rows-fr gap-4 grid-flow-dense">

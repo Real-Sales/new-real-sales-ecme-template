@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion'
 import { useLandingTheme } from '../LandingThemeProvider'
-import { sectionBadge } from './landingUi'
+import { SectionBadge, SectionHeading, SectionDesc } from './landingUi'
 
 const testimonials = [
     {
@@ -65,16 +65,17 @@ const SocialProof = () => {
         <section className="py-24 md:py-32">
             <div className="max-w-7xl mx-auto px-4">
                 <div className="text-center mb-16">
-                    {sectionBadge(t, 'Testimonials')}
-                    <h2
+                    <SectionBadge t={t} label="Testimonials" />
+                    <SectionHeading
+                        t={t}
+                        text="What top sales teams say"
                         className="text-3xl md:text-4xl font-bold tracking-[-0.015em] leading-tight mb-4"
-                        style={{ color: t.text }}
-                    >
-                        What top sales teams say
-                    </h2>
-                    <p className="max-w-md mx-auto" style={{ color: t.textFaint }}>
-                        Revenue teams across industries use RealSales to train faster and close more.
-                    </p>
+                    />
+                    <SectionDesc
+                        t={t}
+                        text="Revenue teams across industries use RealSales to train faster and close more."
+                        className="max-w-md mx-auto"
+                    />
                 </div>
 
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">

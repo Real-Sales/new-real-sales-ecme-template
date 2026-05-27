@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { TbMenu2, TbX, TbSun, TbMoon } from 'react-icons/tb'
+import { TbMenu2, TbX } from 'react-icons/tb'
 import classNames from '@/utils/classNames'
-import { MODE_LIGHT } from '@/constants/theme.constant'
+import { MODE_DARK } from '@/constants/theme.constant'
 import { useLandingTheme } from '../LandingThemeProvider'
+import { getLenis } from '../smoothScroll'
+import AnimatedThemeToggler from './AnimatedThemeToggler'
 import type { Mode } from '@/@types/theme'
 
 type NavigationProps = {
@@ -33,8 +35,9 @@ function getScrollTop() {
 const Navigation = ({ mode, toggleMode }: NavigationProps) => {
     const [menuOpen, setMenuOpen] = useState(false)
     const [isSticky, setIsSticky] = useState(false)
-    const [isHidden, setIsHidden] = useState(false)
     const t = useLandingTheme()
+    const isDark = mode === MODE_DARK
+    const handleModeChange = () => toggleMode?.()
 
     useEffect(() => {
         const sentinel = document.getElementById(SENTINEL_ID)
@@ -43,17 +46,13 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
         const updateFromScroll = () => {
             if (menuOpen) return
             const scrollY = getScrollTop()
-            const pastTop = scrollY > 48
-            setIsSticky(pastTop)
-            setIsHidden(pastTop)
+            setIsSticky(scrollY > 48)
         }
 
         const observer = new IntersectionObserver(
             ([entry]) => {
                 if (menuOpen) return
-                const atTop = entry.isIntersecting
-                setIsSticky(!atTop)
-                setIsHidden(!atTop)
+                setIsSticky(!entry.isIntersecting)
             },
             { threshold: 0, root: null, rootMargin: '0px 0px 0px 0px' },
         )
@@ -71,28 +70,26 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
         }
     }, [menuOpen])
 
-    useEffect(() => {
-        if (menuOpen) {
-            setIsHidden(false)
-        }
-    }, [menuOpen])
-
     const handleNavClick = (href: string) => {
         setMenuOpen(false)
-        const el = document.querySelector(href)
-        if (el) el.scrollIntoView({ behavior: 'smooth' })
+        const el = document.querySelector(href) as HTMLElement | null
+        if (!el) return
+
+        const lenis = getLenis()
+        if (lenis) {
+            lenis.scrollTo(el, { offset: -80, duration: 1.4 })
+        } else {
+            el.scrollIntoView({ behavior: 'smooth' })
+        }
     }
 
     return (
         <>
             <div
                 className={classNames(
-                    'fixed inset-x-0 top-0 z-50 flex justify-center',
-                    'transition-[transform,opacity] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]',
+                    'fixed inset-x-0 top-0 z-50 px-4 lg:px-8 xl:px-12',
+                    'transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]',
                     isSticky ? 'pt-4' : 'pt-6',
-                    isHidden && !menuOpen
-                        ? '-translate-y-[calc(100%+1.5rem)] opacity-0 pointer-events-none'
-                        : 'translate-y-0 opacity-100',
                 )}
             >
                 <motion.nav
@@ -100,8 +97,8 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
                     className={classNames(
-                        'flex items-center justify-between gap-8 px-4 py-2.5 rounded-full',
-                        'border transition-all duration-500 mx-4 w-full max-w-4xl',
+                        'relative flex items-center w-full max-w-7xl mx-auto px-4 py-2.5 rounded-full',
+                        'border transition-all duration-500',
                     )}
                     style={{
                         backgroundColor: isSticky ? t.navStickyBg : 'transparent',
@@ -124,7 +121,7 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
                         />
                     </a>
 
-                    <div className="hidden lg:flex items-center gap-1">
+                    <div className="hidden lg:flex items-center gap-1 absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
                         {navLinks.map((link) => (
                             <button
                                 key={link.label}
@@ -148,20 +145,19 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
                         ))}
                     </div>
 
-                    <div className="hidden lg:flex items-center gap-2">
+                    <div className="hidden lg:flex items-center gap-2 ml-auto shrink-0">
                         {toggleMode && (
-                            <button
-                                type="button"
-                                onClick={toggleMode}
+                            <AnimatedThemeToggler
+                                isDark={isDark}
+                                onModeChange={handleModeChange}
+                                variant="circle"
+                                duration={500}
                                 className="flex items-center justify-center w-9 h-9 rounded-full transition-all duration-200"
                                 style={{
                                     border: `1px solid ${t.border}`,
                                     color: t.textMuted,
                                 }}
-                                aria-label={mode === MODE_LIGHT ? 'Switch to dark mode' : 'Switch to light mode'}
-                            >
-                                {mode === MODE_LIGHT ? <TbMoon size={18} /> : <TbSun size={18} />}
-                            </button>
+                            />
                         )}
                         <Link
                             to="/sign-in"
@@ -192,7 +188,7 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
                     </div>
 
                     <button
-                        className="lg:hidden flex items-center justify-center w-9 h-9 rounded-full transition-all duration-200"
+                        className="lg:hidden flex items-center justify-center w-9 h-9 rounded-full transition-all duration-200 ml-auto shrink-0"
                         style={{
                             border: `1px solid ${t.border}`,
                             color: t.textMuted,
@@ -231,18 +227,17 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
                             </a>
                             <div className="flex items-center gap-2">
                                 {toggleMode && (
-                                    <button
-                                        type="button"
-                                        onClick={toggleMode}
+                                    <AnimatedThemeToggler
+                                        isDark={isDark}
+                                        onModeChange={handleModeChange}
+                                        variant="circle"
+                                        duration={500}
                                         className="flex items-center justify-center w-9 h-9 rounded-full"
                                         style={{
                                             border: `1px solid ${t.border}`,
                                             color: t.textMuted,
                                         }}
-                                        aria-label="Toggle theme"
-                                    >
-                                        {mode === MODE_LIGHT ? <TbMoon size={18} /> : <TbSun size={18} />}
-                                    </button>
+                                    />
                                 )}
                                 <button
                                     onClick={() => setMenuOpen(false)}
