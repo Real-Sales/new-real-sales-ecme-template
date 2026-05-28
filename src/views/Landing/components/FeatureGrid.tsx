@@ -45,9 +45,9 @@ const FeatureGrid = () => {
     const t = useLandingTheme()
 
     return (
-        <section id="features" className="py-24 md:py-32">
+        <section className="py-24 md:py-32">
             <div className="max-w-7xl mx-auto px-4">
-                <div className="mb-16">
+                <div id="features" className="mb-16">
                     <SectionBadge t={t} label="Platform capabilities" />
                     <SectionHeading
                         t={t}

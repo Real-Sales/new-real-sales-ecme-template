@@ -106,10 +106,10 @@ const FAQSection = () => {
     const t = useLandingTheme()
 
     return (
-        <section id="faq" className="py-24 md:py-32">
+        <section className="py-24 md:py-32">
             <div className="max-w-7xl mx-auto px-4">
                 <div className="grid lg:grid-cols-[320px_1fr] gap-16 xl:gap-24">
-                    <div className="lg:sticky lg:top-28 h-fit">
+                    <div id="faq" className="lg:sticky lg:top-28 h-fit">
                         <SectionBadge t={t} label="FAQ" />
                         <SectionHeading
                             t={t}

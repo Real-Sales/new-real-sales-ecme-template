@@ -17,7 +17,7 @@ import { LandingThemeProvider } from './LandingThemeProvider'
 import { useLandingTheme } from './LandingThemeProvider'
 import { useAppDispatch } from '@/store'
 import { setSchema } from '@/store/slices/theme/themeSlice'
-import { setLenis } from './smoothScroll'
+import { getLandingNavScrollOffset, setLenis } from './smoothScroll'
 import type { Mode } from '@/@types/theme'
 
 type LandingContentProps = {
@@ -65,6 +65,14 @@ const Landing = () => {
     useEffect(() => {
         dispatch(setSchema('green'))
     }, [dispatch])
+
+    useEffect(() => {
+        const padding = `${getLandingNavScrollOffset()}px`
+        document.documentElement.style.scrollPaddingTop = padding
+        return () => {
+            document.documentElement.style.scrollPaddingTop = ''
+        }
+    }, [])
 
     useEffect(() => {
         const prefersReducedMotion = window.matchMedia(

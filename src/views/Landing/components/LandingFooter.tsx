@@ -1,5 +1,5 @@
 import { useLandingTheme } from '../LandingThemeProvider'
-import { getLenis } from '../smoothScroll'
+import { scrollToLandingSection } from '../smoothScroll'
 
 const footerLinks = {
     Product: [
@@ -38,13 +38,7 @@ const LandingFooter = () => {
         if (!href.startsWith('#')) return
         const el = document.querySelector(href) as HTMLElement | null
         if (!el) return
-
-        const lenis = getLenis()
-        if (lenis) {
-            lenis.scrollTo(el, { offset: -80, duration: 1.4 })
-        } else {
-            el.scrollIntoView({ behavior: 'smooth' })
-        }
+        scrollToLandingSection(el)
     }
 
     return (

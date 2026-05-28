@@ -8,6 +8,7 @@ import type { ConversationMode } from '@/components/shared/SessionSetupPanel'
 import SplitText from './SplitText'
 import Particles from './Particles'
 import { useLandingTheme } from '../LandingThemeProvider'
+import { scrollToLandingSection } from '../smoothScroll'
 
 const objections = [
     '"Your competitor costs half as much."',
@@ -262,9 +263,8 @@ const RealSalesHero = () => {
                             border: `1px solid ${t.secondaryBtnBorder}`,
                         }}
                         onClick={() => {
-                            document
-                                .querySelector('#workflow')
-                                ?.scrollIntoView({ behavior: 'smooth' })
+                            const el = document.querySelector('#workflow') as HTMLElement | null
+                            if (el) scrollToLandingSection(el)
                         }}
                     >
                         See How It Works

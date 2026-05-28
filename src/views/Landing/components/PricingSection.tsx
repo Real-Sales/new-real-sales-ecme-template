@@ -63,9 +63,9 @@ const PricingSection = () => {
     const t = useLandingTheme()
 
     return (
-        <section id="pricing" className="py-24 md:py-32">
+        <section className="py-24 md:py-32">
             <div className="max-w-7xl mx-auto px-4">
-                <div className="text-center mb-16">
+                <div id="pricing" className="text-center mb-16">
                     <SectionBadge t={t} label="Pricing" />
                     <SectionHeading
                         t={t}

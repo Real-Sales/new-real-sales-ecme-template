@@ -70,10 +70,10 @@ const WorkflowSection = () => {
     }, [prefersReducedMotion])
 
     return (
-        <section id="workflow" ref={sectionRef} className="py-24 md:py-32">
+        <section ref={sectionRef} className="py-24 md:py-32">
             <div className="max-w-7xl mx-auto px-4">
                 <div className="grid lg:grid-cols-2 gap-16 xl:gap-24 items-start">
-                    <div className="lg:sticky lg:top-[20vh]">
+                    <div id="workflow" className="lg:sticky lg:top-[20vh]">
                         <SectionBadge t={t} label="How it works" />
                         <SectionHeading
                             t={t}
