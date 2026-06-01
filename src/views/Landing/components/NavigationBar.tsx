@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { TbMenu2, TbX, TbChevronDown, TbToolsKitchen2 } from 'react-icons/tb'
 import classNames from '@/utils/classNames'
 import { MODE_DARK } from '@/constants/theme.constant'
@@ -49,6 +49,7 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
     const [industriesOpen, setIndustriesOpen] = useState(false)
     const industriesRef = useRef<HTMLDivElement>(null)
     const lastScrollY = useRef(0)
+    const shouldReduceMotion = useReducedMotion()
     const t = useLandingTheme()
     const isDark = mode === MODE_DARK
     const navigate = useNavigate()
@@ -103,6 +104,15 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
         return () => document.removeEventListener('mousedown', handleOutside)
     }, [])
 
+    useEffect(() => {
+        if (!menuOpen) return
+        const originalOverflow = document.body.style.overflow
+        document.body.style.overflow = 'hidden'
+        return () => {
+            document.body.style.overflow = originalOverflow
+        }
+    }, [menuOpen])
+
     const handleNavClick = (href: string) => {
         setMenuOpen(false)
         const el = document.querySelector(href) as HTMLElement | null
@@ -124,7 +134,7 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
                     opacity: isHidden && !menuOpen ? 0 : 1,
                 }}
                 transition={{
-                    duration: 0.45,
+                    duration: shouldReduceMotion ? 0.01 : 0.45,
                     ease: [0.22, 1, 0.36, 1],
                 }}
                 style={{
@@ -132,9 +142,9 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
                 }}
             >
                 <motion.nav
-                    initial={{ opacity: 0, y: -20 }}
+                    initial={shouldReduceMotion ? false : { opacity: 0, y: -20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+                    transition={{ duration: shouldReduceMotion ? 0.01 : 0.6, ease: [0.16, 1, 0.3, 1] }}
                     className={classNames(
                         'flex flex-nowrap items-center justify-between gap-4 px-4 xl:px-5 py-2 rounded-full',
                         'border transition-all duration-500 mx-4 w-full max-w-6xl min-h-[52px]',
@@ -145,9 +155,9 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
                         backdropFilter: isSticky ? 'blur(16px)' : undefined,
                         boxShadow: isSticky
                             ? t.isLight
-                                ? '0 8px 32px rgba(0,0,0,0.08)'
-                                : '0 8px 32px rgba(0,0,0,0.6)'
-                            : undefined,
+                                ? '0 10px 28px rgba(17,24,39,0.08)'
+                                : '0 14px 40px rgba(0,0,0,0.48)'
+                            : 'none',
                     }}
                 >
                     <a
@@ -170,10 +180,12 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
                                 onClick={() => handleNavClick(link.href)}
                                 className={classNames(
                                     navItemClass,
-                                    'shrink-0',
+                                    'shrink-0 focus-visible:outline-none focus-visible:ring-2',
                                     t.isLight ? 'font-bold' : 'font-medium',
                                 )}
-                                style={{ color: t.isLight ? t.text : t.textMuted }}
+                                style={{
+                                    color: t.isLight ? t.text : t.textMuted,
+                                }}
                                 onMouseEnter={(e) => {
                                     if (!t.isLight) e.currentTarget.style.color = t.text
                                     e.currentTarget.style.backgroundColor = t.surfaceHover
@@ -193,7 +205,7 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
                                 onClick={() => setIndustriesOpen((v) => !v)}
                                 className={classNames(
                                     navItemClass,
-                                    'shrink-0 gap-1',
+                                    'shrink-0 gap-1 focus-visible:outline-none focus-visible:ring-2',
                                     t.isLight ? 'font-bold' : 'font-medium',
                                 )}
                                 style={{ color: industriesOpen ? t.accent : (t.isLight ? t.text : t.textMuted) }}
@@ -299,7 +311,7 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
                                     onModeChange={handleModeChange}
                                     variant="circle"
                                     duration={500}
-                                    className="flex shrink-0 items-center justify-center w-9 h-9 rounded-full transition-all duration-200"
+                                    className="flex shrink-0 items-center justify-center w-9 h-9 rounded-full transition-all duration-200 focus-visible:outline-none focus-visible:ring-2"
                                     style={{
                                         border: `1px solid ${t.border}`,
                                         color: t.textMuted,
@@ -310,7 +322,7 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
                                 to="/sign-in"
                                 className={classNames(
                                     navItemClass,
-                                    'shrink-0',
+                                    'shrink-0 focus-visible:outline-none focus-visible:ring-2',
                                     t.isLight ? 'font-bold' : 'font-medium',
                                 )}
                                 style={{ color: t.isLight ? t.text : t.textMuted }}
@@ -321,11 +333,14 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
                                 to="/sign-in"
                                 className={classNames(
                                     navItemClass,
-                                    'shrink-0 px-5 font-semibold active:scale-[0.97]',
+                                    'shrink-0 px-5 font-semibold active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2',
                                 )}
                                 style={{
                                     backgroundColor: t.primaryBtnBg,
                                     color: t.primaryBtnText,
+                                    boxShadow: t.isLight
+                                        ? '0 10px 22px rgba(16,185,129,0.22)'
+                                        : '0 10px 26px rgba(0,0,0,0.42)',
                                 }}
                                 onMouseEnter={(e) => {
                                     e.currentTarget.style.backgroundColor = t.primaryBtnHover
@@ -340,7 +355,7 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
 
                         <button
                             type="button"
-                            className="lg:hidden flex items-center justify-center w-9 h-9 rounded-full transition-all duration-200"
+                            className="lg:hidden flex items-center justify-center w-9 h-9 rounded-full transition-all duration-200 focus-visible:outline-none focus-visible:ring-2"
                             style={{
                                 border: `1px solid ${t.border}`,
                                 color: t.textMuted,
@@ -360,7 +375,7 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        transition={{ duration: 0.2 }}
+                        transition={{ duration: shouldReduceMotion ? 0.01 : 0.2 }}
                         className="fixed inset-0 z-[60] flex flex-col backdrop-blur-2xl"
                         style={{
                             backgroundColor: t.isLight
@@ -394,7 +409,7 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
                                 )}
                                 <button
                                     onClick={() => setMenuOpen(false)}
-                                    className="flex items-center justify-center w-9 h-9 rounded-full"
+                                    className="flex items-center justify-center w-9 h-9 rounded-full focus-visible:outline-none focus-visible:ring-2"
                                     style={{
                                         border: `1px solid ${t.border}`,
                                         color: t.textMuted,
@@ -410,17 +425,17 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
                             {navLinks.map((link, i) => (
                                 <motion.button
                                     key={link.label}
-                                    initial={{ opacity: 0, y: 24 }}
+                                    initial={shouldReduceMotion ? false : { opacity: 0, y: 24 }}
                                     animate={{ opacity: 1, y: 0 }}
-                                    exit={{ opacity: 0, y: 12 }}
+                                    exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 12 }}
                                     transition={{
-                                        duration: 0.4,
-                                        delay: i * 0.05,
+                                        duration: shouldReduceMotion ? 0.01 : 0.4,
+                                        delay: shouldReduceMotion ? 0 : i * 0.05,
                                         ease: [0.16, 1, 0.3, 1],
                                     }}
                                     onClick={() => handleNavClick(link.href)}
                                     className={classNames(
-                                        'text-left text-2xl py-3 transition-colors duration-200',
+                                        'text-left text-2xl py-3 transition-colors duration-200 rounded-md focus-visible:outline-none focus-visible:ring-2',
                                         t.isLight ? 'font-bold' : 'font-semibold',
                                     )}
                                     style={{
@@ -475,16 +490,16 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
                         </div>
 
                         <motion.div
-                            initial={{ opacity: 0, y: 20 }}
+                            initial={shouldReduceMotion ? false : { opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0 }}
-                            transition={{ duration: 0.4, delay: 0.25 }}
+                            transition={{ duration: shouldReduceMotion ? 0.01 : 0.4, delay: shouldReduceMotion ? 0 : 0.25 }}
                             className="px-6 pb-12 flex flex-col gap-3"
                         >
                             <Link
                                 to="/sign-in"
                                 onClick={() => setMenuOpen(false)}
-                                className="flex items-center justify-center py-3.5 text-sm font-semibold rounded-full transition-all duration-200"
+                                className="flex items-center justify-center py-3.5 text-sm font-semibold rounded-full transition-all duration-200 focus-visible:outline-none focus-visible:ring-2"
                                 style={{
                                     color: t.textMuted,
                                     border: `1px solid ${t.border}`,
@@ -495,7 +510,7 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
                             <Link
                                 to="/sign-in"
                                 onClick={() => setMenuOpen(false)}
-                                className="flex items-center justify-center py-3.5 text-sm font-semibold rounded-full transition-all duration-200 active:scale-[0.98]"
+                                className="flex items-center justify-center py-3.5 text-sm font-semibold rounded-full transition-all duration-200 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2"
                                 style={{
                                     backgroundColor: t.primaryBtnBg,
                                     color: t.primaryBtnText,

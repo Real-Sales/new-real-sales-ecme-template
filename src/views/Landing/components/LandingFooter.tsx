@@ -1,5 +1,6 @@
 import { useLandingTheme } from '../LandingThemeProvider'
 import { scrollToLandingSection } from '../smoothScroll'
+import { FiLinkedin, FiTwitter, FiYoutube } from 'react-icons/fi'
 
 const footerLinks = {
     Product: [
@@ -42,9 +43,9 @@ const LandingFooter = () => {
     }
 
     return (
-        <footer style={{ borderTop: `1px solid ${t.border}` }}>
+        <footer style={{ borderTop: `1px solid ${t.border}`, backgroundColor: t.bgElevated }}>
             <div className="max-w-7xl mx-auto px-4">
-                <div className="py-14 grid grid-cols-2 md:grid-cols-[200px_1fr_1fr_1fr_1fr] gap-x-8 gap-y-10">
+                <div className="py-14 md:py-16 grid grid-cols-2 md:grid-cols-[240px_1fr_1fr_1fr_1fr] gap-x-8 gap-y-10">
                     <div className="col-span-2 md:col-span-1">
                         <a href="/" className="inline-block mb-4">
                             <img
@@ -58,6 +59,30 @@ const LandingFooter = () => {
                         <p className="text-xs leading-relaxed max-w-[180px]" style={{ color: t.textDim }}>
                             AI-powered sales training for revenue teams that want to close more deals.
                         </p>
+                        <div className="flex items-center gap-2 mt-5">
+                            {[
+                                { href: '#', label: 'LinkedIn', icon: FiLinkedin },
+                                { href: '#', label: 'Twitter', icon: FiTwitter },
+                                { href: '#', label: 'YouTube', icon: FiYoutube },
+                            ].map((item) => {
+                                const Icon = item.icon
+                                return (
+                                    <a
+                                        key={item.label}
+                                        href={item.href}
+                                        aria-label={item.label}
+                                        className="w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2"
+                                        style={{
+                                            border: `1px solid ${t.border}`,
+                                            color: t.textMuted,
+                                            backgroundColor: t.surface,
+                                        }}
+                                    >
+                                        <Icon size={14} />
+                                    </a>
+                                )
+                            })}
+                        </div>
                     </div>
 
                     {Object.entries(footerLinks).map(([category, links]) => (
@@ -74,7 +99,7 @@ const LandingFooter = () => {
                                         {link.href.startsWith('#') ? (
                                             <button
                                                 onClick={() => handleNavClick(link.href)}
-                                                className="text-xs transition-colors duration-200"
+                                                className="text-xs transition-colors duration-200 hover:underline underline-offset-4"
                                                 style={{ color: t.textDim }}
                                             >
                                                 {link.label}
@@ -82,7 +107,7 @@ const LandingFooter = () => {
                                         ) : link.href.startsWith('mailto') ? (
                                             <a
                                                 href={link.href}
-                                                className="text-xs transition-colors duration-200"
+                                                className="text-xs transition-colors duration-200 hover:underline underline-offset-4"
                                                 style={{ color: t.textDim }}
                                             >
                                                 {link.label}
@@ -90,7 +115,7 @@ const LandingFooter = () => {
                                         ) : (
                                             <a
                                                 href={link.href}
-                                                className="text-xs transition-colors duration-200"
+                                                className="text-xs transition-colors duration-200 hover:underline underline-offset-4"
                                                 style={{ color: t.textDim }}
                                             >
                                                 {link.label}
@@ -115,7 +140,7 @@ const LandingFooter = () => {
                             <a
                                 key={label}
                                 href="#"
-                                className="text-[11px] transition-colors duration-200"
+                                className="text-[11px] transition-colors duration-200 hover:underline underline-offset-4"
                                 style={{ color: t.textDim }}
                             >
                                 {label}
@@ -123,7 +148,7 @@ const LandingFooter = () => {
                         ))}
                         <a
                             href="mailto:hello@realsales.ai"
-                            className="text-[11px] transition-colors duration-200"
+                            className="text-[11px] transition-colors duration-200 hover:underline underline-offset-4"
                             style={{ color: t.textDim }}
                         >
                             hello@realsales.ai

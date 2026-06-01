@@ -1,5 +1,11 @@
 import { useRef, type ReactNode, type CSSProperties } from 'react'
-import { motion, useInView } from 'framer-motion'
+import {
+    motion,
+    useInView,
+    useReducedMotion,
+    useScroll,
+    useTransform,
+} from 'framer-motion'
 import type { LandingTheme } from '../landingTheme'
 import DiaTextReveal from './DiaTextReveal'
 
@@ -31,9 +37,54 @@ export function getRevealColors(t: LandingTheme) {
     return [t.accent, '#FFFFFF', t.accentMild, t.text, t.accentDeep] as const
 }
 
+/** Scroll-linked parallax + fade reveal for cards.
+ * Applies a continuous `y` drift tied to scroll position (parallax) plus a
+ * one-time opacity fade-in. Keep hover transforms on a child element so they
+ * don't fight the parallax transform on this wrapper. */
+export function ParallaxReveal({
+    children,
+    className,
+    style,
+    distance = 60,
+    delay = 0,
+}: {
+    children: ReactNode
+    className?: string
+    style?: CSSProperties
+    distance?: number
+    delay?: number
+}) {
+    const ref = useRef<HTMLDivElement>(null)
+    const shouldReduceMotion = useReducedMotion()
+    const isInView = useInView(ref, { once: true, margin: '-60px' })
+    const { scrollYProgress } = useScroll({
+        target: ref,
+        offset: ['start end', 'end start'],
+    })
+    const y = useTransform(scrollYProgress, [0, 1], [distance, -distance])
+
+    return (
+        <motion.div
+            ref={ref}
+            initial={shouldReduceMotion ? false : { opacity: 0 }}
+            animate={isInView ? { opacity: 1 } : {}}
+            transition={{
+                duration: shouldReduceMotion ? 0.01 : 0.6,
+                delay: shouldReduceMotion ? 0 : delay,
+                ease: EASE_OUT,
+            }}
+            style={shouldReduceMotion ? style : { ...style, y }}
+            className={className}
+        >
+            {children}
+        </motion.div>
+    )
+}
+
 export function SectionBadge({ t, label }: { t: LandingTheme; label: string }) {
     const ref = useRef<HTMLDivElement>(null)
     const isInView = useInView(ref, { once: true, amount: 0.6 })
+    const shouldReduceMotion = useReducedMotion()
 
     return (
         <motion.div
@@ -51,7 +102,18 @@ export function SectionBadge({ t, label }: { t: LandingTheme; label: string }) {
                 backgroundColor: t.surface,
             }}
         >
-            <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: t.accent }} />
+            <span className="relative flex h-1.5 w-1.5">
+                {!shouldReduceMotion && (
+                    <span
+                        className="absolute inline-flex h-full w-full rounded-full animate-ping opacity-75"
+                        style={{ backgroundColor: t.accent }}
+                    />
+                )}
+                <span
+                    className="relative inline-flex h-1.5 w-1.5 rounded-full"
+                    style={{ backgroundColor: t.accent }}
+                />
+            </span>
             <span className="text-xs font-medium tracking-wide" style={{ color: t.textMuted }}>
                 {label}
             </span>

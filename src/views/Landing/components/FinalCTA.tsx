@@ -1,18 +1,25 @@
-import { motion } from 'framer-motion'
+import { motion, useReducedMotion } from 'framer-motion'
 import { TbArrowRight } from 'react-icons/tb'
 import { useNavigate } from 'react-router-dom'
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useAppSelector } from '@/store'
 import SessionSetupPanel from '@/components/shared/SessionSetupPanel'
 import type { ConversationMode } from '@/components/shared/SessionSetupPanel'
 import { useLandingTheme } from '../LandingThemeProvider'
+import Particles from './Particles'
 import { SectionDesc, SectionHeading, SECTION_REVEAL, getDescDelay } from './landingUi'
 
 const FinalCTA = () => {
     const navigate = useNavigate()
     const t = useLandingTheme()
     const [isSetupOpen, setIsSetupOpen] = useState(false)
+    const shouldReduceMotion = useReducedMotion()
     const signedIn = useAppSelector((state) => state.auth.session.signedIn)
+
+    const particleColors = useMemo(
+        () => [t.accent, t.accentMild, t.accentDeep],
+        [t.accent, t.accentMild, t.accentDeep],
+    )
 
     const handleStart = () => {
         if (!signedIn) {
@@ -43,14 +50,17 @@ const FinalCTA = () => {
 
             <div className="max-w-7xl mx-auto px-4 relative z-10">
                 <motion.div
-                    initial={{ opacity: 0, y: 32 }}
+                    initial={shouldReduceMotion ? false : { opacity: 0, y: 32 }}
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true, margin: '-80px' }}
-                    transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+                    transition={{ duration: shouldReduceMotion ? 0.01 : 0.7, ease: [0.16, 1, 0.3, 1] }}
                     className="relative rounded-3xl overflow-hidden px-8 py-16 md:py-20 text-center"
                     style={{
                         border: `1px solid ${t.borderStrong}`,
-                        backgroundColor: t.surface,
+                        backgroundColor: t.bgElevated,
+                        boxShadow: t.isLight
+                            ? '0 24px 56px rgba(15,23,42,0.1)'
+                            : '0 24px 56px rgba(0,0,0,0.4)',
                     }}
                 >
                     <div
@@ -59,6 +69,25 @@ const FinalCTA = () => {
                         }}
                         className="absolute inset-0 [mask-image:radial-gradient(ellipse_at_center,_white_20%,_transparent_70%)] pointer-events-none"
                     />
+
+                    {/* Glowing particles inside the card (theme-aware) */}
+                    {!shouldReduceMotion && (
+                        <div className="absolute inset-0 pointer-events-none">
+                            <Particles
+                                particleColors={particleColors}
+                                particleCount={t.isLight ? 260 : 360}
+                                particleSpread={11}
+                                speed={0.3}
+                                particleBaseSize={t.isLight ? 95 : 190}
+                                sizeRandomness={t.isLight ? 0.7 : 1.2}
+                                moveParticlesOnHover={false}
+                                alphaParticles
+                                lightMode={t.isLight}
+                                disableRotation
+                                pixelRatio={2}
+                            />
+                        </div>
+                    )}
 
                     <div className="relative z-10 max-w-2xl mx-auto">
                         <p className="text-xs font-medium uppercase tracking-[0.2em] mb-6" style={{ color: t.accent }}>
@@ -81,13 +110,16 @@ const FinalCTA = () => {
                         <div className="flex flex-col sm:flex-row gap-3 justify-center">
                             <motion.button
                                 onClick={handleStart}
-                                whileHover={{ scale: 1.02 }}
-                                whileTap={{ scale: 0.97 }}
+                                whileHover={shouldReduceMotion ? {} : { scale: 1.03, y: -2 }}
+                                whileTap={shouldReduceMotion ? {} : { scale: 0.97 }}
                                 transition={{ type: 'spring', stiffness: 400, damping: 20 }}
-                                className="group flex items-center justify-center gap-2.5 px-7 py-3.5 text-sm font-semibold rounded-full transition-colors duration-200"
+                                className="group flex items-center justify-center gap-2.5 px-7 py-3.5 text-sm font-semibold rounded-full transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2"
                                 style={{
                                     backgroundColor: t.primaryBtnBg,
                                     color: t.primaryBtnText,
+                                    boxShadow: t.isLight
+                                        ? '0 12px 26px rgba(16,185,129,0.24)'
+                                        : '0 12px 26px rgba(0,0,0,0.42)',
                                 }}
                             >
                                 Start training free
@@ -98,13 +130,14 @@ const FinalCTA = () => {
                             </motion.button>
                             <motion.a
                                 href="mailto:hello@realsales.ai"
-                                whileHover={{ scale: 1.02 }}
-                                whileTap={{ scale: 0.97 }}
+                                whileHover={shouldReduceMotion ? {} : { scale: 1.02, y: -2 }}
+                                whileTap={shouldReduceMotion ? {} : { scale: 0.97 }}
                                 transition={{ type: 'spring', stiffness: 400, damping: 20 }}
-                                className="flex items-center justify-center px-7 py-3.5 text-sm font-semibold rounded-full transition-all duration-200"
+                                className="flex items-center justify-center px-7 py-3.5 text-sm font-semibold rounded-full transition-all duration-200 focus-visible:outline-none focus-visible:ring-2"
                                 style={{
                                     color: t.secondaryBtnText,
                                     border: `1px solid ${t.secondaryBtnBorder}`,
+                                    backgroundColor: t.surface,
                                 }}
                             >
                                 Talk to the team

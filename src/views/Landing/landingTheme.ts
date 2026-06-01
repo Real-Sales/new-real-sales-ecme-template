@@ -65,7 +65,7 @@ export function getLandingTheme(mode: Mode): LandingTheme {
         onAccent: '#FFFFFF',
         auroraStops: isLight
             ? ['#ffffff', '#ffffff', '#ffffff']
-            : ['#ffffff', '#9CA3AF', '#0A0A0A'],
+            : ['#050505', '#0CAF60', '#050505'],
         vignette: 'radial-gradient(ellipse 90% 70% at 50% 40%, transparent 0%, rgba(5,5,5,0.18) 52%, rgba(5,5,5,0.75) 100%)',
         starDot: isLight ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.15)',
         gridPattern: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)',

@@ -1,6 +1,6 @@
-import { motion } from 'framer-motion'
+import { motion, useReducedMotion } from 'framer-motion'
 import { useLandingTheme } from '../LandingThemeProvider'
-import { SectionBadge, SectionHeading, SectionDesc } from './landingUi'
+import { SectionBadge, SectionHeading, SectionDesc, ParallaxReveal } from './landingUi'
 
 const testimonials = [
     {
@@ -60,10 +60,17 @@ const integrationNames = [
 
 const SocialProof = () => {
     const t = useLandingTheme()
+    const shouldReduceMotion = useReducedMotion()
 
     return (
-        <section className="py-24 md:py-32">
-            <div className="max-w-7xl mx-auto px-4">
+        <section className="py-24 md:py-32 relative overflow-hidden">
+            <div
+                className="pointer-events-none absolute inset-x-0 top-0 h-[340px]"
+                style={{
+                    background: `radial-gradient(ellipse 50% 100% at 50% 0%, ${t.accent}12 0%, transparent 70%)`,
+                }}
+            />
+            <div className="max-w-7xl mx-auto px-4 relative z-10">
                 <div className="text-center mb-16">
                     <SectionBadge t={t} label="Testimonials" />
                     <SectionHeading
@@ -80,16 +87,20 @@ const SocialProof = () => {
 
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {testimonials.map((item, i) => (
-                        <motion.div
+                        <ParallaxReveal
                             key={i}
-                            initial={{ opacity: 0, y: 28 }}
-                            whileInView={{ opacity: 1, y: 0 }}
-                            viewport={{ once: true, margin: '-40px' }}
-                            transition={{ duration: 0.6, delay: (i % 3) * 0.08, ease: [0.16, 1, 0.3, 1] }}
-                            className="relative rounded-2xl p-6 flex flex-col transition-all duration-300"
+                            className="h-full"
+                            delay={(i % 3) * 0.08}
+                            distance={i % 2 === 0 ? 50 : 85}
+                        >
+                        <div
+                            className="relative rounded-2xl p-6 flex flex-col h-full transition-all duration-300 hover:-translate-y-1"
                             style={{
                                 border: `1px solid ${t.border}`,
-                                backgroundColor: t.surface,
+                                backgroundColor: t.bgElevated,
+                                boxShadow: t.isLight
+                                    ? '0 12px 28px rgba(15,23,42,0.05)'
+                                    : '0 12px 28px rgba(0,0,0,0.24)',
                             }}
                         >
                             <div
@@ -124,7 +135,8 @@ const SocialProof = () => {
                                     </p>
                                 </div>
                             </div>
-                        </motion.div>
+                        </div>
+                        </ParallaxReveal>
                     ))}
                 </div>
 
@@ -136,17 +148,21 @@ const SocialProof = () => {
                         <div className="flex gap-8 items-center">
                             <motion.div
                                 className="flex gap-8 items-center shrink-0"
-                                animate={{ x: ['0%', '-50%'] }}
-                                transition={{ duration: 22, repeat: Infinity, ease: 'linear' }}
+                                animate={shouldReduceMotion ? { x: 0 } : { x: ['0%', '-50%'] }}
+                                transition={
+                                    shouldReduceMotion
+                                        ? { duration: 0.01 }
+                                        : { duration: 22, repeat: Infinity, ease: 'linear' }
+                                }
                             >
                                 {[...integrationNames, ...integrationNames].map((name, i) => (
                                     <div
                                         key={i}
-                                        className="px-5 py-2.5 rounded-full text-sm font-medium whitespace-nowrap shrink-0"
+                                        className="px-5 py-2.5 rounded-full text-sm font-medium whitespace-nowrap shrink-0 transition-all duration-200 hover:-translate-y-0.5 opacity-75 hover:opacity-100"
                                         style={{
                                             border: `1px solid ${t.border}`,
-                                            backgroundColor: t.surface,
-                                            color: t.textFaint,
+                                            backgroundColor: t.bgElevated,
+                                            color: t.textMuted,
                                         }}
                                     >
                                         {name}
