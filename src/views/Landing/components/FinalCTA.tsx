@@ -6,8 +6,15 @@ import { useAppSelector } from '@/store'
 import SessionSetupPanel from '@/components/shared/SessionSetupPanel'
 import type { ConversationMode } from '@/components/shared/SessionSetupPanel'
 import { useLandingTheme } from '../LandingThemeProvider'
+import ImageTrail from './ImageTrail'
 import Particles from './Particles'
 import { SectionDesc, SectionHeading, SECTION_REVEAL, getDescDelay } from './landingUi'
+
+// AI persona headshots used for the cursor image-trail effect in the card.
+const personaImages = Array.from(
+    { length: 15 },
+    (_, i) => `/img/avatars/thumb-${i + 1}.jpg`,
+)
 
 const FinalCTA = () => {
     const navigate = useNavigate()
@@ -89,7 +96,14 @@ const FinalCTA = () => {
                         </div>
                     )}
 
-                    <div className="relative z-10 max-w-2xl mx-auto">
+                    {/* AI persona image trail follows the cursor across the card */}
+                    {!shouldReduceMotion && (
+                        <div className="absolute inset-0 z-0">
+                            <ImageTrail items={personaImages} variant={3} />
+                        </div>
+                    )}
+
+                    <div className="relative z-10 max-w-2xl mx-auto pointer-events-none">
                         <p className="text-xs font-medium uppercase tracking-[0.2em] mb-6" style={{ color: t.accent }}>
                             Ready to train?
                         </p>
@@ -107,7 +121,7 @@ const FinalCTA = () => {
                             delay={getDescDelay(1.8)}
                         />
 
-                        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                        <div className="flex flex-col sm:flex-row gap-3 justify-center pointer-events-auto">
                             <motion.button
                                 onClick={handleStart}
                                 whileHover={shouldReduceMotion ? {} : { scale: 1.03, y: -2 }}
