@@ -36,6 +36,9 @@ export default defineConfig(({ mode }) => {
                 },
             },
         },
+        optimizeDeps: {
+            include: ['gsap', 'gsap/ScrollTrigger', '@gsap/react'],
+        },
         build: {
             outDir: 'build',
         },

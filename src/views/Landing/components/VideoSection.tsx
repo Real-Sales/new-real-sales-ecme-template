@@ -4,7 +4,7 @@ import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { TbSettings2, TbMessageChatbot, TbTrendingUp } from 'react-icons/tb'
 import { useLandingTheme } from '../LandingThemeProvider'
-import { sectionBadge } from './landingUi'
+import { SectionBadge, SectionHeading, SectionDesc } from './landingUi'
 
 gsap.registerPlugin(ScrollTrigger)
 
@@ -70,20 +70,21 @@ const WorkflowSection = () => {
     }, [prefersReducedMotion])
 
     return (
-        <section id="workflow" ref={sectionRef} className="py-24 md:py-32">
+        <section ref={sectionRef} className="py-24 md:py-32">
             <div className="max-w-7xl mx-auto px-4">
                 <div className="grid lg:grid-cols-2 gap-16 xl:gap-24 items-start">
-                    <div className="lg:sticky lg:top-28">
-                        {sectionBadge(t, 'How it works')}
-                        <h2
+                    <div id="workflow" className="lg:sticky lg:top-[20vh]">
+                        <SectionBadge t={t} label="How it works" />
+                        <SectionHeading
+                            t={t}
+                            text="From setup to insight in under 5 minutes"
                             className="text-3xl md:text-4xl font-bold tracking-[-0.015em] leading-tight mb-6"
-                            style={{ color: t.text }}
-                        >
-                            From setup to insight in under 5 minutes
-                        </h2>
-                        <p className="leading-relaxed text-base max-w-md" style={{ color: t.textFaint }}>
-                            No lengthy onboarding. No setup calls. Start a realistic training session immediately and get scored feedback the moment it ends.
-                        </p>
+                        />
+                        <SectionDesc
+                            t={t}
+                            text="No lengthy onboarding. No setup calls. Start a realistic training session immediately and get scored feedback the moment it ends."
+                            className="leading-relaxed text-base max-w-md"
+                        />
 
                         <div className="hidden lg:flex items-center gap-3 mt-12">
                             <div className="flex gap-1.5">

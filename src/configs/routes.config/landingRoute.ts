@@ -38,6 +38,23 @@ const landingRoute: Routes = [
             pageBackgroundType: 'plain',
         },
     },
+    {
+        key: 'industries-food-and-beverages',
+        path: `/industries/food-and-beverages`,
+        component: lazy(
+            () =>
+                import(
+                    '@/views/Landing/components/IndustryPersonas/FoodAndBeverages'
+                ),
+        ),
+        authority: [],
+        meta: {
+            layout: 'blank',
+            footer: false,
+            pageContainerType: 'gutterless',
+            pageBackgroundType: 'plain',
+        },
+    },
 ]
 
 export default landingRoute

@@ -12,11 +12,15 @@ import companyMembersReducer, {
     fetchCompanyMembers,
     resetNotification,
 } from './store'
+import salesDivisionsReducer, { resetSalesDivisionsData } from '@/store/slices/salesDivisions'
+import teamsReducer, { resetTeamsData } from '@/store/slices/teams'
 import AssignTeamDialog from './components/AssignTeamDialog'
 import type { CompanyMemberRow } from './types'
 import type { ColumnDef } from '@/components/shared/DataTable'
 
 injectReducer('companyMembers', companyMembersReducer)
+injectReducer('salesDivisions', salesDivisionsReducer)
+injectReducer('teams', teamsReducer)
 
 const getInitials = (firstName: string, lastName: string) =>
     `${firstName[0] ?? ''}${lastName[0] ?? ''}`.toUpperCase()
@@ -104,6 +108,8 @@ const MemberList = () => {
                 companyId: companyIdFromAuth,
             }),
         )
+        dispatch(resetSalesDivisionsData())
+        dispatch(resetTeamsData())
     }
 
     useEffect(() => {

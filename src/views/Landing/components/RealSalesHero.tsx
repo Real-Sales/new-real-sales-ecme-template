@@ -1,14 +1,14 @@
-import { motion, AnimatePresence } from 'framer-motion'
-import { useState, useEffect, useRef } from 'react'
+import { motion, AnimatePresence, useInView } from 'framer-motion'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { TbArrowRight } from 'react-icons/tb'
 import { useAppSelector } from '@/store'
-import { useInView } from 'framer-motion'
 import SessionSetupPanel from '@/components/shared/SessionSetupPanel'
 import type { ConversationMode } from '@/components/shared/SessionSetupPanel'
-import Aurora from './Aurora'
 import SplitText from './SplitText'
+import Particles from './Particles'
 import { useLandingTheme } from '../LandingThemeProvider'
+import { scrollToLandingSection } from '../smoothScroll'
 
 const objections = [
     '"Your competitor costs half as much."',
@@ -91,6 +91,11 @@ const RealSalesHero = () => {
     const statsRef = useRef(null)
     const statsInView = useInView(statsRef, { once: true, margin: '-40px' })
 
+    const particleColors = useMemo(
+        () => [t.accent, t.accentMild, t.accentDeep],
+        [t.accent, t.accentMild, t.accentDeep],
+    )
+
     useEffect(() => {
         const interval = setInterval(() => {
             setCurrentObjection((prev) => (prev + 1) % objections.length)
@@ -115,30 +120,24 @@ const RealSalesHero = () => {
     }
 
     return (
-        <section className="relative min-h-[100dvh] flex flex-col items-center justify-center overflow-hidden pt-24 pb-0">
-            <Aurora
-                colorStops={t.auroraStops}
-                amplitude={t.isLight ? 0.5 : 1.0}
-                blend={t.isLight ? 0.55 : 0.5}
-                lightMode={t.isLight}
-                speed={1}
-            />
-
-            {!t.isLight && (
-                <div
-                    className="absolute inset-0 pointer-events-none"
-                    style={{ background: t.vignette }}
+        <section
+            className="relative min-h-[100dvh] flex flex-col items-center justify-center overflow-hidden pt-24 pb-0"
+            style={{ backgroundColor: t.bg, color: t.text }}
+        >
+            {/* Particles background (replaces the previous Aurora + vignette + star overlays) */}
+            <div className="pointer-events-none absolute inset-0 z-[0]">
+                <Particles
+                    particleColors={particleColors}
+                    particleCount={200}
+                    particleSpread={10}
+                    speed={0.3}
+                    particleBaseSize={100}
+                    moveParticlesOnHover={false}
+                    alphaParticles={false}
+                    disableRotation={false}
+                    pixelRatio={2}
                 />
-            )}
-
-            {!t.isLight && (
-                <div
-                    style={{
-                        backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 80' width='80' height='80' fill='none'%3e%3ccircle cx='40' cy='40' r='0.8' fill='${encodeURIComponent(t.starDot)}'/%3e%3c/svg%3e")`,
-                    }}
-                    className="absolute inset-0 [mask-image:radial-gradient(ellipse_at_center,_white_10%,_transparent_70%)] pointer-events-none opacity-40"
-                />
-            )}
+            </div>
 
             <div className="relative z-10 max-w-5xl mx-auto px-4 w-full text-center flex flex-col items-center flex-1 justify-center py-16">
                 <motion.div
@@ -157,7 +156,10 @@ const RealSalesHero = () => {
                             className="w-1.5 h-1.5 rounded-full animate-pulse"
                             style={{ backgroundColor: t.accent }}
                         />
-                        <span className="text-xs font-medium tracking-wide" style={{ color: t.textMuted }}>
+                        <span
+                            className="text-xs font-medium tracking-wide"
+                            style={{ color: t.textMuted }}
+                        >
                             AI-Powered Sales Training
                         </span>
                     </div>
@@ -192,7 +194,7 @@ const RealSalesHero = () => {
                         rootMargin="-100px"
                         textAlign="center"
                         tag="div"
-                        style={{ color: t.isLight ? `${t.accent}99` : `${t.text}66` }}
+                        style={{ color: '#9CA3AF' }}
                     />
                 </h1>
 
@@ -203,7 +205,8 @@ const RealSalesHero = () => {
                     className="text-base md:text-lg leading-relaxed mb-4 max-w-[520px]"
                     style={{ color: t.textMuted }}
                 >
-                    Practice high-stakes sales conversations with AI buyers that challenge, interrupt, and negotiate like real prospects.
+                    Practice high-stakes sales conversations with AI buyers that challenge,
+                    interrupt, and negotiate like real prospects.
                 </motion.p>
 
                 <motion.div
@@ -260,7 +263,8 @@ const RealSalesHero = () => {
                             border: `1px solid ${t.secondaryBtnBorder}`,
                         }}
                         onClick={() => {
-                            document.querySelector('#workflow')?.scrollIntoView({ behavior: 'smooth' })
+                            const el = document.querySelector('#workflow') as HTMLElement | null
+                            if (el) scrollToLandingSection(el)
                         }}
                     >
                         See How It Works

@@ -1,4 +1,5 @@
 import { useLandingTheme } from '../LandingThemeProvider'
+import { scrollToLandingSection } from '../smoothScroll'
 
 const footerLinks = {
     Product: [
@@ -34,10 +35,10 @@ const LandingFooter = () => {
     const year = new Date().getFullYear()
 
     const handleNavClick = (href: string) => {
-        if (href.startsWith('#')) {
-            const el = document.querySelector(href)
-            if (el) el.scrollIntoView({ behavior: 'smooth' })
-        }
+        if (!href.startsWith('#')) return
+        const el = document.querySelector(href) as HTMLElement | null
+        if (!el) return
+        scrollToLandingSection(el)
     }
 
     return (

@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion'
 import { TbTargetArrow, TbPlayerPlay, TbReportAnalytics, TbBolt } from 'react-icons/tb'
 import { useLandingTheme } from '../LandingThemeProvider'
-import { sectionBadge } from './landingUi'
+import { SectionBadge, SectionHeading, SectionDesc } from './landingUi'
 
 const metrics = [
     { label: 'Confidence Score', value: '87%', bar: 87, trend: '+12%' },
@@ -183,16 +183,17 @@ const DashboardSection = () => {
                         viewport={{ once: true, margin: '-80px' }}
                         transition={{ duration: 0.7, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}
                     >
-                        {sectionBadge(t, 'Sales intelligence')}
-                        <h2
+                        <SectionBadge t={t} label="Sales intelligence" />
+                        <SectionHeading
+                            t={t}
+                            text="Know exactly what to fix, not just how you felt"
                             className="text-3xl md:text-4xl font-bold tracking-[-0.015em] leading-tight mb-4"
-                            style={{ color: t.text }}
-                        >
-                            Know exactly what to fix, not just how you felt
-                        </h2>
-                        <p className="leading-relaxed mb-10" style={{ color: t.textFaint }}>
-                            Generic feedback is useless. RealSales gives managers and reps the specific data they need to improve - one session at a time.
-                        </p>
+                        />
+                        <SectionDesc
+                            t={t}
+                            text="Generic feedback is useless. RealSales gives managers and reps the specific data they need to improve - one session at a time."
+                            className="leading-relaxed mb-10"
+                        />
 
                         <div className="space-y-6">
                             {bullets.map((b, i) => {

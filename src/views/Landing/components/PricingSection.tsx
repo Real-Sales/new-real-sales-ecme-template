@@ -2,7 +2,7 @@ import { motion } from 'framer-motion'
 import { TbCheck, TbArrowRight } from 'react-icons/tb'
 import { Link } from 'react-router-dom'
 import { useLandingTheme } from '../LandingThemeProvider'
-import { sectionBadge } from './landingUi'
+import { SectionBadge, SectionHeading, SectionDesc } from './landingUi'
 
 const tiers = [
     {
@@ -63,19 +63,20 @@ const PricingSection = () => {
     const t = useLandingTheme()
 
     return (
-        <section id="pricing" className="py-24 md:py-32">
+        <section className="py-24 md:py-32">
             <div className="max-w-7xl mx-auto px-4">
-                <div className="text-center mb-16">
-                    {sectionBadge(t, 'Pricing')}
-                    <h2
+                <div id="pricing" className="text-center mb-16">
+                    <SectionBadge t={t} label="Pricing" />
+                    <SectionHeading
+                        t={t}
+                        text="Straightforward pricing, no surprises"
                         className="text-3xl md:text-4xl font-bold tracking-[-0.015em] leading-tight mb-4"
-                        style={{ color: t.text }}
-                    >
-                        Straightforward pricing, no surprises
-                    </h2>
-                    <p className="max-w-md mx-auto" style={{ color: t.textFaint }}>
-                        Start free. Upgrade when your team is ready to scale. No annual lock-in on monthly plans.
-                    </p>
+                    />
+                    <SectionDesc
+                        t={t}
+                        text="Start free. Upgrade when your team is ready to scale. No annual lock-in on monthly plans."
+                        className="max-w-md mx-auto"
+                    />
                 </div>
 
                 <div className="grid md:grid-cols-3 gap-4 items-stretch">
