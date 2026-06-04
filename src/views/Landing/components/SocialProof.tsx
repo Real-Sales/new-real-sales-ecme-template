@@ -1,6 +1,9 @@
 import { motion, useReducedMotion } from 'framer-motion'
+import classNames from '@/utils/classNames'
+import { Marquee } from '@/components/magicui/Marquee'
 import { useLandingTheme } from '../LandingThemeProvider'
-import { SectionBadge, SectionHeading, SectionDesc, ParallaxReveal } from './landingUi'
+import type { LandingTheme } from '../landingTheme'
+import { SectionBadge, SectionHeading, SectionDesc } from './landingUi'
 
 const testimonials = [
     {
@@ -53,17 +56,85 @@ const testimonials = [
     },
 ]
 
+const firstRow = testimonials.slice(0, testimonials.length / 2)
+const secondRow = testimonials.slice(testimonials.length / 2)
+
 const integrationNames = [
     'Salesforce', 'HubSpot', 'Outreach', 'Salesloft', 'Gong', 'Chorus',
     'Zoom', 'Microsoft Teams', 'Slack', 'Pipedrive', 'Salesforce', 'HubSpot',
 ]
+
+function TestimonialCard({
+    t,
+    quote,
+    name,
+    role,
+    company,
+    initials,
+}: {
+    t: LandingTheme
+    quote: string
+    name: string
+    role: string
+    company: string
+    initials: string
+}) {
+    return (
+        <div
+            className={classNames(
+                'relative shrink-0 rounded-2xl p-4 sm:p-6 flex flex-col my-1',
+                'w-[min(14.5rem,calc(100vw-2rem))] sm:w-72 md:w-80',
+            )}
+            style={{
+                border: `1px solid ${t.border}`,
+                backgroundColor: t.bgElevated,
+                boxShadow: t.isLight
+                    ? '0 12px 28px rgba(15,23,42,0.05)'
+                    : '0 12px 28px rgba(0,0,0,0.24)',
+            }}
+        >
+            <div
+                className="text-3xl sm:text-4xl leading-none font-serif mb-2 sm:mb-3 select-none"
+                style={{ color: t.accentSubtle }}
+            >
+                &ldquo;
+            </div>
+            <p className="text-xs sm:text-sm leading-relaxed flex-1 mb-4 sm:mb-6" style={{ color: t.textSecondary }}>
+                {quote}
+            </p>
+            <div
+                className="flex items-center gap-3 pt-4"
+                style={{ borderTop: `1px solid ${t.border}` }}
+            >
+                <div
+                    className="flex items-center justify-center w-9 h-9 rounded-full text-xs font-semibold shrink-0"
+                    style={{
+                        backgroundColor: t.accentSubtle,
+                        border: `1px solid ${t.border}`,
+                        color: t.accent,
+                    }}
+                >
+                    {initials}
+                </div>
+                <div className="min-w-0">
+                    <p className="text-xs font-semibold" style={{ color: t.text }}>
+                        {name}
+                    </p>
+                    <p className="text-[10px]" style={{ color: t.textFaint }}>
+                        {role}, {company}
+                    </p>
+                </div>
+            </div>
+        </div>
+    )
+}
 
 const SocialProof = () => {
     const t = useLandingTheme()
     const shouldReduceMotion = useReducedMotion()
 
     return (
-        <section className="py-24 md:py-32 relative overflow-hidden">
+        <section className="py-24 md:py-32 relative overflow-x-hidden">
             <div
                 className="pointer-events-none absolute inset-x-0 top-0 h-[340px]"
                 style={{
@@ -71,7 +142,7 @@ const SocialProof = () => {
                 }}
             />
             <div className="max-w-7xl mx-auto px-4 relative z-10">
-                <div className="text-center mb-16">
+                <div className="text-center mb-12 md:mb-16">
                     <SectionBadge t={t} label="Testimonials" />
                     <SectionHeading
                         t={t}
@@ -85,60 +156,45 @@ const SocialProof = () => {
                     />
                 </div>
 
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {testimonials.map((item, i) => (
-                        <ParallaxReveal
-                            key={i}
-                            className="h-full"
-                            delay={(i % 3) * 0.08}
-                            distance={i % 2 === 0 ? 50 : 85}
-                        >
-                        <div
-                            className="relative rounded-2xl p-6 flex flex-col h-full transition-all duration-300 hover:-translate-y-1"
-                            style={{
-                                border: `1px solid ${t.border}`,
-                                backgroundColor: t.bgElevated,
-                                boxShadow: t.isLight
-                                    ? '0 12px 28px rgba(15,23,42,0.05)'
-                                    : '0 12px 28px rgba(0,0,0,0.24)',
-                            }}
-                        >
-                            <div
-                                className="text-4xl leading-none font-serif mb-3 select-none"
-                                style={{ color: t.accentSubtle }}
-                            >
-                                &ldquo;
-                            </div>
-                            <p className="text-sm leading-relaxed flex-1 mb-6" style={{ color: t.textSecondary }}>
-                                {item.quote}
-                            </p>
-                            <div
-                                className="flex items-center gap-3 pt-4"
-                                style={{ borderTop: `1px solid ${t.border}` }}
-                            >
-                                <div
-                                    className="flex items-center justify-center w-9 h-9 rounded-full text-xs font-semibold shrink-0"
-                                    style={{
-                                        backgroundColor: t.accentSubtle,
-                                        border: `1px solid ${t.border}`,
-                                        color: t.accent,
-                                    }}
-                                >
-                                    {item.initials}
-                                </div>
-                                <div>
-                                    <p className="text-xs font-semibold" style={{ color: t.text }}>
-                                        {item.name}
-                                    </p>
-                                    <p className="text-[10px]" style={{ color: t.textFaint }}>
-                                        {item.role}, {item.company}
-                                    </p>
-                                </div>
-                            </div>
+                {shouldReduceMotion ? (
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        {testimonials.map((item) => (
+                            <TestimonialCard key={item.name} t={t} {...item} />
+                        ))}
+                    </div>
+                ) : (
+                    <div className="relative -mx-4 sm:-mx-6 flex w-[calc(100%+2rem)] sm:w-[calc(100%+3rem)] flex-col justify-center overflow-x-hidden overflow-y-visible py-2">
+                        <div className="w-full translate-x-6 sm:translate-x-12 md:translate-x-20 lg:translate-x-28 py-1">
+                            <Marquee className="[--duration:28s] [--gap:0.75rem] sm:[--gap:1rem] py-2">
+                                {firstRow.map((item) => (
+                                    <TestimonialCard key={item.name} t={t} {...item} />
+                                ))}
+                            </Marquee>
                         </div>
-                        </ParallaxReveal>
-                    ))}
-                </div>
+                        <div className="w-full -translate-x-6 sm:-translate-x-12 md:-translate-x-20 lg:-translate-x-28 -mt-1">
+                            <Marquee
+                                reverse
+                                className="[--duration:28s] [--gap:0.75rem] sm:[--gap:1rem] py-2"
+                            >
+                                {secondRow.map((item) => (
+                                    <TestimonialCard key={item.name} t={t} {...item} />
+                                ))}
+                            </Marquee>
+                        </div>
+                        <div
+                            className="pointer-events-none absolute inset-y-0 left-0 w-1/6 sm:w-1/5 md:w-1/4"
+                            style={{
+                                background: `linear-gradient(to right, ${t.bg}, transparent)`,
+                            }}
+                        />
+                        <div
+                            className="pointer-events-none absolute inset-y-0 right-0 w-1/6 sm:w-1/5 md:w-1/4"
+                            style={{
+                                background: `linear-gradient(to left, ${t.bg}, transparent)`,
+                            }}
+                        />
+                    </div>
+                )}
 
                 <div className="mt-20 pt-16" style={{ borderTop: `1px solid ${t.border}` }}>
                     <p className="text-xs text-center mb-8 uppercase tracking-[0.2em]" style={{ color: t.textDim }}>

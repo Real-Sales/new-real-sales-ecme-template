@@ -38,7 +38,7 @@ const BentoCard = ({
         <ParallaxReveal className={className} delay={delay} distance={distance}>
             <div
                 onMouseMove={handleMouseMove}
-                className="group relative rounded-2xl overflow-hidden transition-all duration-300 hover:-translate-y-1.5 h-full"
+                className="group relative rounded-2xl overflow-hidden transition-all duration-300 h-full"
                 style={{
                     border: `1px solid ${t.border}`,
                     backgroundColor: t.bgElevated,
