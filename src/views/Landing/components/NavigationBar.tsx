@@ -318,7 +318,7 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
                                 Sign in
                             </Link>
                             <Link
-                                to="/sign-in"
+                                to="/book-demo"
                                 className={classNames(
                                     navItemClass,
                                     'shrink-0 px-5 font-semibold active:scale-[0.97]',
@@ -493,7 +493,7 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
                                 Sign in
                             </Link>
                             <Link
-                                to="/sign-in"
+                                to="/book-demo"
                                 onClick={() => setMenuOpen(false)}
                                 className="flex items-center justify-center py-3.5 text-sm font-semibold rounded-full transition-all duration-200 active:scale-[0.98]"
                                 style={{

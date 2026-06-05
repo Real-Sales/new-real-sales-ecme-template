@@ -8,6 +8,12 @@ import appConfig from '@/configs/app.config'
 import { useAuth } from '@/auth'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import type { LayoutType } from '@/@types/theme'
+import { lazy } from 'react'
+
+// Routes accessible regardless of auth state (no login required, no redirect when logged in)
+const openRoutes = [
+    { key: 'book-demo', path: '/book-demo', component: lazy(() => import('@/views/Landing/BookDemo')) },
+]
 
 interface ViewsProps {
     pageContainerType?: 'default' | 'gutterless' | 'contained'
@@ -65,6 +71,13 @@ const AllRoutes = (props: AllRoutesProps) => {
                     />
                 ))}
             </Route>
+            {openRoutes.map((route) => (
+                <Route
+                    key={route.path}
+                    path={route.path}
+                    element={<AppRoute routeKey={route.key} component={route.component} layout="blank" />}
+                />
+            ))}
         </Routes>
     )
 }

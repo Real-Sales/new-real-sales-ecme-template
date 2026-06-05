@@ -11,6 +11,7 @@ import PricingSection from './components/PricingSection'
 import FAQSection from './components/FAQSection'
 import FinalCTA from './components/FinalCTA'
 import LandingFooter from './components/LandingFooter'
+import IndustriesTeaser from './components/IndustriesTeaser'
 import useDarkMode from '@/utils/hooks/useDarkMode'
 import { MODE_DARK, MODE_LIGHT } from '@/constants/theme.constant'
 import { LandingThemeProvider } from './LandingThemeProvider'
@@ -28,6 +29,14 @@ type LandingContentProps = {
 const LandingContent = ({ mode, toggleMode }: LandingContentProps) => {
     const t = useLandingTheme()
 
+    useEffect(() => {
+        const prev = document.body.style.backgroundColor
+        document.body.style.backgroundColor = t.bg
+        return () => {
+            document.body.style.backgroundColor = prev
+        }
+    }, [t.bg])
+
     return (
         <main
             className="overflow-x-clip w-full min-h-screen transition-colors duration-300"
@@ -43,6 +52,7 @@ const LandingContent = ({ mode, toggleMode }: LandingContentProps) => {
             <RealSalesHero />
             <FeatureGrid />
             <VideoSection />
+            <IndustriesTeaser />
             <DashboardSection />
             <SocialProof />
             <PricingSection />
