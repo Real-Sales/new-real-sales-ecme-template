@@ -106,7 +106,7 @@ function BookDemoContent({ mode, toggleMode }: { mode: Mode; toggleMode: () => v
             <NavigationBar mode={mode} toggleMode={toggleMode} />
 
             {/* ── Body ── */}
-            <div className="relative z-10 flex-1 flex flex-col justify-center max-w-7xl w-full mx-auto px-4 md:px-8 pt-20 pb-8 lg:pt-24 lg:pb-12">
+            <div className="relative z-10 flex-1 flex flex-col max-w-7xl w-full mx-auto px-4 md:px-8 pt-28 sm:pt-32 pb-12 lg:pt-24 lg:pb-16 lg:justify-center">
                 <AnimatePresence mode="wait">
                     {step === 'form' ? (
                         <motion.div
@@ -117,10 +117,10 @@ function BookDemoContent({ mode, toggleMode }: { mode: Mode; toggleMode: () => v
                             exit={{ opacity: 0, y: -20 }}
                             transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
                         >
-                            <div className="grid lg:grid-cols-[1fr_1.35fr] gap-10 xl:gap-20 items-center">
+                            <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.35fr] gap-8 lg:gap-12 xl:gap-20 items-start lg:items-center">
 
                                 {/* ── Left: value prop ── */}
-                                <div className="flex flex-col justify-center lg:py-6">
+                                <div className="flex flex-col justify-center lg:py-6 pb-2 lg:pb-0">
                                     <motion.div
                                         initial={{ opacity: 0, x: -20 }}
                                         animate={{ opacity: 1, x: 0 }}
@@ -140,17 +140,17 @@ function BookDemoContent({ mode, toggleMode }: { mode: Mode; toggleMode: () => v
                                             30-min session
                                         </div>
 
-                                        <h1 className="text-4xl md:text-5xl xl:text-[3.25rem] font-bold tracking-tight leading-[1.1] mb-5" style={{ color: t.text }}>
+                                        <h1 className="text-3xl sm:text-4xl md:text-5xl xl:text-[3.25rem] font-bold tracking-tight leading-[1.1] mb-4" style={{ color: t.text }}>
                                             See RealSales<br />
                                             <span style={{ color: '#0CAF60' }}>live in 30 min</span>
                                         </h1>
 
-                                        <p className="text-base md:text-lg leading-relaxed mb-10 max-w-md" style={{ color: t.textMuted }}>
+                                        <p className="text-sm sm:text-base md:text-lg leading-relaxed mb-6 max-w-md" style={{ color: t.textMuted }}>
                                             We'll show you exactly how your team can practice real conversations and walk into every deal prepared.
                                         </p>
 
                                         {/* Metrics */}
-                                        <div className="flex flex-col gap-4 mb-10">
+                                        <div className="flex flex-col gap-3 mb-6">
                                             {PROOF_ITEMS.map((item, i) => (
                                                 <motion.div
                                                     key={item.label}
@@ -213,7 +213,7 @@ function BookDemoContent({ mode, toggleMode }: { mode: Mode; toggleMode: () => v
                                 >
                                     <form
                                         onSubmit={handleSubmit}
-                                        className="rounded-3xl p-7 md:p-9 lg:p-10 w-full"
+                                        className="rounded-3xl p-5 sm:p-7 md:p-9 lg:p-10 w-full"
                                         style={{
                                             backgroundColor: t.isLight ? '#fff' : t.bgElevated,
                                             border: `1px solid ${t.border}`,
