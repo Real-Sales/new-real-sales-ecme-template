@@ -106,7 +106,7 @@ function BookDemoContent({ mode, toggleMode }: { mode: Mode; toggleMode: () => v
             <NavigationBar mode={mode} toggleMode={toggleMode} />
 
             {/* ── Body ── */}
-            <div className="relative z-10 flex-1 flex flex-col justify-center max-w-7xl w-full mx-auto px-4 md:px-8 py-8 lg:py-12">
+            <div className="relative z-10 flex-1 flex flex-col justify-center max-w-7xl w-full mx-auto px-4 md:px-8 pt-20 pb-8 lg:pt-24 lg:pb-12">
                 <AnimatePresence mode="wait">
                     {step === 'form' ? (
                         <motion.div

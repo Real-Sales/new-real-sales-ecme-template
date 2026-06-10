@@ -8,11 +8,13 @@ import {
 } from 'react'
 import type { Meta } from '@/@types/routes'
 import { motion, AnimatePresence, useSpring, useMotionValue } from 'framer-motion'
-import { useNavigate } from 'react-router-dom'
+import Lenis from 'lenis'
 import { gsap } from 'gsap'
-import { TbArrowLeft } from 'react-icons/tb'
 import personaIntros from '../../../../../persona_intros/index.json'
 import useDarkMode from '@/utils/hooks/useDarkMode'
+import { MODE_DARK, MODE_LIGHT } from '@/constants/theme.constant'
+import { LandingThemeProvider } from '../../LandingThemeProvider'
+import NavigationBar from '../NavigationBar'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -596,9 +598,11 @@ const HeroBadge: FC = () => (
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 function FoodAndBeverages<T extends Meta>(_props: T): JSX.Element {
-    const navigate = useNavigate()
-    const [isDark] = useDarkMode()
+    const [isDark, setMode] = useDarkMode()
     const isLight = !isDark
+    const mode = isDark ? MODE_DARK : MODE_LIGHT
+    const toggleMode = () =>
+        setMode(mode === MODE_LIGHT ? MODE_DARK : MODE_LIGHT)
     const heroRef = useRef<HTMLDivElement>(null)
     const scrollRef = useRef<HTMLDivElement>(null)
     const titleRef = useRef<HTMLHeadingElement>(null)
@@ -706,7 +710,36 @@ function FoodAndBeverages<T extends Meta>(_props: T): JSX.Element {
 
     useEffect(() => { return () => { audioRef.current?.pause() } }, [])
 
+    // Smooth scroll (Lenis) — matches the landing page feel.
+    useEffect(() => {
+        const prefersReducedMotion = window.matchMedia(
+            '(prefers-reduced-motion: reduce)',
+        ).matches
+        if (prefersReducedMotion) return
+
+        const lenis = new Lenis({
+            duration: 1.15,
+            easing: (x: number) => Math.min(1, 1.001 - Math.pow(2, -10 * x)),
+            smoothWheel: true,
+            wheelMultiplier: 1,
+            touchMultiplier: 1.5,
+        })
+
+        let rafId = 0
+        const raf = (time: number) => {
+            lenis.raf(time)
+            rafId = requestAnimationFrame(raf)
+        }
+        rafId = requestAnimationFrame(raf)
+
+        return () => {
+            cancelAnimationFrame(rafId)
+            lenis.destroy()
+        }
+    }, [])
+
     return (
+      <LandingThemeProvider mode={mode}>
         <div
             className={`relative z-0 flex-1 w-full min-w-full min-h-screen min-h-[100dvh] overflow-x-clip ${isLight ? 'bg-white' : 'bg-[#050505]'}`}
             style={{
@@ -744,28 +777,10 @@ function FoodAndBeverages<T extends Meta>(_props: T): JSX.Element {
             </div>
 
             {/* ── Nav bar ── */}
-            <div className="relative z-30 flex items-center justify-between px-6 md:px-10 py-5 max-w-7xl mx-auto">
-                <motion.button
-                    initial={{ opacity: 0, x: -12 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.2 }}
-                    onClick={() => navigate('/landing')}
-                    whileHover={{ x: -3 }}
-                    className="flex items-center gap-2 text-sm font-medium"
-                    style={{ color: isLight ? '#6B7280' : '#4B5563', transition: 'color 0.2s' }}
-                    onMouseEnter={e => (e.currentTarget.style.color = '#0CAF60')}
-                    onMouseLeave={e => (e.currentTarget.style.color = isLight ? '#6B7280' : '#4B5563')}
-                >
-                    <TbArrowLeft size={16} />
-                    Back
-                </motion.button>
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}>
-                    <img src="/img/logo/logo-dark-full.png" alt="RealSales" className="h-7 w-auto" style={{ opacity: .6 }} onError={e => (e.currentTarget.style.display = 'none')} />
-                </motion.div>
-            </div>
+            <NavigationBar mode={mode} toggleMode={toggleMode} />
 
             {/* ── Hero ── */}
-            <section ref={heroRef} className="relative z-10 px-6 pt-10 pb-16 max-w-4xl mx-auto text-center">
+            <section ref={heroRef} className="relative z-10 px-6 pt-28 md:pt-32 pb-16 max-w-4xl mx-auto text-center">
                 <HeroBadge />
                 <h1
                     ref={titleRef}
@@ -1014,6 +1029,7 @@ function FoodAndBeverages<T extends Meta>(_props: T): JSX.Element {
                 </div>
             </motion.section>
         </div>
+      </LandingThemeProvider>
     )
 }
 
