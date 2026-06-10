@@ -108,6 +108,12 @@ const salesRoute: Routes = [
         authority: [],
     },
     {
+        key: 'salesManager.leaderboard',
+        path: '/leaderboard',
+        component: lazy(() => import('@/views/sales/Leaderboard')),
+        authority: [],
+    },
+    {
         key: 'companyGroup.feedback',
         path: '/feedback',
         component: lazy(() => import('@/views/sales/MyFeedback')),

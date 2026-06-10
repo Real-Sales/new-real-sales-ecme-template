@@ -71,6 +71,7 @@ const endpointConfig = {
     paymentsUpdate: (paymentId: string) => `payments/${paymentId}`,
     paymentsCreateOrder: 'create-order',
     paymentsVerifyPayment: 'verify-payment',
+    leaderboard: 'leaderboard',
 }
 
 export default endpointConfig

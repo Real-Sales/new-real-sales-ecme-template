@@ -58,6 +58,16 @@ const salesNavigationConfig: NavigationTree[] = [
                 authority: MANAGER_ROLES,
                 subMenu: [],
             },
+            {
+                key: 'salesManager.leaderboard',
+                path: '/leaderboard',
+                title: 'Leaderboard',
+                translateKey: '',
+                icon: 'leaderboard',
+                type: NAV_ITEM_TYPE_ITEM,
+                authority: [],
+                subMenu: [],
+            },
         ],
     },
     {
