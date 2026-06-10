@@ -271,14 +271,14 @@ const CircularAvatarVisualizer = ({
           {/* Saturated soft halo behind the ring — heavy blur for depth */}
           <div
             ref={glowRef}
-            className="pointer-events-none absolute w-[280px] h-[280px] rounded-full bg-gradient-to-br from-cyan-400 via-blue-500 to-indigo-600 dark:from-sky-500 dark:via-blue-600 dark:to-cyan-500 blur-[72px] saturate-[1.45]"
+            className="pointer-events-none absolute w-[280px] h-[280px] rounded-full bg-gradient-to-br from-emerald-400 via-primary to-emerald-600 dark:from-emerald-600 dark:via-primary dark:to-emerald-500 blur-[72px] saturate-[1.45]"
             style={{ opacity: 0.22, transform: 'scale(1)', willChange: 'opacity, transform' }}
           />
 
           {/* --- TRUE LIQUID GLASS AVATAR RING --- */}
           <div className="relative w-[260px] h-[260px] flex items-center justify-center z-30 group">
             
-            {/* 1. The morphing blue liquid — fully audio-reactive: speed, color, secondary blob */}
+            {/* 1. The morphing liquid ring — fully audio-reactive: speed, color, secondary blob */}
             <div
               ref={swirlRef}
               className="absolute inset-0 flex items-center justify-center"
@@ -287,13 +287,13 @@ const CircularAvatarVisualizer = ({
               {/* Primary blob — morph + saturate/brighten driven in rAF */}
               <div
                 ref={blobARef}
-                className="absolute inset-0 bg-gradient-to-tr from-cyan-300 via-blue-500 to-indigo-600 dark:from-indigo-800 dark:via-blue-600 dark:to-cyan-600"
+                className="absolute inset-0 bg-gradient-to-tr from-emerald-300 via-primary to-emerald-700 dark:from-emerald-900 dark:via-primary dark:to-emerald-600"
                 style={{ willChange: 'border-radius, filter', borderRadius: '50%' }}
               />
               {/* Secondary blob — smoky highlight layer */}
               <div
                 ref={blobBRef}
-                className="absolute inset-[4%] bg-gradient-to-br from-white/75 via-cyan-300/85 to-blue-500/85 dark:from-sky-400/35 dark:via-blue-500/45 dark:to-indigo-500/55"
+                className="absolute inset-[4%] bg-gradient-to-br from-white/75 via-emerald-300/85 to-primary/85 dark:from-emerald-400/35 dark:via-primary/45 dark:to-emerald-600/55"
                 style={{
                   willChange: 'border-radius, transform, opacity, filter',
                   borderRadius: '50%',
@@ -305,7 +305,7 @@ const CircularAvatarVisualizer = ({
             </div>
             
             {/* 2. The Proper Outer Glass Shell */}
-            <div className="absolute inset-[6px] rounded-full bg-white/12 dark:bg-gray-900/45 backdrop-blur-2xl border border-white/60 dark:border-white/15 shadow-[inset_0_4px_30px_rgba(255,255,255,0.7),_0_8px_32px_rgba(37,99,235,0.22)] dark:shadow-[inset_0_4px_28px_rgba(255,255,255,0.06),_0_8px_36px_rgba(56,189,248,0.2)] z-10 overflow-hidden">
+            <div className="absolute inset-[6px] rounded-full bg-white/12 dark:bg-gray-900/45 backdrop-blur-2xl border border-white/60 dark:border-white/15 shadow-[inset_0_4px_30px_rgba(255,255,255,0.7),_0_8px_32px_rgba(12,175,96,0.22)] dark:shadow-[inset_0_4px_28px_rgba(255,255,255,0.06),_0_8px_36px_rgba(12,175,96,0.2)] z-10 overflow-hidden">
               <div className="absolute inset-0 rounded-full bg-gradient-to-b from-white/40 via-transparent to-black/5 dark:from-white/[0.07] dark:via-transparent dark:to-black/50 pointer-events-none" />
             </div>
             
@@ -376,7 +376,7 @@ function formatMessageContentHtml(content: string) {
   );
   formatted = formatted.replace(
     /`(.*?)`/g,
-    '<code class="px-2 py-0.5 rounded-lg bg-gray-200/90 dark:bg-gray-800/80 text-blue-600 dark:text-blue-400 font-mono text-sm">$1</code>',
+    '<code class="px-2 py-0.5 rounded-lg bg-gray-200/90 dark:bg-gray-800/80 text-primary font-mono text-sm">$1</code>',
   );
   return formatted;
 }
@@ -895,7 +895,7 @@ export default function InteractiveVisualizerSession() {
   if (!tokenReady) {
     return (
       <div className="flex h-screen w-screen bg-gray-100 dark:bg-gray-900 overflow-hidden fixed inset-0">
-        <Loading loading={true} className="w-full h-full bg-gray-100 dark:bg-gray-900" spinnerClass="text-blue-500" />
+        <Loading loading={true} className="w-full h-full bg-gray-100 dark:bg-gray-900" spinnerClass="text-primary" />
       </div>
     );
   }
@@ -970,7 +970,7 @@ export default function InteractiveVisualizerSession() {
                       aria-hidden
                       animate={{ scale: [1, 1.3, 1] }}
                       transition={{ repeat: Infinity, duration: 0.6, delay }}
-                      className="h-1.5 w-1.5 rounded-full bg-blue-500"
+                      className="h-1.5 w-1.5 rounded-full bg-primary"
                     />
                   ))}
                   <span className="sr-only">AI is preparing a reply</span>
@@ -1026,12 +1026,12 @@ export default function InteractiveVisualizerSession() {
                 disabled={isGenerating}
                 className="flex-1 bg-transparent text-gray-900 dark:text-white text-sm focus:outline-none disabled:opacity-50"
               />
-              <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => setShowHints(!showHints)} className="flex items-center gap-1.5 px-3 py-1 rounded-full flex-shrink-0 bg-blue-500/10 text-blue-500">
+              <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => setShowHints(!showHints)} className="flex items-center gap-1.5 px-3 py-1 rounded-full flex-shrink-0 bg-primary/10 text-primary">
                 <HiLightBulb className="w-3.5 h-3.5" />
                 <span className="text-xs font-medium">{hints.length - viewedHints.length}</span>
               </motion.button>
               {inputValue.trim() ? (
-                <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={handleSendMessage} disabled={isGenerating} className="w-9 h-9 rounded-full flex-shrink-0 bg-blue-500 text-white flex items-center justify-center">
+                <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={handleSendMessage} disabled={isGenerating} className="w-9 h-9 rounded-full flex-shrink-0 bg-primary text-white flex items-center justify-center">
                   <HiPaperAirplane className="w-4 h-4" />
                 </motion.button>
               ) : isMicActive ? (
@@ -1073,10 +1073,10 @@ export default function InteractiveVisualizerSession() {
         <div className="flex-shrink-0 px-5 py-4 border-b border-gray-200 dark:border-gray-700/60 bg-gray-100/95 dark:bg-gray-800/70 backdrop-blur-xl">
           <div className="flex items-center gap-3">
             {userAvatar ? (
-              <img src={userAvatar} alt={userName} className="w-11 h-11 rounded-full border border-blue-500/30 object-cover flex-shrink-0" />
+              <img src={userAvatar} alt={userName} className="w-11 h-11 rounded-full border border-primary/30 object-cover flex-shrink-0" />
             ) : (
-              <div className="w-11 h-11 rounded-full flex-shrink-0 bg-gradient-to-br from-blue-500/20 to-blue-600/20 border border-blue-500/30 flex items-center justify-center">
-                <span className="text-sm font-bold text-blue-400">{userName.split(' ').map((n: string) => n[0]).join('')}</span>
+              <div className="w-11 h-11 rounded-full flex-shrink-0 bg-gradient-to-br from-primary/20 to-primary-deep/20 border border-primary/30 flex items-center justify-center">
+                <span className="text-sm font-bold text-primary">{userName.split(' ').map((n: string) => n[0]).join('')}</span>
               </div>
             )}
             <div className="flex-1 min-w-0">
@@ -1110,7 +1110,7 @@ export default function InteractiveVisualizerSession() {
                 <>
                   {messages.map((message) => (
                     <motion.div key={message.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                      <div className={`max-w-[90%] px-4 py-3 rounded-xl ${message.role === 'user' ? 'bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/30' : 'bg-gradient-to-br from-gray-100 to-gray-50 dark:from-gray-900/90 dark:to-gray-800/90 text-gray-800 dark:text-gray-200 border border-gray-200/80 dark:border-gray-700/50 shadow-md'}`}>
+                      <div className={`max-w-[90%] px-4 py-3 rounded-xl ${message.role === 'user' ? 'bg-gradient-to-br from-primary to-primary-deep text-white shadow-lg shadow-primary/30' : 'bg-gradient-to-br from-gray-100 to-gray-50 dark:from-gray-900/90 dark:to-gray-800/90 text-gray-800 dark:text-gray-200 border border-gray-200/80 dark:border-gray-700/50 shadow-md'}`}>
                         <div className="text-sm leading-relaxed" dangerouslySetInnerHTML={{ __html: formatMessageContentHtml(message.content) }} />
                         <p className="text-xs opacity-50 mt-1.5">{message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                       </div>
@@ -1121,7 +1121,7 @@ export default function InteractiveVisualizerSession() {
                       <div className="px-4 py-3 rounded-xl bg-gray-100 dark:bg-gray-900/90 border border-gray-200 dark:border-gray-700/50">
                         <div className="flex gap-1.5">
                           {[0, 0.2, 0.4].map(delay => (
-                            <motion.div key={delay} animate={{ scale: [1, 1.3, 1] }} transition={{ repeat: Infinity, duration: 0.6, delay }} className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                            <motion.div key={delay} animate={{ scale: [1, 1.3, 1] }} transition={{ repeat: Infinity, duration: 0.6, delay }} className="w-1.5 h-1.5 rounded-full bg-primary" />
                           ))}
                         </div>
                       </div>
@@ -1137,10 +1137,10 @@ export default function InteractiveVisualizerSession() {
         {/* Hints Panel */}
         <AnimatePresence>
           {showHints && hints[currentHintIndex] && (
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }} className="flex-shrink-0 px-6 py-4 border-t border-blue-500/20 bg-blue-50/50 dark:bg-blue-900/10 backdrop-blur-xl">
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }} className="flex-shrink-0 px-6 py-4 border-t border-primary/20 bg-primary/5 dark:bg-primary/10 backdrop-blur-xl">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
-                  <HiLightBulb className="w-5 h-5 text-blue-400" />
+                  <HiLightBulb className="w-5 h-5 text-primary" />
                   <h4 className="text-sm font-semibold text-gray-900 dark:text-white">Session Hint {currentHintIndex + 1}/{hints.length}</h4>
                 </div>
                 <button onClick={() => setShowHints(false)} className="text-xs text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-300">Close</button>
@@ -1151,7 +1151,7 @@ export default function InteractiveVisualizerSession() {
               </motion.div>
               <div className="flex items-center justify-between mt-4">
                 <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={handlePreviousHint} disabled={currentHintIndex === 0} className={`px-4 py-2 rounded-lg text-sm font-medium ${currentHintIndex === 0 ? 'opacity-50 cursor-not-allowed' : 'bg-gray-100 hover:bg-gray-200 dark:bg-gray-800'}`}>Previous</motion.button>
-                <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={handleNextHint} className="px-4 py-2 rounded-lg text-sm font-medium bg-blue-500/20 text-blue-500 hover:bg-blue-500/30">{currentHintIndex === hints.length - 1 ? 'Done' : 'Next'}</motion.button>
+                <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={handleNextHint} className="px-4 py-2 rounded-lg text-sm font-medium bg-primary/20 text-primary hover:bg-primary/30">{currentHintIndex === hints.length - 1 ? 'Done' : 'Next'}</motion.button>
               </div>
             </motion.div>
           )}
@@ -1162,7 +1162,7 @@ export default function InteractiveVisualizerSession() {
           <AnimatePresence mode="wait">
             {!sessionStarted ? (
               <motion.div key="start" initial={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }}>
-                <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={handleStartSession} className="w-full py-3.5 rounded-full bg-gradient-to-r from-blue-500 to-blue-600 text-white text-sm font-semibold shadow-lg hover:shadow-xl transition-all">
+                <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={handleStartSession} className="w-full py-3.5 rounded-full bg-gradient-to-r from-primary to-primary-deep text-white text-sm font-semibold shadow-lg shadow-primary/25 hover:shadow-xl transition-all">
                   {hasBackendHistory ? 'Continue Session' : 'Start Session'}
                 </motion.button>
               </motion.div>
@@ -1179,12 +1179,12 @@ export default function InteractiveVisualizerSession() {
                   disabled={isGenerating}
                   className="flex-1 bg-transparent text-gray-900 dark:text-white text-sm focus:outline-none disabled:opacity-50"
                 />
-                <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => setShowHints(!showHints)} className="flex items-center gap-1.5 px-3 py-1 rounded-full flex-shrink-0 bg-blue-500/10 text-blue-500">
+                <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => setShowHints(!showHints)} className="flex items-center gap-1.5 px-3 py-1 rounded-full flex-shrink-0 bg-primary/10 text-primary">
                   <HiLightBulb className="w-3.5 h-3.5" />
                   <span className="text-xs font-medium">{hints.length - viewedHints.length}</span>
                 </motion.button>
                 {inputValue.trim() ? (
-                  <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={handleSendMessage} disabled={isGenerating} className="w-9 h-9 rounded-full flex-shrink-0 bg-blue-500 text-white flex items-center justify-center">
+                  <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={handleSendMessage} disabled={isGenerating} className="w-9 h-9 rounded-full flex-shrink-0 bg-primary text-white flex items-center justify-center">
                     <HiPaperAirplane className="w-4 h-4" />
                   </motion.button>
                 ) : isMicActive ? (

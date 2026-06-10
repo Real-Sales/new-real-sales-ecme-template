@@ -6,15 +6,14 @@ import { useAppSelector } from '@/store'
 import SessionSetupPanel from '@/components/shared/SessionSetupPanel'
 import type { ConversationMode } from '@/components/shared/SessionSetupPanel'
 import { useLandingTheme } from '../LandingThemeProvider'
-import ImageTrail from './ImageTrail'
 import Particles from './Particles'
-import { SectionDesc, SectionHeading, SECTION_REVEAL, getDescDelay } from './landingUi'
-
-// AI persona headshots used for the cursor image-trail effect in the card.
-const personaImages = Array.from(
-    { length: 15 },
-    (_, i) => `/img/avatars/thumb-${i + 1}.jpg`,
-)
+import {
+    SectionDesc,
+    SectionHeading,
+    SECTION_REVEAL,
+    getDescDelay,
+    useSmoothParallax,
+} from './landingUi'
 
 const FinalCTA = () => {
     const navigate = useNavigate()
@@ -22,6 +21,7 @@ const FinalCTA = () => {
     const [isSetupOpen, setIsSetupOpen] = useState(false)
     const shouldReduceMotion = useReducedMotion()
     const signedIn = useAppSelector((state) => state.auth.session.signedIn)
+    const { ref: parallaxRef, y: parallaxY } = useSmoothParallax(45)
 
     const particleColors = useMemo(
         () => [t.accent, t.accentMild, t.accentDeep],
@@ -55,7 +55,11 @@ const FinalCTA = () => {
                 />
             </div>
 
-            <div className="max-w-7xl mx-auto px-4 relative z-10">
+            <motion.div
+                ref={parallaxRef}
+                className="max-w-7xl mx-auto px-4 relative z-10 will-change-transform"
+                style={parallaxY ? { y: parallaxY } : undefined}
+            >
                 <motion.div
                     initial={shouldReduceMotion ? false : { opacity: 0, y: 32 }}
                     whileInView={{ opacity: 1, y: 0 }}
@@ -93,13 +97,6 @@ const FinalCTA = () => {
                                 disableRotation
                                 pixelRatio={2}
                             />
-                        </div>
-                    )}
-
-                    {/* AI persona image trail follows the cursor across the card */}
-                    {!shouldReduceMotion && (
-                        <div className="absolute inset-0 z-0">
-                            <ImageTrail items={personaImages} variant={3} />
                         </div>
                     )}
 
@@ -163,7 +160,7 @@ const FinalCTA = () => {
                         </p>
                     </div>
                 </motion.div>
-            </div>
+            </motion.div>
 
             <SessionSetupPanel
                 isOpen={isSetupOpen}

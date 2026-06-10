@@ -4,12 +4,38 @@ import {
     useInView,
     useReducedMotion,
     useScroll,
+    useSpring,
     useTransform,
 } from 'framer-motion'
 import type { LandingTheme } from '../landingTheme'
 import DiaTextReveal from './DiaTextReveal'
 
 const EASE_OUT = [0.22, 1, 0.36, 1] as const
+
+/** Shared spring tuning for scroll-linked parallax. Soft + slightly heavy so
+ * the drift trails the scroll position smoothly instead of tracking it 1:1
+ * (which reads as mechanical, especially over Lenis smooth-scroll). */
+export const PARALLAX_SPRING = {
+    stiffness: 120,
+    damping: 30,
+    mass: 0.4,
+} as const
+
+/** Scroll-linked, spring-smoothed parallax `y`. Attach the returned `ref` to the
+ * element you want to track, then spread `style={{ y }}` onto the moving node.
+ * Returns `undefined` for `y` when the user prefers reduced motion. */
+export function useSmoothParallax(distance = 60) {
+    const ref = useRef<HTMLDivElement>(null)
+    const shouldReduceMotion = useReducedMotion()
+    const { scrollYProgress } = useScroll({
+        target: ref,
+        offset: ['start end', 'end start'],
+    })
+    const yRaw = useTransform(scrollYProgress, [0, 1], [distance, -distance])
+    const y = useSpring(yRaw, PARALLAX_SPRING)
+
+    return { ref, y: shouldReduceMotion ? undefined : y, shouldReduceMotion }
+}
 
 /** Shared reveal timing — badge → heading → description cascade.
  * `DiaTextReveal` finishes visually revealing the text at ~87% of its duration
@@ -61,7 +87,8 @@ export function ParallaxReveal({
         target: ref,
         offset: ['start end', 'end start'],
     })
-    const y = useTransform(scrollYProgress, [0, 1], [distance, -distance])
+    const yRaw = useTransform(scrollYProgress, [0, 1], [distance, -distance])
+    const y = useSpring(yRaw, PARALLAX_SPRING)
 
     return (
         <motion.div

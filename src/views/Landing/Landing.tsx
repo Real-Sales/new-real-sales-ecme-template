@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { useLocation } from 'react-router-dom'
 import Lenis from 'lenis'
 import RealSalesHero from './components/RealSalesHero'
 import NavigationBar from './components/NavigationBar'
@@ -11,13 +12,14 @@ import PricingSection from './components/PricingSection'
 import FAQSection from './components/FAQSection'
 import FinalCTA from './components/FinalCTA'
 import LandingFooter from './components/LandingFooter'
+import IndustriesTeaser from './components/IndustriesTeaser'
 import useDarkMode from '@/utils/hooks/useDarkMode'
 import { MODE_DARK, MODE_LIGHT } from '@/constants/theme.constant'
 import { LandingThemeProvider } from './LandingThemeProvider'
 import { useLandingTheme } from './LandingThemeProvider'
 import { useAppDispatch } from '@/store'
 import { setSchema } from '@/store/slices/theme/themeSlice'
-import { getLandingNavScrollOffset, setLenis } from './smoothScroll'
+import { getLandingNavScrollOffset, scrollToLandingSection, setLenis } from './smoothScroll'
 import type { Mode } from '@/@types/theme'
 
 type LandingContentProps = {
@@ -43,6 +45,7 @@ const LandingContent = ({ mode, toggleMode }: LandingContentProps) => {
             <RealSalesHero />
             <FeatureGrid />
             <VideoSection />
+            <IndustriesTeaser />
             <DashboardSection />
             <SocialProof />
             <PricingSection />
@@ -57,6 +60,7 @@ const Landing = () => {
     const [isDark, setMode] = useDarkMode()
     const mode = isDark ? MODE_DARK : MODE_LIGHT
     const dispatch = useAppDispatch()
+    const location = useLocation()
 
     const toggleMode = () => {
         setMode(mode === MODE_LIGHT ? MODE_DARK : MODE_LIGHT)
@@ -73,6 +77,19 @@ const Landing = () => {
             document.documentElement.style.scrollPaddingTop = ''
         }
     }, [])
+
+    useEffect(() => {
+        if (!location.hash) return
+
+        const id = location.hash.slice(1)
+        const scrollToHash = () => {
+            const el = document.getElementById(id)
+            if (el) scrollToLandingSection(el)
+        }
+
+        const timer = window.setTimeout(scrollToHash, 150)
+        return () => window.clearTimeout(timer)
+    }, [location.pathname, location.hash])
 
     useEffect(() => {
         const prefersReducedMotion = window.matchMedia(

@@ -126,8 +126,7 @@ const FAQs = () => {
     }
 
     const handleBookDemo = () => {
-        // Handle book demo action
-        console.log('Book a demo')
+        navigate('/book-demo')
     }
 
     const handleStartSession = () => {

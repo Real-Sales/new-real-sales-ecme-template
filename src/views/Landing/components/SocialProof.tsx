@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react'
 import { motion, useReducedMotion } from 'framer-motion'
 import classNames from '@/utils/classNames'
 import { Marquee } from '@/components/magicui/Marquee'
@@ -58,6 +59,14 @@ const testimonials = [
 
 const firstRow = testimonials.slice(0, testimonials.length / 2)
 const secondRow = testimonials.slice(testimonials.length / 2)
+
+const MARQUEE_FADE =
+    'linear-gradient(to right, transparent 0%, #000 8%, #000 92%, transparent 100%)'
+
+const MARQUEE_MASK: CSSProperties = {
+    WebkitMaskImage: MARQUEE_FADE,
+    maskImage: MARQUEE_FADE,
+}
 
 const integrationNames = [
     'Salesforce', 'HubSpot', 'Outreach', 'Salesloft', 'Gong', 'Chorus',
@@ -163,15 +172,18 @@ const SocialProof = () => {
                         ))}
                     </div>
                 ) : (
-                    <div className="relative -mx-4 sm:-mx-6 flex w-[calc(100%+2rem)] sm:w-[calc(100%+3rem)] flex-col justify-center overflow-x-hidden overflow-y-visible py-2">
-                        <div className="w-full translate-x-6 sm:translate-x-12 md:translate-x-20 lg:translate-x-28 py-1">
+                    <div
+                        className="relative -mx-4 sm:-mx-6 flex w-[calc(100%+2rem)] sm:w-[calc(100%+3rem)] flex-col justify-center overflow-y-visible py-2"
+                        style={MARQUEE_MASK}
+                    >
+                        <div className="w-full py-1">
                             <Marquee className="[--duration:28s] [--gap:0.75rem] sm:[--gap:1rem] py-2">
                                 {firstRow.map((item) => (
                                     <TestimonialCard key={item.name} t={t} {...item} />
                                 ))}
                             </Marquee>
                         </div>
-                        <div className="w-full -translate-x-6 sm:-translate-x-12 md:-translate-x-20 lg:-translate-x-28 -mt-1">
+                        <div className="w-full -mt-1 py-1">
                             <Marquee
                                 reverse
                                 className="[--duration:28s] [--gap:0.75rem] sm:[--gap:1rem] py-2"
@@ -181,18 +193,6 @@ const SocialProof = () => {
                                 ))}
                             </Marquee>
                         </div>
-                        <div
-                            className="pointer-events-none absolute inset-y-0 left-0 w-1/6 sm:w-1/5 md:w-1/4"
-                            style={{
-                                background: `linear-gradient(to right, ${t.bg}, transparent)`,
-                            }}
-                        />
-                        <div
-                            className="pointer-events-none absolute inset-y-0 right-0 w-1/6 sm:w-1/5 md:w-1/4"
-                            style={{
-                                background: `linear-gradient(to left, ${t.bg}, transparent)`,
-                            }}
-                        />
                     </div>
                 )}
 

@@ -1,8 +1,14 @@
 import { useRef } from 'react'
-import { motion, useReducedMotion, useScroll, useTransform } from 'framer-motion'
+import {
+    motion,
+    useReducedMotion,
+    useScroll,
+    useSpring,
+    useTransform,
+} from 'framer-motion'
 import { TbTargetArrow, TbPlayerPlay, TbReportAnalytics, TbBolt } from 'react-icons/tb'
 import { useLandingTheme } from '../LandingThemeProvider'
-import { SectionBadge, SectionHeading, SectionDesc } from './landingUi'
+import { SectionBadge, SectionHeading, SectionDesc, PARALLAX_SPRING } from './landingUi'
 
 const metrics = [
     { label: 'Confidence Score', value: '87%', bar: 87, trend: '+12%' },
@@ -44,8 +50,10 @@ const DashboardSection = () => {
         offset: ['start end', 'end start'],
     })
     // Mockup drifts up, supporting copy drifts down → layered parallax depth.
-    const mockupParallax = useTransform(scrollYProgress, [0, 1], [70, -70])
-    const copyParallax = useTransform(scrollYProgress, [0, 1], [-40, 40])
+    const mockupParallaxRaw = useTransform(scrollYProgress, [0, 1], [70, -70])
+    const copyParallaxRaw = useTransform(scrollYProgress, [0, 1], [-40, 40])
+    const mockupParallax = useSpring(mockupParallaxRaw, PARALLAX_SPRING)
+    const copyParallax = useSpring(copyParallaxRaw, PARALLAX_SPRING)
 
     return (
         <section ref={sectionRef} className="py-24 md:py-32">

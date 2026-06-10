@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { TbMenu2, TbX, TbChevronDown, TbToolsKitchen2 } from 'react-icons/tb'
 import classNames from '@/utils/classNames'
 import { MODE_DARK } from '@/constants/theme.constant'
 import { useLandingTheme } from '../LandingThemeProvider'
-import { scrollToLandingSection } from '../smoothScroll'
+import { getLenis, scrollToLandingSection } from '../smoothScroll'
 import AnimatedThemeToggler from './AnimatedThemeToggler'
 import type { Mode } from '@/@types/theme'
 
@@ -53,6 +53,8 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
     const t = useLandingTheme()
     const isDark = mode === MODE_DARK
     const navigate = useNavigate()
+    const location = useLocation()
+    const isOnLanding = location.pathname === '/landing'
     const handleModeChange = () => toggleMode?.()
 
     useEffect(() => {
@@ -115,9 +117,38 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
 
     const handleNavClick = (href: string) => {
         setMenuOpen(false)
+        if (!isOnLanding) {
+            navigate(`/landing${href}`)
+            return
+        }
         const el = document.querySelector(href) as HTMLElement | null
         if (!el) return
         scrollToLandingSection(el)
+    }
+
+    const handleHomeClick = () => {
+        setMenuOpen(false)
+        if (isOnLanding) {
+            const lenis = getLenis()
+            if (lenis) {
+                lenis.scrollTo(0, { duration: 1.2 })
+            } else {
+                window.scrollTo({ top: 0, behavior: 'smooth' })
+            }
+            return
+        }
+        navigate('/landing')
+    }
+
+    const navItemHoverHandlers = {
+        onMouseEnter: (e: React.MouseEvent<HTMLElement>) => {
+            if (!t.isLight) e.currentTarget.style.color = t.text
+            e.currentTarget.style.backgroundColor = t.surfaceHover
+        },
+        onMouseLeave: (e: React.MouseEvent<HTMLElement>) => {
+            e.currentTarget.style.color = t.isLight ? t.text : t.textMuted
+            e.currentTarget.style.backgroundColor = 'transparent'
+        },
     }
 
     return (
@@ -160,8 +191,8 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
                             : 'none',
                     }}
                 >
-                    <a
-                        href="/"
+                    <Link
+                        to="/landing"
                         className="flex shrink-0 items-center justify-start min-w-[100px] xl:min-w-[110px]"
                     >
                         <img
@@ -171,9 +202,22 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
                             alt="RealSales"
                             className="h-8 w-auto"
                         />
-                    </a>
+                    </Link>
 
                     <div className="hidden lg:flex flex-1 items-center justify-center gap-1 min-w-0 px-2">
+                        <button
+                            type="button"
+                            onClick={handleHomeClick}
+                            className={classNames(
+                                navItemClass,
+                                'shrink-0 focus-visible:outline-none focus-visible:ring-2',
+                                t.isLight ? 'font-bold' : 'font-medium',
+                            )}
+                            style={{ color: t.isLight ? t.text : t.textMuted }}
+                            {...navItemHoverHandlers}
+                        >
+                            Home
+                        </button>
                         {navLinks.map((link) => (
                             <button
                                 key={link.label}
@@ -186,14 +230,7 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
                                 style={{
                                     color: t.isLight ? t.text : t.textMuted,
                                 }}
-                                onMouseEnter={(e) => {
-                                    if (!t.isLight) e.currentTarget.style.color = t.text
-                                    e.currentTarget.style.backgroundColor = t.surfaceHover
-                                }}
-                                onMouseLeave={(e) => {
-                                    e.currentTarget.style.color = t.isLight ? t.text : t.textMuted
-                                    e.currentTarget.style.backgroundColor = 'transparent'
-                                }}
+                                {...navItemHoverHandlers}
                             >
                                 {link.label}
                             </button>
@@ -330,7 +367,7 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
                                 Sign in
                             </Link>
                             <Link
-                                to="/sign-in"
+                                to="/book-demo"
                                 className={classNames(
                                     navItemClass,
                                     'shrink-0 px-5 font-semibold active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2',
@@ -384,7 +421,7 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
                         }}
                     >
                         <div className="flex items-center justify-between px-6 pt-6 pb-4">
-                            <a href="/">
+                            <Link to="/landing" onClick={() => setMenuOpen(false)}>
                                 <img
                                     src={t.logoSrc}
                                     width={110}
@@ -392,7 +429,7 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
                                     alt="RealSales"
                                     className="h-8 w-auto"
                                 />
-                            </a>
+                            </Link>
                             <div className="flex items-center gap-2">
                                 {toggleMode && (
                                     <AnimatedThemeToggler
@@ -422,6 +459,28 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
                         </div>
 
                         <div className="flex flex-col flex-1 px-6 pt-8 gap-2">
+                            <motion.button
+                                type="button"
+                                initial={shouldReduceMotion ? false : { opacity: 0, y: 24 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 12 }}
+                                transition={{
+                                    duration: shouldReduceMotion ? 0.01 : 0.4,
+                                    delay: 0,
+                                    ease: [0.16, 1, 0.3, 1],
+                                }}
+                                onClick={handleHomeClick}
+                                className={classNames(
+                                    'text-left text-2xl py-3 transition-colors duration-200 rounded-md focus-visible:outline-none focus-visible:ring-2',
+                                    t.isLight ? 'font-bold' : 'font-semibold',
+                                )}
+                                style={{
+                                    color: t.isLight ? t.text : t.textMuted,
+                                    borderBottom: `1px solid ${t.border}`,
+                                }}
+                            >
+                                Home
+                            </motion.button>
                             {navLinks.map((link, i) => (
                                 <motion.button
                                     key={link.label}
@@ -430,7 +489,7 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
                                     exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 12 }}
                                     transition={{
                                         duration: shouldReduceMotion ? 0.01 : 0.4,
-                                        delay: shouldReduceMotion ? 0 : i * 0.05,
+                                        delay: shouldReduceMotion ? 0 : (i + 1) * 0.05,
                                         ease: [0.16, 1, 0.3, 1],
                                     }}
                                     onClick={() => handleNavClick(link.href)}
@@ -451,7 +510,7 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
                                 initial={{ opacity: 0, y: 24 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0, y: 12 }}
-                                transition={{ duration: 0.4, delay: navLinks.length * 0.05, ease: [0.16, 1, 0.3, 1] }}
+                                transition={{ duration: 0.4, delay: (navLinks.length + 1) * 0.05, ease: [0.16, 1, 0.3, 1] }}
                                 style={{ borderBottom: `1px solid ${t.border}` }}
                             >
                                 <p
@@ -508,7 +567,7 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
                                 Sign in
                             </Link>
                             <Link
-                                to="/sign-in"
+                                to="/book-demo"
                                 onClick={() => setMenuOpen(false)}
                                 className="flex items-center justify-center py-3.5 text-sm font-semibold rounded-full transition-all duration-200 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2"
                                 style={{
