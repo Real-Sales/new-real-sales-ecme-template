@@ -1,7 +1,14 @@
-import { motion } from 'framer-motion'
+import { useRef } from 'react'
+import {
+    motion,
+    useReducedMotion,
+    useScroll,
+    useSpring,
+    useTransform,
+} from 'framer-motion'
 import { TbTargetArrow, TbPlayerPlay, TbReportAnalytics, TbBolt } from 'react-icons/tb'
 import { useLandingTheme } from '../LandingThemeProvider'
-import { SectionBadge, SectionHeading, SectionDesc } from './landingUi'
+import { SectionBadge, SectionHeading, SectionDesc, PARALLAX_SPRING } from './landingUi'
 
 const metrics = [
     { label: 'Confidence Score', value: '87%', bar: 87, trend: '+12%' },
@@ -35,17 +42,30 @@ const bullets = [
 
 const DashboardSection = () => {
     const t = useLandingTheme()
+    const shouldReduceMotion = useReducedMotion()
+
+    const sectionRef = useRef<HTMLElement>(null)
+    const { scrollYProgress } = useScroll({
+        target: sectionRef,
+        offset: ['start end', 'end start'],
+    })
+    // Mockup drifts up, supporting copy drifts down → layered parallax depth.
+    const mockupParallaxRaw = useTransform(scrollYProgress, [0, 1], [70, -70])
+    const copyParallaxRaw = useTransform(scrollYProgress, [0, 1], [-40, 40])
+    const mockupParallax = useSpring(mockupParallaxRaw, PARALLAX_SPRING)
+    const copyParallax = useSpring(copyParallaxRaw, PARALLAX_SPRING)
 
     return (
-        <section className="py-24 md:py-32">
+        <section ref={sectionRef} className="py-24 md:py-32">
             <div className="max-w-7xl mx-auto px-4">
                 <div className="grid lg:grid-cols-2 gap-16 xl:gap-20 items-center">
                     <motion.div
-                        initial={{ opacity: 0, x: -40 }}
+                        initial={shouldReduceMotion ? false : { opacity: 0, x: -40 }}
                         whileInView={{ opacity: 1, x: 0 }}
                         viewport={{ once: true, margin: '-80px' }}
-                        transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-                        className="relative"
+                        transition={{ duration: shouldReduceMotion ? 0.01 : 0.7, ease: [0.16, 1, 0.3, 1] }}
+                        style={shouldReduceMotion ? undefined : { y: mockupParallax }}
+                        className="relative will-change-transform"
                     >
                         <div
                             className="absolute inset-0 pointer-events-none rounded-3xl"
@@ -55,7 +75,7 @@ const DashboardSection = () => {
                         />
 
                         <div
-                            className="relative rounded-2xl overflow-hidden"
+                            className="relative rounded-2xl overflow-hidden hover:-translate-y-1 transition-transform duration-300"
                             style={{
                                 border: `1px solid ${t.borderStrong}`,
                                 backgroundColor: t.bgElevated,
@@ -70,9 +90,9 @@ const DashboardSection = () => {
                             >
                                 <div className="flex items-center gap-2.5">
                                     <div className="flex gap-1.5">
-                                        <div className="w-2.5 h-2.5 rounded-full bg-[#FF5F57]" />
-                                        <div className="w-2.5 h-2.5 rounded-full bg-[#FEBC2E]" />
-                                        <div className="w-2.5 h-2.5 rounded-full bg-[#28C840]" />
+                                        <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: t.textDim }} />
+                                        <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: t.textFaint }} />
+                                        <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: t.accent }} />
                                     </div>
                                     <span className="text-xs ml-1" style={{ color: t.textFaint }}>
                                         Session Analytics
@@ -137,7 +157,11 @@ const DashboardSection = () => {
                                                 initial={{ width: 0 }}
                                                 whileInView={{ width: `${m.bar}%` }}
                                                 viewport={{ once: true }}
-                                                transition={{ duration: 1.1, delay: i * 0.12 + 0.4, ease: [0.16, 1, 0.3, 1] }}
+                                                transition={{
+                                                    duration: shouldReduceMotion ? 0.01 : 1.1,
+                                                    delay: shouldReduceMotion ? 0 : i * 0.12 + 0.4,
+                                                    ease: [0.16, 1, 0.3, 1],
+                                                }}
                                             />
                                         </div>
                                     </div>
@@ -168,7 +192,10 @@ const DashboardSection = () => {
                                                 initial={{ scaleY: 0, originY: 1 }}
                                                 whileInView={{ scaleY: 1 }}
                                                 viewport={{ once: true }}
-                                                transition={{ duration: 0.5, delay: i * 0.06 + 0.6 }}
+                                                transition={{
+                                                    duration: shouldReduceMotion ? 0.01 : 0.5,
+                                                    delay: shouldReduceMotion ? 0 : i * 0.06 + 0.6,
+                                                }}
                                             />
                                         ))}
                                     </div>
@@ -178,10 +205,16 @@ const DashboardSection = () => {
                     </motion.div>
 
                     <motion.div
-                        initial={{ opacity: 0, x: 40 }}
+                        initial={shouldReduceMotion ? false : { opacity: 0, x: 40 }}
                         whileInView={{ opacity: 1, x: 0 }}
                         viewport={{ once: true, margin: '-80px' }}
-                        transition={{ duration: 0.7, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}
+                        transition={{
+                            duration: shouldReduceMotion ? 0.01 : 0.7,
+                            delay: shouldReduceMotion ? 0 : 0.15,
+                            ease: [0.16, 1, 0.3, 1],
+                        }}
+                        style={shouldReduceMotion ? undefined : { y: copyParallax }}
+                        className="will-change-transform"
                     >
                         <SectionBadge t={t} label="Sales intelligence" />
                         <SectionHeading
@@ -201,10 +234,14 @@ const DashboardSection = () => {
                                 return (
                                     <motion.div
                                         key={i}
-                                        initial={{ opacity: 0, y: 16 }}
+                                        initial={shouldReduceMotion ? false : { opacity: 0, y: 16 }}
                                         whileInView={{ opacity: 1, y: 0 }}
                                         viewport={{ once: true }}
-                                        transition={{ duration: 0.5, delay: i * 0.08 + 0.2, ease: [0.16, 1, 0.3, 1] }}
+                                        transition={{
+                                            duration: shouldReduceMotion ? 0.01 : 0.5,
+                                            delay: shouldReduceMotion ? 0 : i * 0.08 + 0.2,
+                                            ease: [0.16, 1, 0.3, 1],
+                                        }}
                                         className="flex items-start gap-4"
                                     >
                                         <div

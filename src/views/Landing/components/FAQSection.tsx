@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { TbPlus, TbMinus } from 'react-icons/tb'
 import { useLandingTheme } from '../LandingThemeProvider'
 import { SectionBadge, SectionHeading, SectionDesc } from './landingUi'
@@ -47,20 +47,35 @@ const faqs = [
     },
 ]
 
-const FAQItem = ({ faq, index }: { faq: (typeof faqs)[0]; index: number }) => {
-    const [open, setOpen] = useState(false)
+const FAQItem = ({
+    faq,
+    index,
+    open,
+    onToggle,
+    shouldReduceMotion,
+}: {
+    faq: (typeof faqs)[0]
+    index: number
+    open: boolean
+    onToggle: () => void
+    shouldReduceMotion: boolean
+}) => {
     const t = useLandingTheme()
 
     return (
         <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={shouldReduceMotion ? false : { opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: '-40px' }}
-            transition={{ duration: 0.5, delay: index * 0.05, ease: [0.16, 1, 0.3, 1] }}
+            transition={{
+                duration: shouldReduceMotion ? 0.01 : 0.5,
+                delay: shouldReduceMotion ? 0 : index * 0.05,
+                ease: [0.16, 1, 0.3, 1],
+            }}
         >
             <button
-                onClick={() => setOpen((prev) => !prev)}
-                className="w-full flex items-center justify-between gap-4 py-5 text-left group"
+                onClick={onToggle}
+                className="w-full flex items-center justify-between gap-4 py-5 text-left group focus-visible:outline-none focus-visible:ring-2 rounded-lg"
                 aria-expanded={open}
             >
                 <span
@@ -87,7 +102,10 @@ const FAQItem = ({ faq, index }: { faq: (typeof faqs)[0]; index: number }) => {
                         initial={{ height: 0, opacity: 0 }}
                         animate={{ height: 'auto', opacity: 1 }}
                         exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                        transition={{
+                            duration: shouldReduceMotion ? 0.01 : 0.3,
+                            ease: [0.16, 1, 0.3, 1],
+                        }}
                         className="overflow-hidden"
                     >
                         <p className="text-sm leading-relaxed pb-5 max-w-2xl" style={{ color: t.textFaint }}>
@@ -104,6 +122,8 @@ const FAQItem = ({ faq, index }: { faq: (typeof faqs)[0]; index: number }) => {
 
 const FAQSection = () => {
     const t = useLandingTheme()
+    const shouldReduceMotion = useReducedMotion()
+    const [openIndex, setOpenIndex] = useState<number | null>(0)
 
     return (
         <section className="py-24 md:py-32">
@@ -135,7 +155,16 @@ const FAQSection = () => {
                     <div>
                         <div className="h-px mb-0" style={{ backgroundColor: t.border }} />
                         {faqs.map((faq, i) => (
-                            <FAQItem key={i} faq={faq} index={i} />
+                            <FAQItem
+                                key={i}
+                                faq={faq}
+                                index={i}
+                                open={openIndex === i}
+                                onToggle={() =>
+                                    setOpenIndex((prev) => (prev === i ? null : i))
+                                }
+                                shouldReduceMotion={Boolean(shouldReduceMotion)}
+                            />
                         ))}
                     </div>
                 </div>

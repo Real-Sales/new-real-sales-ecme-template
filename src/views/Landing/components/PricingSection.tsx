@@ -1,8 +1,7 @@
-import { motion } from 'framer-motion'
 import { TbCheck, TbArrowRight } from 'react-icons/tb'
 import { Link } from 'react-router-dom'
 import { useLandingTheme } from '../LandingThemeProvider'
-import { SectionBadge, SectionHeading, SectionDesc } from './landingUi'
+import { SectionBadge, SectionHeading, SectionDesc, ParallaxReveal } from './landingUi'
 
 const tiers = [
     {
@@ -63,9 +62,15 @@ const PricingSection = () => {
     const t = useLandingTheme()
 
     return (
-        <section className="py-24 md:py-32">
-            <div className="max-w-7xl mx-auto px-4">
-                <div id="pricing" className="text-center mb-16">
+        <section id="pricing" className="py-24 md:py-32 relative overflow-hidden">
+            <div
+                className="pointer-events-none absolute inset-x-0 top-0 h-[360px]"
+                style={{
+                    background: `radial-gradient(ellipse 50% 100% at 50% 0%, ${t.accent}14 0%, transparent 70%)`,
+                }}
+            />
+            <div className="max-w-7xl mx-auto px-4 relative z-10">
+                <div className="text-center mb-16">
                     <SectionBadge t={t} label="Pricing" />
                     <SectionHeading
                         t={t}
@@ -81,19 +86,22 @@ const PricingSection = () => {
 
                 <div className="grid md:grid-cols-3 gap-4 items-stretch">
                     {tiers.map((tier, i) => (
-                        <motion.div
+                        <ParallaxReveal
                             key={tier.name}
-                            initial={{ opacity: 0, y: 28 }}
-                            whileInView={{ opacity: 1, y: 0 }}
-                            viewport={{ once: true, margin: '-60px' }}
-                            transition={{ duration: 0.6, delay: i * 0.1, ease: [0.16, 1, 0.3, 1] }}
-                            className="relative rounded-2xl flex flex-col transition-all duration-300"
+                            className="h-full"
+                            delay={i * 0.1}
+                            distance={i % 2 === 0 ? 55 : 90}
+                        >
+                        <div
+                            className="relative rounded-2xl flex flex-col h-full transition-all duration-300 hover:-translate-y-1"
                             style={{
                                 border: `1px solid ${tier.highlight ? t.accent : t.border}`,
-                                backgroundColor: tier.highlight ? t.accentSubtle : t.surface,
+                                backgroundColor: tier.highlight ? t.accentSubtle : t.bgElevated,
                                 boxShadow: tier.highlight
                                     ? `0 0 0 1px ${t.accent}22, 0 32px 64px ${t.isLight ? 'rgba(12,175,96,0.12)' : 'rgba(0,0,0,0.5)'}`
-                                    : undefined,
+                                    : t.isLight
+                                      ? '0 12px 26px rgba(15,23,42,0.05)'
+                                      : '0 12px 26px rgba(0,0,0,0.24)',
                             }}
                         >
                             {tier.highlight && (
@@ -132,16 +140,20 @@ const PricingSection = () => {
 
                                 <Link
                                     to={tier.ctaTo}
-                                    className="group flex items-center justify-center gap-2 w-full py-3 rounded-full text-sm font-semibold mb-7 transition-all duration-200 active:scale-[0.97]"
+                                    className="group flex items-center justify-center gap-2 w-full py-3 rounded-full text-sm font-semibold mb-7 transition-all duration-200 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2"
                                     style={
                                         tier.highlight
                                             ? {
                                                   backgroundColor: t.primaryBtnBg,
                                                   color: t.primaryBtnText,
+                                                  boxShadow: t.isLight
+                                                      ? '0 10px 24px rgba(16,185,129,0.22)'
+                                                      : '0 10px 24px rgba(0,0,0,0.38)',
                                               }
                                             : {
                                                   border: `1px solid ${t.border}`,
                                                   color: t.textMuted,
+                                                  backgroundColor: t.surface,
                                               }
                                     }
                                 >
@@ -165,7 +177,8 @@ const PricingSection = () => {
                                     </ul>
                                 </div>
                             </div>
-                        </motion.div>
+                        </div>
+                        </ParallaxReveal>
                     ))}
                 </div>
 
