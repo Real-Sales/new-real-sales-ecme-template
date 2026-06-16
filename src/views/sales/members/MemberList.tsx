@@ -161,7 +161,8 @@ const MemberList = () => {
         () => [
             {
                 header: 'Member',
-                accessorKey: 'first_name',
+                id: 'member_name',
+                accessorFn: (row) => `${row.first_name} ${row.last_name}`,
                 enableSorting: true,
                 cell: (props) => {
                     const row = props.row.original
@@ -202,7 +203,7 @@ const MemberList = () => {
             {
                 header: 'Team',
                 accessorKey: 'team_name',
-                enableSorting: false,
+                enableSorting: true,
                 cell: (props) => {
                     const name = props.row.original.team_name
                     return name ? (
@@ -217,7 +218,7 @@ const MemberList = () => {
             {
                 header: 'Division',
                 accessorKey: 'sales_division_name',
-                enableSorting: false,
+                enableSorting: true,
                 cell: (props) => {
                     const name = props.row.original.sales_division_name
                     return name ? (

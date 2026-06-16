@@ -236,7 +236,7 @@ function DataTable<T>(props: DataTableProps<T>) {
         getPaginationRowModel: getPaginationRowModel(),
         getSortedRowModel: getSortedRowModel(),
         manualPagination: true,
-        manualSorting: true,
+        manualSorting: !!onSort,
         onSortingChange: (sorter) => {
             setSorting(sorter as ColumnSort[])
         },

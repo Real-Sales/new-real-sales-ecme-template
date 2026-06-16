@@ -144,6 +144,7 @@ const ScenarioList = () => {
         pageIndex: 1,
         pageSize: 10,
     })
+    const [sortConfig, setSortConfig] = useState<{ key: string; order: 'asc' | 'desc' | '' }>({ key: '', order: '' })
 
     const rawScenarios = isSalesRep ? salesRepScenarios : scenariosData
     const listLoading = isSalesRep ? salesRepLoading : scenarioLibraryLoading
@@ -158,45 +159,65 @@ const ScenarioList = () => {
         navigate(`/sessions/${scenario.session_id}/report`)
     }
 
-    // Filter and sort scenarios based on search and filters
+    // Filter scenarios based on search and filters
     const filteredScenarios = useMemo(() => {
-        return rawScenarios
-            .filter((scenario) => {
-                const q = searchQuery.toLowerCase()
-                const matchesSearch =
-                    searchQuery === '' ||
-                    scenario.title?.toLowerCase().includes(q) ||
-                    scenario.scenario_id.toLowerCase().includes(q) ||
-                    scenario.persona?.name?.toLowerCase().includes(q) ||
-                    scenario.mode?.name?.toLowerCase().includes(q) ||
-                    (scenario.session_id?.toLowerCase().includes(q) ?? false)
+        return rawScenarios.filter((scenario) => {
+            const q = searchQuery.toLowerCase()
+            const matchesSearch =
+                searchQuery === '' ||
+                scenario.title?.toLowerCase().includes(q) ||
+                scenario.scenario_id.toLowerCase().includes(q) ||
+                scenario.persona?.name?.toLowerCase().includes(q) ||
+                scenario.mode?.name?.toLowerCase().includes(q) ||
+                (scenario.session_id?.toLowerCase().includes(q) ?? false)
 
-                const derivedStatus = scenario.persona?.status_active && scenario.mode?.status_active ? 'active' : 'inactive'
-                const matchesStatus =
-                    filters.status === 'all' || derivedStatus === filters.status
+            const derivedStatus = scenario.persona?.status_active && scenario.mode?.status_active ? 'active' : 'inactive'
+            const matchesStatus =
+                filters.status === 'all' || derivedStatus === filters.status
 
-                const matchesMode =
-                    filters.mode === 'all' || scenario.mode?.name === filters.mode
+            const matchesMode =
+                filters.mode === 'all' || scenario.mode?.name === filters.mode
 
-                const matchesPersona =
-                    filters.persona === 'all' || scenario.persona?.name === filters.persona
+            const matchesPersona =
+                filters.persona === 'all' || scenario.persona?.name === filters.persona
 
-                return matchesSearch && matchesStatus && matchesMode && matchesPersona
-            })
-            .sort((a, b) => {
-                // Case-insensitive alphabetical sort using localeCompare with sensitivity option
-                const titleA = a.title || ''
-                const titleB = b.title || ''
-                return titleA.localeCompare(titleB, undefined, { sensitivity: 'base' })
-            })
+            return matchesSearch && matchesStatus && matchesMode && matchesPersona
+        })
     }, [rawScenarios, searchQuery, filters])
 
-    // Paginate filtered scenarios
+    // Sort filtered scenarios
+    const sortedScenarios = useMemo(() => {
+        if (!sortConfig.key || !sortConfig.order) {
+            // Default: alphabetical by title
+            return [...filteredScenarios].sort((a, b) =>
+                (a.title || '').localeCompare(b.title || '', undefined, { sensitivity: 'base' })
+            )
+        }
+        return [...filteredScenarios].sort((a, b) => {
+            const aVal = (a as Record<string, unknown>)[sortConfig.key]
+            const bVal = (b as Record<string, unknown>)[sortConfig.key]
+            if (sortConfig.key === 'created_at') {
+                const aTime = aVal ? new Date(aVal as string).getTime() : 0
+                const bTime = bVal ? new Date(bVal as string).getTime() : 0
+                return sortConfig.order === 'asc' ? aTime - bTime : bTime - aTime
+            }
+            if (typeof aVal === 'number' && typeof bVal === 'number') {
+                return sortConfig.order === 'asc' ? aVal - bVal : bVal - aVal
+            }
+            const aStr = String(aVal ?? '')
+            const bStr = String(bVal ?? '')
+            return sortConfig.order === 'asc'
+                ? aStr.localeCompare(bStr)
+                : bStr.localeCompare(aStr)
+        })
+    }, [filteredScenarios, sortConfig])
+
+    // Paginate sorted scenarios
     const paginatedScenarios = useMemo(() => {
         const startIndex = (tableData.pageIndex - 1) * tableData.pageSize
         const endIndex = startIndex + tableData.pageSize
-        return filteredScenarios.slice(startIndex, endIndex)
-    }, [filteredScenarios, tableData.pageIndex, tableData.pageSize])
+        return sortedScenarios.slice(startIndex, endIndex)
+    }, [sortedScenarios, tableData.pageIndex, tableData.pageSize])
 
     const handleAddNew = () => {
         setIsEditMode(false)
@@ -421,6 +442,10 @@ const ScenarioList = () => {
                         }}
                         onPaginationChange={handlePaginationChange}
                         onSelectChange={handleSelectChange}
+                        onSort={({ key, order }) => {
+                            setSortConfig({ key: String(key), order })
+                            setTableData((prev) => ({ ...prev, pageIndex: 1 }))
+                        }}
                     />
                     </div>
                 </AdaptiveCard>

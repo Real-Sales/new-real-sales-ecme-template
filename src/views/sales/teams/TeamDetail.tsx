@@ -57,6 +57,7 @@ const TeamDetail = () => {
     const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null)
     const [currentPage, setCurrentPage] = useState(1)
     const [pageSize, setPageSize] = useState(10)
+    const [sortConfig, setSortConfig] = useState<{ key: string; order: 'asc' | 'desc' | '' }>({ key: '', order: '' })
 
     const {
         teamPerformance,
@@ -119,10 +120,26 @@ const TeamDetail = () => {
         setCurrentPage(1)
     }
 
+    const sortedMembers = useMemo(() => {
+        if (!sortConfig.key || !sortConfig.order) return teamMembers
+        return [...teamMembers].sort((a, b) => {
+            const aVal = (a as Record<string, unknown>)[sortConfig.key]
+            const bVal = (b as Record<string, unknown>)[sortConfig.key]
+            if (typeof aVal === 'number' && typeof bVal === 'number') {
+                return sortConfig.order === 'asc' ? aVal - bVal : bVal - aVal
+            }
+            const aStr = String(aVal ?? '')
+            const bStr = String(bVal ?? '')
+            return sortConfig.order === 'asc'
+                ? aStr.localeCompare(bStr)
+                : bStr.localeCompare(aStr)
+        })
+    }, [teamMembers, sortConfig])
+
     // Calculate paginated data
     const startIndex = (currentPage - 1) * pageSize
     const endIndex = startIndex + pageSize
-    const paginatedMembers = teamMembers.slice(startIndex, endIndex)
+    const paginatedMembers = sortedMembers.slice(startIndex, endIndex)
 
     const handleBack = () => {
         navigate('/teams')
@@ -260,6 +277,10 @@ const TeamDetail = () => {
                             }}
                             onPaginationChange={handlePaginationChange}
                             onSelectChange={handleSelectChange}
+                            onSort={({ key, order }) => {
+                                setSortConfig({ key: String(key), order })
+                                setCurrentPage(1)
+                            }}
                         />
                     )}
                 </Card>

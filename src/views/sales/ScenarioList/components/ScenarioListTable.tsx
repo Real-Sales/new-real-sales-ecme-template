@@ -115,6 +115,7 @@ type ScenarioListTableProps = {
     /** Start / Resume — navigate to existing session (ephemeral token + chat_history). */
     onSalesRepOpenSession?: (scenario: Scenario) => void
     onSalesRepViewReport?: (scenario: Scenario) => void
+    onSort?: (sort: { key: string | number; order: 'asc' | 'desc' | '' }) => void
 }
 
 const ScenarioListTable = ({
@@ -133,6 +134,7 @@ const ScenarioListTable = ({
     variant = 'manager',
     onSalesRepOpenSession,
     onSalesRepViewReport,
+    onSort,
 }: ScenarioListTableProps) => {
     const [deleteConfirmationOpen, setDeleteConfirmationOpen] = useState(false)
     const [toDeleteScenario, setToDeleteScenario] = useState<Scenario | null>(null)
@@ -160,7 +162,7 @@ const ScenarioListTable = ({
             {
                 header: 'Title',
                 accessorKey: 'title',
-                enableSorting: false,
+                enableSorting: true,
                 cell: (props) => {
                     const row = props.row.original
                     const isInactive = getDerivedStatus(row) === 'inactive'
@@ -237,7 +239,7 @@ const ScenarioListTable = ({
             {
                 header: 'Deadline',
                 accessorKey: 'time_limit_days',
-                enableSorting: false,
+                enableSorting: true,
                 cell: (props) => {
                     const { time_limit_days } = props.row.original
                     const isInactive = getDerivedStatus(props.row.original) === 'inactive'
@@ -268,7 +270,7 @@ const ScenarioListTable = ({
             {
                 header: 'Created',
                 accessorKey: 'created_at',
-                enableSorting: false,
+                enableSorting: true,
                 cell: (props) => {
                     const row = props.row.original
                     const isInactive = getDerivedStatus(row) === 'inactive'
@@ -496,6 +498,7 @@ const ScenarioListTable = ({
                 pagingData={pagingData}
                 onPaginationChange={onPaginationChange}
                 onSelectChange={onSelectChange}
+                onSort={onSort}
             />
             {variant === 'manager' && (
                 <ConfirmDialog

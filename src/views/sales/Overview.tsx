@@ -335,7 +335,7 @@ const Overview = () => {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                    <Card className="hover:shadow-lg transition-shadow duration-300">
+                    <Card className="bg-white dark:bg-gray-800/60 border border-gray-100 dark:border-gray-700 rounded-2xl shadow-sm hover:shadow-md transition-shadow duration-300">
                         <div className="flex items-center gap-4 p-4">
                             <div className="flex-shrink-0">
                                 <div className="bg-gray-100 dark:bg-gray-700/50 rounded-2xl p-3 text-primary">
@@ -355,7 +355,7 @@ const Overview = () => {
                         </div>
                     </Card>
 
-                    <Card className="hover:shadow-lg transition-shadow duration-300">
+                    <Card className="bg-white dark:bg-gray-800/60 border border-gray-100 dark:border-gray-700 rounded-2xl shadow-sm hover:shadow-md transition-shadow duration-300">
                         <div className="flex items-center gap-4 p-4">
                             <div className="flex-shrink-0">
                                 <div className="bg-gray-100 dark:bg-gray-700/50 rounded-2xl p-3 text-primary">
@@ -375,7 +375,7 @@ const Overview = () => {
                         </div>
                     </Card>
 
-                    <Card className="hover:shadow-lg transition-shadow duration-300">
+                    <Card className="bg-white dark:bg-gray-800/60 border border-gray-100 dark:border-gray-700 rounded-2xl shadow-sm hover:shadow-md transition-shadow duration-300">
                         <div className="flex items-center gap-4 p-4">
                             <div className="flex-shrink-0">
                                 <div className="bg-gray-100 dark:bg-gray-700/50 rounded-2xl p-3 text-primary">
@@ -395,7 +395,7 @@ const Overview = () => {
                         </div>
                     </Card>
 
-                    <Card className="hover:shadow-lg transition-shadow duration-300">
+                    <Card className="bg-white dark:bg-gray-800/60 border border-gray-100 dark:border-gray-700 rounded-2xl shadow-sm hover:shadow-md transition-shadow duration-300">
                         <div className="flex items-center gap-4 p-4">
                             <div className="flex-shrink-0">
                                 <div className="bg-gray-100 dark:bg-gray-700/50 rounded-2xl p-3 text-primary">

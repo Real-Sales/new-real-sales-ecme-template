@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Card, Button, Badge, Spinner, Input, Dialog } from '@/components/ui'
 import Container from '@/components/shared/Container'
@@ -12,8 +12,12 @@ import {
     useAppDispatch,
     fetchDivisionInfo,
 } from '@/store/slices/salesDivisions'
+import teamsReducer, { fetchTeams } from '@/store/slices/teams'
+import { injectReducer } from '@/store'
 import type { DivisionUser, SalesDivisionInfoResponse } from '@/services/SalesCompanyService'
 import type { ColumnDef } from '@/components/shared/DataTable'
+
+injectReducer('teams', teamsReducer)
 
 const deduplicateUsers = (users: DivisionUser[]): DivisionUser[] => {
     const seen = new Set<string>()
@@ -36,6 +40,7 @@ const CompanyDetail = () => {
     const [currentPage, setCurrentPage] = useState(1)
     const [pageSize, setPageSize] = useState(10)
     const [dialogOpen, setDialogOpen] = useState(false)
+    const [sortConfig, setSortConfig] = useState<{ key: string; order: 'asc' | 'desc' | '' }>({ key: '', order: '' })
 
     const {
         divisionInfo,
@@ -53,6 +58,23 @@ const CompanyDetail = () => {
             }
     )
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { teamsData, teamsInitialized, companyId } = useAppSelector((state: any) => ({
+        teamsData: state.teams?.data?.teamsData ?? [],
+        teamsInitialized: state.teams?.data?.initialized ?? false,
+        companyId: state.auth?.user?.companyId ?? null,
+    }))
+
+    useEffect(() => {
+        if (!companyId || teamsInitialized) return
+        dispatch(fetchTeams(companyId))
+    }, [dispatch, companyId, teamsInitialized])
+
+    const teamCount = useMemo(
+        () => teamsData.filter((t: { sales_division_id?: string }) => t.sales_division_id === id).length,
+        [teamsData, id]
+    )
+
     const division = id ? divisionInfo[id] : null
     const isLoading = infoLoading
 
@@ -64,7 +86,7 @@ const CompanyDetail = () => {
 
     const members = division ? deduplicateUsers(division.users) : []
 
-    const filteredMembers = members.filter((m) => {
+    const filteredMembers = useMemo(() => members.filter((m) => {
         const fullName = `${m.first_name} ${m.last_name}`.toLowerCase()
         const q = searchTerm.toLowerCase()
         return (
@@ -72,9 +94,28 @@ const CompanyDetail = () => {
             m.email.toLowerCase().includes(q) ||
             m.team_name?.toLowerCase().includes(q)
         )
-    })
+    }), [members, searchTerm])
 
-    const teamCount = new Set(members.map((m) => m.team_id).filter(Boolean)).size
+    const sortedMembers = useMemo(() => {
+        if (!sortConfig.key || !sortConfig.order) return filteredMembers
+        return [...filteredMembers].sort((a, b) => {
+            let aVal: unknown
+            let bVal: unknown
+            if (sortConfig.key === 'member_name') {
+                aVal = `${a.first_name} ${a.last_name}`
+                bVal = `${b.first_name} ${b.last_name}`
+            } else {
+                aVal = (a as Record<string, unknown>)[sortConfig.key]
+                bVal = (b as Record<string, unknown>)[sortConfig.key]
+            }
+            const aStr = String(aVal ?? '')
+            const bStr = String(bVal ?? '')
+            return sortConfig.order === 'asc'
+                ? aStr.localeCompare(bStr)
+                : bStr.localeCompare(aStr)
+        })
+    }, [filteredMembers, sortConfig])
+
     const divisionMemberIds = members.map((m) => m.user_id)
 
     const refreshDivision = () => {
@@ -88,12 +129,13 @@ const CompanyDetail = () => {
 
     // Pagination
     const startIndex = (currentPage - 1) * pageSize
-    const paginatedData = filteredMembers.slice(startIndex, startIndex + pageSize)
+    const paginatedData = sortedMembers.slice(startIndex, startIndex + pageSize)
 
     const columns: ColumnDef<DivisionUser>[] = [
         {
             header: 'Member',
-            accessorKey: 'first_name',
+            id: 'member_name',
+            accessorFn: (row) => `${row.first_name} ${row.last_name}`,
             enableSorting: true,
             cell: (props) => {
                 const row = props.row.original
@@ -304,6 +346,10 @@ const CompanyDetail = () => {
                                 onPaginationChange={(page) => setCurrentPage(page)}
                                 onSelectChange={(val) => {
                                     setPageSize(val)
+                                    setCurrentPage(1)
+                                }}
+                                onSort={({ key, order }) => {
+                                    setSortConfig({ key: String(key), order })
                                     setCurrentPage(1)
                                 }}
                             />

@@ -1,4 +1,5 @@
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLocation, useParams, useNavigate } from 'react-router-dom';
 import { HiStop, HiPaperAirplane, HiPaperClip, HiLightBulb, HiChevronLeft, HiChevronRight } from 'react-icons/hi2';
@@ -869,6 +870,14 @@ export default function InteractiveVisualizerSession() {
     if (currentHintIndex > 0) setCurrentHintIndex(currentHintIndex - 1);
   };
 
+  // Close hint and mark current as viewed so the count decreases
+  const handleCloseHint = () => {
+    const currentHint = hints[currentHintIndex];
+    if (!viewedHints.includes(currentHint.id)) setViewedHints([...viewedHints, currentHint.id]);
+    if (currentHintIndex < hints.length - 1) setCurrentHintIndex(currentHintIndex + 1);
+    setShowHints(false);
+  };
+
   const floatingAiCaption = useMemo(() => {
     if (isChatPanelOpen || !sessionStarted) {
       return { show: false, html: '', thinking: false, plain: '' };
@@ -1026,7 +1035,13 @@ export default function InteractiveVisualizerSession() {
                 disabled={isGenerating}
                 className="flex-1 bg-transparent text-gray-900 dark:text-white text-sm focus:outline-none disabled:opacity-50"
               />
-              <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => setShowHints(!showHints)} className="flex items-center gap-1.5 px-3 py-1 rounded-full flex-shrink-0 bg-primary/10 text-primary">
+              <motion.button
+                whileHover={hints.length - viewedHints.length > 0 ? { scale: 1.05 } : {}}
+                whileTap={hints.length - viewedHints.length > 0 ? { scale: 0.95 } : {}}
+                onClick={() => hints.length - viewedHints.length > 0 && setShowHints(!showHints)}
+                disabled={hints.length - viewedHints.length === 0}
+                className={`flex items-center gap-1.5 px-3 py-1 rounded-full flex-shrink-0 transition-opacity ${hints.length - viewedHints.length === 0 ? 'opacity-30 cursor-not-allowed bg-gray-200 dark:bg-gray-700 text-gray-400' : 'bg-primary/10 text-primary'}`}
+              >
                 <HiLightBulb className="w-3.5 h-3.5" />
                 <span className="text-xs font-medium">{hints.length - viewedHints.length}</span>
               </motion.button>
@@ -1134,28 +1149,79 @@ export default function InteractiveVisualizerSession() {
           </ScrollBar>
         </div>
 
-        {/* Hints Panel */}
-        <AnimatePresence>
-          {showHints && hints[currentHintIndex] && (
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }} className="flex-shrink-0 px-6 py-4 border-t border-primary/20 bg-primary/5 dark:bg-primary/10 backdrop-blur-xl">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <HiLightBulb className="w-5 h-5 text-primary" />
-                  <h4 className="text-sm font-semibold text-gray-900 dark:text-white">Session Hint {currentHintIndex + 1}/{hints.length}</h4>
+        {/* Hints Modal — portal to body so it covers the full page */}
+        {showHints && hints[currentHintIndex] && createPortal(
+          <AnimatePresence>
+            <motion.div
+              key="hint-backdrop"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px', backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}
+              onClick={handleCloseHint}
+            >
+              <motion.div
+                initial={{ opacity: 0, scale: 0.92, y: 24 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.92, y: 24 }}
+                transition={{ type: 'spring', damping: 24, stiffness: 320 }}
+                style={{ width: '100%', maxWidth: '480px' }}
+                onClick={(e) => e.stopPropagation()}
+                className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden"
+              >
+                {/* Header */}
+                <div className="flex items-center justify-between px-6 pt-6 pb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center">
+                      <HiLightBulb className="w-5 h-5 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-400 dark:text-gray-500 leading-none mb-0.5">
+                        {currentHintIndex + 1} of {hints.length} hints
+                      </p>
+                      <span className="text-sm font-semibold text-gray-900 dark:text-white leading-none">
+                        Session Hint
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleCloseHint}
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-xl leading-none"
+                  >
+                    ×
+                  </button>
                 </div>
-                <button onClick={() => setShowHints(false)} className="text-xs text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-300">Close</button>
-              </div>
-              <motion.div key={hints[currentHintIndex].id} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="p-4 rounded-xl bg-white/80 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700/50">
-                <h5 className="text-base font-bold text-gray-900 dark:text-white mb-2">{hints[currentHintIndex].title}</h5>
-                <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{hints[currentHintIndex].suggestion}</p>
+
+                {/* Hint content */}
+                <div className="mx-6 mb-6 p-5 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+                  <h5 className="text-lg font-bold text-gray-900 dark:text-white mb-3">
+                    {hints[currentHintIndex].title}
+                  </h5>
+                  <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
+                    {hints[currentHintIndex].suggestion}
+                  </p>
+                </div>
+
+                {/* Footer — single Got it button */}
+                <div className="flex items-center justify-between px-6 pb-6">
+                  <p className="text-xs text-gray-400 dark:text-gray-500">
+                    {hints.length - viewedHints.length - 1 > 0
+                      ? `${hints.length - viewedHints.length - 1} hint${hints.length - viewedHints.length - 1 > 1 ? 's' : ''} remaining`
+                      : 'Last hint'}
+                  </p>
+                  <motion.button
+                    whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}
+                    onClick={handleCloseHint}
+                    className="px-6 py-2.5 rounded-xl text-sm font-semibold bg-primary text-white hover:bg-primary/90 transition-colors"
+                  >
+                    Got it
+                  </motion.button>
+                </div>
               </motion.div>
-              <div className="flex items-center justify-between mt-4">
-                <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={handlePreviousHint} disabled={currentHintIndex === 0} className={`px-4 py-2 rounded-lg text-sm font-medium ${currentHintIndex === 0 ? 'opacity-50 cursor-not-allowed' : 'bg-gray-100 hover:bg-gray-200 dark:bg-gray-800'}`}>Previous</motion.button>
-                <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={handleNextHint} className="px-4 py-2 rounded-lg text-sm font-medium bg-primary/20 text-primary hover:bg-primary/30">{currentHintIndex === hints.length - 1 ? 'Done' : 'Next'}</motion.button>
-              </div>
             </motion.div>
-          )}
-        </AnimatePresence>
+          </AnimatePresence>,
+          document.body
+        )}
 
         {/* Bottom Bar Container */}
         <div className="flex-shrink-0 px-4 py-3 bg-gray-100/95 dark:bg-gray-800/70 backdrop-blur-2xl border-t border-gray-200 dark:border-gray-700/60">
@@ -1179,7 +1245,13 @@ export default function InteractiveVisualizerSession() {
                   disabled={isGenerating}
                   className="flex-1 bg-transparent text-gray-900 dark:text-white text-sm focus:outline-none disabled:opacity-50"
                 />
-                <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => setShowHints(!showHints)} className="flex items-center gap-1.5 px-3 py-1 rounded-full flex-shrink-0 bg-primary/10 text-primary">
+                <motion.button
+                  whileHover={hints.length - viewedHints.length > 0 ? { scale: 1.05 } : {}}
+                  whileTap={hints.length - viewedHints.length > 0 ? { scale: 0.95 } : {}}
+                  onClick={() => hints.length - viewedHints.length > 0 && setShowHints(!showHints)}
+                  disabled={hints.length - viewedHints.length === 0}
+                  className={`flex items-center gap-1.5 px-3 py-1 rounded-full flex-shrink-0 transition-opacity ${hints.length - viewedHints.length === 0 ? 'opacity-30 cursor-not-allowed bg-gray-200 dark:bg-gray-700 text-gray-400' : 'bg-primary/10 text-primary'}`}
+                >
                   <HiLightBulb className="w-3.5 h-3.5" />
                   <span className="text-xs font-medium">{hints.length - viewedHints.length}</span>
                 </motion.button>

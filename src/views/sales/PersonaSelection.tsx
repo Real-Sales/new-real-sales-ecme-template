@@ -24,6 +24,20 @@ import scenarioLibraryReducer, {
 
 injectReducer('scenarioLibrary', scenarioLibraryReducer)
 
+const formatLabel = (value: string) =>
+    value
+        .replace(/_/g, ' ')
+        .split(' ')
+        .map((w) => {
+            const letters = w.replace(/[^a-zA-Z0-9]/g, '')
+            // preserve short all-caps acronyms like B2B, CPG, IT, HR, etc.
+            if (letters.length <= 5 && letters === letters.toUpperCase() && /[A-Z]/.test(letters)) {
+                return w
+            }
+            return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()
+        })
+        .join(' ')
+
 // Map user's profile industry to persona industries (strict matching)
 const industryToPersonaIndustries: Record<string, string[]> = {
     technology: ['Technology', 'Software'],
@@ -180,12 +194,12 @@ const PersonaSelection = () => {
 
     const roleOptions = useMemo(() => {
         const roles = [...new Set(aiPersonas.map((p) => p.role))].sort()
-        return [{ value: '', label: 'All Roles' }, ...roles.map((r) => ({ value: r, label: r }))]
+        return [{ value: '', label: 'All Roles' }, ...roles.map((r) => ({ value: r, label: formatLabel(r) }))]
     }, [aiPersonas])
 
     const allIndustryOptions = useMemo(() => {
         const industries = [...new Set(aiPersonas.map((p) => p.industry))].sort()
-        return [{ value: '', label: 'All Industries' }, ...industries.map((i) => ({ value: i, label: i }))]
+        return [{ value: '', label: 'All Industries' }, ...industries.map((i) => ({ value: i, label: formatLabel(i) }))]
     }, [aiPersonas])
 
     const relatedPersonas = useMemo(() => {
@@ -372,6 +386,8 @@ const PersonaSelection = () => {
                                     value={roleOptions.find((opt) => opt.value === selectedRole)}
                                     onChange={(option) => setSelectedRole(option?.value as string || '')}
                                     className="w-[calc(50%-0.25rem)] sm:w-36"
+                                    menuPlacement="auto"
+                                    styles={{ menu: (base) => ({ ...base, minWidth: '200px' }), option: (base) => ({ ...base, whiteSpace: 'normal', wordBreak: 'break-word' }) }}
                                 />
                                 <Select
                                     size="sm"
@@ -380,6 +396,8 @@ const PersonaSelection = () => {
                                     value={allIndustryOptions.find((opt) => opt.value === selectedIndustry)}
                                     onChange={(option) => setSelectedIndustry(option?.value as string || '')}
                                     className="w-[calc(50%-0.25rem)] sm:w-40"
+                                    menuPlacement="auto"
+                                    styles={{ menu: (base) => ({ ...base, minWidth: '200px' }), option: (base) => ({ ...base, whiteSpace: 'normal', wordBreak: 'break-word' }) }}
                                 />
                                 <Select
                                     size="sm"
@@ -520,7 +538,7 @@ const PersonaSelection = () => {
                                                     {persona.name}
                                                 </h3>
                                                 <p className="text-sm font-semibold text-primary">
-                                                    {persona.role}
+                                                    {formatLabel(persona.role)}
                                                 </p>
                                             </div>
 
@@ -542,8 +560,8 @@ const PersonaSelection = () => {
                                                     </div>
                                                     <div className="flex flex-col text-left overflow-hidden">
                                                         <span className="text-[10px] uppercase tracking-wider text-gray-500 dark:text-gray-400 font-bold mb-0.5">Industry</span>
-                                                        <span className="text-sm text-gray-800 dark:text-gray-200 font-medium truncate" title={persona.industry}>
-                                                            {persona.industry}
+                                                        <span className="text-sm text-gray-800 dark:text-gray-200 font-medium truncate" title={formatLabel(persona.industry)}>
+                                                            {formatLabel(persona.industry)}
                                                         </span>
                                                     </div>
                                                 </div>

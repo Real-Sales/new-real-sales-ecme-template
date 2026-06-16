@@ -16,7 +16,6 @@ import sleep from '@/utils/sleep'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm, Controller } from 'react-hook-form'
 import { z } from 'zod'
-import { HiOutlineUser } from 'react-icons/hi'
 import { TbPlus } from 'react-icons/tb'
 import type { ZodType } from 'zod'
 
@@ -190,6 +189,9 @@ const SettingsProfile = () => {
     })
 
     const selectedIndustry = watch('industry')
+    const watchedFirstName = watch('firstName')
+    const watchedLastName = watch('lastName')
+    const avatarInitials = `${(watchedFirstName?.[0] ?? '').toUpperCase()}${(watchedLastName?.[0] ?? '').toUpperCase()}` || '?'
     const productOptions = useMemo(
         () => (selectedIndustry ? productsByIndustry[selectedIndustry] ?? [] : []),
         [selectedIndustry],
@@ -221,12 +223,17 @@ const SettingsProfile = () => {
                         control={control}
                         render={({ field }) => (
                             <div className="flex items-center gap-4">
-                                <Avatar
-                                    size={90}
-                                    className="border-4 border-white bg-gray-100 text-gray-300 shadow-lg"
-                                    icon={<HiOutlineUser />}
-                                    src={field.value}
-                                />
+                                {field.value ? (
+                                    <Avatar
+                                        size={72}
+                                        src={field.value}
+                                        className="ring-2 ring-gray-200 dark:ring-gray-600 shadow-lg"
+                                    />
+                                ) : (
+                                    <div className="w-[72px] h-[72px] rounded-full bg-gray-100 dark:bg-gray-800 ring-2 ring-gray-200 dark:ring-gray-600 shadow-lg flex items-center justify-center text-gray-600 dark:text-white text-2xl font-bold select-none shrink-0">
+                                        {avatarInitials}
+                                    </div>
+                                )}
                                 <div className="flex items-center gap-2">
                                     <Upload
                                         showList={false}

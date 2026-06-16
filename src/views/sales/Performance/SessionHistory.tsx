@@ -76,6 +76,7 @@ const SessionHistorySection = () => {
     const [pageSize, setPageSize] = useState(10)
     const [filterIsOpen, setFilterIsOpen] = useState(false)
     const [activeFilters, setActiveFilters] = useState<FilterSchema>(defaultFilterValues)
+    const [sortConfig, setSortConfig] = useState<{ key: string; order: 'asc' | 'desc' | '' }>({ key: '', order: '' })
     const [detailDrawerOpen, setDetailDrawerOpen] = useState(false)
     const [selectedSession, setSelectedSession] = useState<SessionHistoryType | null>(null)
 
@@ -206,10 +207,31 @@ const SessionHistorySection = () => {
         })
     }, [activeFilters, sessions])
 
+    const sortedData = useMemo(() => {
+        if (!sortConfig.key || !sortConfig.order) return filteredData
+        return [...filteredData].sort((a, b) => {
+            const aVal = (a as Record<string, unknown>)[sortConfig.key]
+            const bVal = (b as Record<string, unknown>)[sortConfig.key]
+            if (sortConfig.key === 'date') {
+                const aTime = aVal ? new Date(aVal as string).getTime() : 0
+                const bTime = bVal ? new Date(bVal as string).getTime() : 0
+                return sortConfig.order === 'asc' ? aTime - bTime : bTime - aTime
+            }
+            if (typeof aVal === 'number' && typeof bVal === 'number') {
+                return sortConfig.order === 'asc' ? aVal - bVal : bVal - aVal
+            }
+            const aStr = String(aVal ?? '')
+            const bStr = String(bVal ?? '')
+            return sortConfig.order === 'asc'
+                ? aStr.localeCompare(bStr)
+                : bStr.localeCompare(aStr)
+        })
+    }, [filteredData, sortConfig])
+
     const paginatedData = useMemo(() => {
         const start = (currentPage - 1) * pageSize
-        return filteredData.slice(start, start + pageSize)
-    }, [currentPage, pageSize, filteredData])
+        return sortedData.slice(start, start + pageSize)
+    }, [currentPage, pageSize, sortedData])
 
     const handlePaginationChange = (page: number) => {
         setCurrentPage(page)
@@ -328,7 +350,6 @@ const SessionHistorySection = () => {
             {
                 header: 'Duration',
                 accessorKey: 'duration',
-                enableSorting: false,
                 cell: (props) => {
                     const row = props.row.original
                     const minutes = Math.floor(row.duration / 60)
@@ -437,6 +458,10 @@ const SessionHistorySection = () => {
                 }}
                 onPaginationChange={handlePaginationChange}
                 onSelectChange={handleSelectChange}
+                onSort={({ key, order }) => {
+                    setSortConfig({ key: String(key), order })
+                    setCurrentPage(1)
+                }}
             />
         </Card>
 

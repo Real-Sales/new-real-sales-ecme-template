@@ -29,6 +29,7 @@ type TeamMembersTableProps = {
     }
     onPaginationChange?: (page: number) => void
     onSelectChange?: (value: number) => void
+    onSort?: (sort: { key: string | number; order: 'asc' | 'desc' | '' }) => void
 }
 
 const TeamMembersTable = ({ 
@@ -38,6 +39,7 @@ const TeamMembersTable = ({
     pagingData,
     onPaginationChange,
     onSelectChange,
+    onSort,
 }: TeamMembersTableProps) => {
     // Generate initials for avatar fallback
     const getInitials = (name: string) => {
@@ -83,7 +85,7 @@ const TeamMembersTable = ({
             {
                 header: 'Overall Score',
                 accessorKey: 'score',
-                enableSorting: false,
+                enableSorting: true,
                 cell: (props) => {
                     const row = props.row.original
                     return (
@@ -113,7 +115,7 @@ const TeamMembersTable = ({
             {
                 header: 'Sessions',
                 accessorKey: 'sessions',
-                enableSorting: false,
+                enableSorting: true,
                 cell: (props) => {
                     const row = props.row.original
                     return (
@@ -160,6 +162,7 @@ const TeamMembersTable = ({
             pagingData={pagingData}
             onPaginationChange={onPaginationChange}
             onSelectChange={onSelectChange}
+            onSort={onSort}
         />
     )
 }

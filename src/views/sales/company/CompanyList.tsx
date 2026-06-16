@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Card, Button, Badge, Drawer, toast, Notification } from '@/components/ui'
 import Container from '@/components/shared/Container'
@@ -21,11 +21,13 @@ import salesDivisionsReducer, {
     deleteDivision,
     resetNotification,
 } from '@/store/slices/salesDivisions'
+import teamsReducer, { fetchTeams } from '@/store/slices/teams'
 import type { SalesDivision } from '@/services/SalesDivisionsService'
 import dayjs from 'dayjs'
 
 // Inject reducer when component mounts (lazy-loaded)
 injectReducer('salesDivisions', salesDivisionsReducer)
+injectReducer('teams', teamsReducer)
 
 console.log('DEBUG: CompanyList.tsx file loaded')
 
@@ -227,12 +229,34 @@ const CompanyList = () => {
             }
     )
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { teamsData, teamsInitialized } = useAppSelector((state: any) => ({
+        teamsData: state.teams?.data?.teamsData ?? [],
+        teamsInitialized: state.teams?.data?.initialized ?? false,
+    }))
+
     useEffect(() => {
         if (!companyId || initialized || divisionsLoading) {
             return
         }
         dispatch(fetchSalesDivisions(companyId))
     }, [dispatch, companyId, initialized, divisionsLoading])
+
+    useEffect(() => {
+        if (!companyId || teamsInitialized) return
+        dispatch(fetchTeams(companyId))
+    }, [dispatch, companyId, teamsInitialized])
+
+    const teamCountByDivision = useMemo(() => {
+        const counts: Record<string, number> = {}
+        for (const team of teamsData) {
+            const divId = team.sales_division_id
+            if (divId) {
+                counts[divId] = (counts[divId] ?? 0) + 1
+            }
+        }
+        return counts
+    }, [teamsData])
 
     useEffect(() => {
         if (notification) {
@@ -363,7 +387,7 @@ const CompanyList = () => {
         },
         {
             icon: <HiUserGroup />,
-            value: 0, // Teams count not available from this endpoint
+            value: teamsData.length,
             label: 'Total Teams',
         },
         {
@@ -378,7 +402,7 @@ const CompanyList = () => {
         name: d.name,
         category: d.division_category,
         createdDate: dayjs(d.created_at).format('MMM DD, YYYY'),
-        teams: 0, // Teams count not available from this endpoint
+        teams: teamCountByDivision[d.sales_division_id] ?? 0,
         status: (d.is_active ? 'Active' : 'Inactive') as 'Active' | 'Inactive',
         original: d
     }))
