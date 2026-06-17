@@ -61,6 +61,10 @@ const endpointConfig = {
     assignScenario: (scenarioId: string, sessionId: string) => `scenarios/${scenarioId}/assign/${sessionId}`,
     scenarioAssignmentStatus: (scenarioId: string, teamId: string) => `scenarios/${scenarioId}/team/${teamId}/assignment-status`,
     authMe: 'auth/me',
+    authProfile: 'auth/profile',
+    authProfilePersonal: 'auth/profile/personal',
+    authProfileCompany: 'auth/profile/company',
+    industries: 'industries',
     geminiEphemeralToken: 'gemini/ephemeral-token',
     subscriptions: 'subscriptions/',
     userSubscriptionsByUser: (userId: string) =>

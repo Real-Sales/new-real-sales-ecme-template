@@ -42,7 +42,13 @@ const PerformanceLineChart = () => {
 
     const trendData = monthlyTrend
     const loading = trendLoading
-    const showChart = true
+    const hasChartData =
+        Boolean(trendData?.monthly_trends?.length) &&
+        trendData!.monthly_trends.some((t) =>
+            Object.values(t.modes).some(
+                (m) => m.session_count > 0 || m.average_score != null,
+            ),
+        )
 
     const chartData = useMemo(() => {
         if (!trendData) return { series: [], months: [], metrics: [] }
@@ -84,38 +90,43 @@ const PerformanceLineChart = () => {
                 <div className="h-[350px] flex items-center justify-center">
                     <span className="text-gray-500">Loading chart data...</span>
                 </div>
+            ) : hasChartData ? (
+                <div>
+                    <Chart
+                        key={`performance-${sideNavCollapse}`}
+                        type="line"
+                        series={chartData.series}
+                        xAxis={chartData.months}
+                        height="350px"
+                        customOptions={{
+                            colors: colors,
+                            yaxis: {
+                                min: 0,
+                                max: 100,
+                                tickAmount: 4,
+                            },
+                            legend: {
+                                show: false,
+                            },
+                            tooltip: {
+                                marker: {
+                                    show: true,
+                                },
+                            },
+                        }}
+                    />
+                </div>
             ) : (
-                showChart && chartData.series.length > 0 && chartData.months.length > 0 && (
-                    <div>
-                        <Chart
-                            key={`performance-${sideNavCollapse}`}
-                            type="line"
-                            series={chartData.series}
-                            xAxis={chartData.months}
-                            height="350px"
-                            customOptions={{
-                                colors: colors,
-                                yaxis: {
-                                    min: 0,
-                                    max: 100,
-                                    tickAmount: 4,
-                                },
-                                legend: {
-                                    show: false,
-                                },
-                                tooltip: {
-                                    marker: {
-                                        show: true,
-                                    },
-                                },
-                            }}
-                        />
-                    </div>
-                )
+                <div className="h-[350px] flex flex-col items-center justify-center gap-2">
+                    <TbChartLine className="text-3xl text-gray-300 dark:text-gray-600" />
+                    <span className="text-sm text-gray-500 dark:text-gray-400">
+                        No performance data yet
+                    </span>
+                </div>
             )}
 
             {/* Legend */}
-            {!loading && (
+            {!loading && hasChartData && (
                 <div className="flex flex-wrap justify-center gap-6 mt-6">
                     {chartData.metrics.map((metric) => (
                         <div

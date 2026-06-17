@@ -80,6 +80,32 @@ const SkillBreakdown = ({ data, loading }: SkillBreakdownProps) => {
         )
     }
 
+    if (!data?.mode_averages?.length) {
+        return (
+            <Card className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 shadow-md">
+                <div className="flex items-center gap-3 mb-6">
+                    <div className="w-10 h-10 rounded-full bg-gray-50 dark:bg-gray-800/50 flex items-center justify-center">
+                        <TbTargetArrow className="text-xl text-gray-700 dark:text-gray-300" />
+                    </div>
+                    <div>
+                        <h4 className="text-xl font-bold text-gray-900 dark:text-white">
+                            Skill Breakdown
+                        </h4>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                            Select a skill to view detailed breakdown
+                        </p>
+                    </div>
+                </div>
+                <div className="h-[300px] flex flex-col items-center justify-center gap-2">
+                    <TbTargetArrow className="text-3xl text-gray-300 dark:text-gray-600" />
+                    <span className="text-sm text-gray-500 dark:text-gray-400">
+                        No performance data yet
+                    </span>
+                </div>
+            </Card>
+        )
+    }
+
     return (
         <Card className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 shadow-md">
             {/* Section Heading */}

@@ -11,13 +11,14 @@ import {
     HiOutlineBriefcase,
     HiArrowLeft,
 } from 'react-icons/hi'
-import { useAppSelector } from '@/store'
+import { useAppSelector, useAppDispatch } from '@/store'
+import { fetchIndustries } from '@/store/slices/industriesCatalogSlice'
+import { fetchUserProfile } from '@/views/profile/Settings/store/settingsSlice'
 import type { AIPersona } from '@/components/shared/SessionSetupPanel'
 import { apiCreateSession } from '@/services/SessionService'
 import type { AiPersonaListItem, InteractionModeListItem } from '@/views/sales/ScenarioList/types'
 import scenarioLibraryReducer, {
     useAppSelector as useScenarioSelector,
-    useAppDispatch,
     fetchPersonas,
     fetchModes,
 } from '@/views/sales/ScenarioList/store'
@@ -38,10 +39,48 @@ const formatLabel = (value: string) =>
         })
         .join(' ')
 
+const normalizeIndustryKey = (value: string) =>
+    value.trim().toLowerCase().replace(/\s+/g, '_')
+
+const normalizeForMatch = (value: string) =>
+    value.toLowerCase().replace(/[^a-z0-9]/g, '')
+
+function personaMatchesUserIndustry(personaIndustry: string, userIndustry: string): boolean {
+    if (!userIndustry) return true
+
+    const personaLower = personaIndustry.toLowerCase().trim()
+    const userLower = userIndustry.toLowerCase().trim()
+    const userKey = normalizeIndustryKey(userIndustry)
+
+    if (personaLower === userLower) return true
+    if (personaLower === userKey.replace(/_/g, ' ')) return true
+
+    const personaNorm = normalizeForMatch(personaIndustry)
+    const userNorm = normalizeForMatch(userIndustry)
+    if (personaNorm && userNorm && (personaNorm.includes(userNorm) || userNorm.includes(personaNorm))) {
+        return true
+    }
+
+    const userTokens = userIndustry
+        .toLowerCase()
+        .split(/[_\s()]+/)
+        .map((t) => normalizeForMatch(t))
+        .filter((t) => t.length > 2)
+    if (userTokens.some((token) => personaNorm.includes(token))) {
+        return true
+    }
+
+    const mapped = industryToPersonaIndustries[userKey]
+    if (mapped?.some((m) => m.toLowerCase() === personaLower)) return true
+
+    return false
+}
+
 // Map user's profile industry to persona industries (strict matching)
 const industryToPersonaIndustries: Record<string, string[]> = {
     technology: ['Technology', 'Software'],
-    healthcare: ['Technology', 'Software'],
+    healthcare: ['Technology', 'Software', 'Healthcare'],
+    health: ['Healthcare', 'Technology', 'Software'],
     finance: ['Finance'],
     retail: ['Retail'],
     manufacturing: ['Manufacturing', 'Industrial'],
@@ -130,6 +169,19 @@ const PersonaSelection = () => {
     const dispatch = useAppDispatch()
     const authUser = useAppSelector((state) => state.auth.user)
     const settingsProfile = useAppSelector((state) => state.settings.profile)
+    const profileInitialized = useAppSelector(
+        (state) => state.settings.profileInitialized,
+    )
+    const profileLoading = useAppSelector((state) => state.settings.profileLoading)
+    const industriesCatalog = useAppSelector(
+        (state) => state.industriesCatalog.industries,
+    )
+    const industriesInitialized = useAppSelector(
+        (state) => state.industriesCatalog.initialized,
+    )
+    const industriesLoading = useAppSelector(
+        (state) => state.industriesCatalog.loading,
+    )
 
     const storePersonas = useScenarioSelector(
         (state) => state.scenarioLibrary?.data?.personasData,
@@ -144,8 +196,17 @@ const PersonaSelection = () => {
         (state) => state.scenarioLibrary?.data?.modesLoading,
     )
 
-    const userIndustry = settingsProfile?.industry || authUser?.industry || ''
-    const userProducts: string[] = (settingsProfile?.products?.map((p) => p.value) ?? authUser?.industryProducts ?? []).filter(Boolean)
+    const userIndustry =
+        settingsProfile?.companyIndustry ||
+        authUser?.industry ||
+        settingsProfile?.industryLabel ||
+        settingsProfile?.industry ||
+        ''
+    const userProducts: string[] = (
+        settingsProfile?.products?.map((p) => p.value) ??
+        authUser?.industryProducts ??
+        []
+    ).filter(Boolean)
 
     const sessionData = location.state as {
         mode: string
@@ -160,10 +221,27 @@ const PersonaSelection = () => {
     const [selectedRole, setSelectedRole] = useState('')
     const [selectedIndustry, setSelectedIndustry] = useState('')
     const [selectedDifficulty, setSelectedDifficulty] = useState('')
+    const [industryFilterUserOverride, setIndustryFilterUserOverride] = useState(false)
 
     /** After a failed fetch, loading is false and data stays empty — avoid re-dispatching forever. */
     const personasFetchDispatchedRef = useRef(false)
     const modesFetchDispatchedRef = useRef(false)
+
+    useEffect(() => {
+        if (!profileInitialized && !profileLoading) {
+            dispatch(fetchUserProfile())
+        }
+    }, [dispatch, profileInitialized, profileLoading])
+
+    useEffect(() => {
+        if (
+            userIndustry &&
+            !industriesInitialized &&
+            !industriesLoading
+        ) {
+            dispatch(fetchIndustries())
+        }
+    }, [dispatch, userIndustry, industriesInitialized, industriesLoading])
 
     useEffect(() => {
         if (
@@ -192,42 +270,138 @@ const PersonaSelection = () => {
 
     const isLoading = (personasLoading ?? false) || (modesLoading ?? false)
 
-    const roleOptions = useMemo(() => {
-        const roles = [...new Set(aiPersonas.map((p) => p.role))].sort()
-        return [{ value: '', label: 'All Roles' }, ...roles.map((r) => ({ value: r, label: formatLabel(r) }))]
-    }, [aiPersonas])
+    const relatedPersonas = useMemo(() => {
+        if (!userIndustry) {
+            return aiPersonas
+        }
+
+        const catalogIndustry = industriesCatalog.find(
+            (item) =>
+                item.name === userIndustry ||
+                normalizeIndustryKey(item.name) === normalizeIndustryKey(userIndustry),
+        )
+
+        const industryFiltered = aiPersonas.filter((persona) => {
+            const rawPersona = storePersonas?.find((p) => p.persona_id === persona.id)
+            if (catalogIndustry && rawPersona?.industry?.industry_id) {
+                return rawPersona.industry.industry_id === catalogIndustry.industry_id
+            }
+            return personaMatchesUserIndustry(persona.industry, userIndustry)
+        })
+
+        if (userProducts.length === 0) {
+            return industryFiltered.length > 0 ? industryFiltered : aiPersonas
+        }
+
+        const productIndustries = new Set<string>()
+        userProducts.forEach((productKey) => {
+            const normalizedKey = normalizeIndustryKey(productKey)
+            const industries =
+                productToPersonaIndustries[productKey] ||
+                productToPersonaIndustries[normalizedKey]
+            if (industries) {
+                industries.forEach((i) => productIndustries.add(i.toLowerCase()))
+            }
+        })
+
+        if (productIndustries.size === 0) {
+            return industryFiltered.length > 0 ? industryFiltered : aiPersonas
+        }
+
+        const combinedIds = new Set(industryFiltered.map((p) => p.id))
+        aiPersonas.forEach((persona) => {
+            if (productIndustries.has(persona.industry.toLowerCase())) {
+                combinedIds.add(persona.id)
+            }
+        })
+
+        const combined = aiPersonas.filter((p) => combinedIds.has(p.id))
+        return combined.length > 0 ? combined : aiPersonas
+    }, [userIndustry, userProducts, aiPersonas, storePersonas, industriesCatalog])
+
+    const profilePersonaIndustry = useMemo(() => {
+        if (!userIndustry || !aiPersonas.length) return ''
+
+        const catalogIndustry = industriesCatalog.find(
+            (item) =>
+                item.name === userIndustry ||
+                normalizeIndustryKey(item.name) === normalizeIndustryKey(userIndustry),
+        )
+
+        if (catalogIndustry) {
+            const match = aiPersonas.find((persona) => {
+                const raw = storePersonas?.find((p) => p.persona_id === persona.id)
+                return raw?.industry?.industry_id === catalogIndustry.industry_id
+            })
+            if (match) return match.industry
+        }
+
+        const fromRelated = relatedPersonas.find((persona) =>
+            personaMatchesUserIndustry(persona.industry, userIndustry),
+        )
+        if (fromRelated) return fromRelated.industry
+
+        return relatedPersonas[0]?.industry ?? ''
+    }, [
+        userIndustry,
+        aiPersonas,
+        storePersonas,
+        industriesCatalog,
+        relatedPersonas,
+    ])
+
+    useEffect(() => {
+        if (
+            !profilePersonaIndustry ||
+            !aiPersonas.length ||
+            industryFilterUserOverride
+        ) {
+            return
+        }
+        setSelectedIndustry(profilePersonaIndustry)
+    }, [
+        profilePersonaIndustry,
+        aiPersonas.length,
+        industryFilterUserOverride,
+        profileInitialized,
+    ])
+
+    const isProfileIndustryFilter =
+        Boolean(userIndustry) &&
+        Boolean(profilePersonaIndustry) &&
+        selectedIndustry === profilePersonaIndustry
 
     const allIndustryOptions = useMemo(() => {
         const industries = [...new Set(aiPersonas.map((p) => p.industry))].sort()
-        return [{ value: '', label: 'All Industries' }, ...industries.map((i) => ({ value: i, label: formatLabel(i) }))]
+        return [
+            { value: '', label: 'All Industries' },
+            ...industries.map((i) => ({ value: i, label: formatLabel(i) })),
+        ]
     }, [aiPersonas])
 
-    const relatedPersonas = useMemo(() => {
-        if (!userIndustry && userProducts.length === 0) {
-            return aiPersonas
+    const personaPool = useMemo(() => {
+        if (isProfileIndustryFilter) {
+            return relatedPersonas
         }
-        const allowedIndustries = new Set<string>()
-        if (userIndustry && industryToPersonaIndustries[userIndustry]) {
-            industryToPersonaIndustries[userIndustry].forEach((i) =>
-                allowedIndustries.add(i)
-            )
+        if (selectedIndustry) {
+            return aiPersonas.filter((persona) => persona.industry === selectedIndustry)
         }
-        userProducts.forEach((product) => {
-            const industries = productToPersonaIndustries[product]
-            if (industries) {
-                industries.forEach((i) => allowedIndustries.add(i))
-            }
-        })
-        if (allowedIndustries.size === 0) return aiPersonas
-        const filtered = aiPersonas.filter((persona) =>
-            allowedIndustries.has(persona.industry)
-        )
-        return filtered.length > 0 ? filtered : aiPersonas
-    }, [userIndustry, userProducts, aiPersonas])
+        return aiPersonas
+    }, [
+        isProfileIndustryFilter,
+        selectedIndustry,
+        relatedPersonas,
+        aiPersonas,
+    ])
 
-    // Filter and search personas (within related personas only)
+    const roleOptions = useMemo(() => {
+        const roles = [...new Set(personaPool.map((p) => p.role))].sort()
+        return [{ value: '', label: 'All Roles' }, ...roles.map((r) => ({ value: r, label: formatLabel(r) }))]
+    }, [personaPool])
+
+    // Filter and search personas (profile industry by default; dropdown can narrow or switch industry)
     const filteredPersonas = useMemo(() => {
-        return relatedPersonas.filter((persona) => {
+        return personaPool.filter((persona) => {
             const matchesSearch =
                 searchQuery === '' ||
                 persona.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -241,20 +415,13 @@ const PersonaSelection = () => {
 
             const matchesRole =
                 selectedRole === '' || persona.role === selectedRole
-            const matchesIndustry =
-                selectedIndustry === '' || persona.industry === selectedIndustry
             const matchesDifficulty =
                 selectedDifficulty === '' ||
                 persona.difficulty === selectedDifficulty
 
-            return (
-                matchesSearch &&
-                matchesRole &&
-                matchesIndustry &&
-                matchesDifficulty
-            )
+            return matchesSearch && matchesRole && matchesDifficulty
         })
-    }, [relatedPersonas, searchQuery, selectedRole, selectedIndustry, selectedDifficulty])
+    }, [personaPool, searchQuery, selectedRole, selectedDifficulty])
 
     const handleStartSession = async (persona: AIPersona) => {
         if (creatingPersonaId) return
@@ -317,7 +484,8 @@ const PersonaSelection = () => {
     const handleClearFilters = () => {
         setSearchQuery('')
         setSelectedRole('')
-        setSelectedIndustry('')
+        setIndustryFilterUserOverride(false)
+        setSelectedIndustry(profilePersonaIndustry || '')
         setSelectedDifficulty('')
     }
 
@@ -393,8 +561,15 @@ const PersonaSelection = () => {
                                     size="sm"
                                     placeholder="Industry"
                                     options={allIndustryOptions}
-                                    value={allIndustryOptions.find((opt) => opt.value === selectedIndustry)}
-                                    onChange={(option) => setSelectedIndustry(option?.value as string || '')}
+                                    value={allIndustryOptions.find(
+                                        (opt) => opt.value === selectedIndustry,
+                                    )}
+                                    onChange={(option) => {
+                                        setIndustryFilterUserOverride(true)
+                                        setSelectedIndustry(
+                                            (option?.value as string) || '',
+                                        )
+                                    }}
                                     className="w-[calc(50%-0.25rem)] sm:w-40"
                                     menuPlacement="auto"
                                     styles={{ menu: (base) => ({ ...base, minWidth: '200px' }), option: (base) => ({ ...base, whiteSpace: 'normal', wordBreak: 'break-word' }) }}
@@ -422,9 +597,10 @@ const PersonaSelection = () => {
 
                         <div className="flex items-center gap-2 whitespace-nowrap self-end xl:self-auto">
                             <p className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300">
-                                {filteredPersonas.length} of {relatedPersonas.length} personas
+                                {filteredPersonas.length} of {aiPersonas.length} personas
                             </p>
-                            {(userIndustry || userProducts.length > 0) && (
+                            {(userIndustry || userProducts.length > 0) &&
+                                isProfileIndustryFilter && (
                                 <span className="inline-flex items-center px-2 py-0.5 rounded border border-primary/20 dark:border-primary/30 text-[10px] sm:text-xs font-medium bg-primary/10 text-primary dark:bg-primary/15 dark:text-primary">
                                     Filtered by profile
                                 </span>
@@ -450,7 +626,7 @@ const PersonaSelection = () => {
                             No personas found
                         </h3>
                         <p className="text-gray-500 dark:text-gray-400 max-w-md text-center text-lg">
-                            {relatedPersonas.length === 0
+                            {relatedPersonas.length === 0 && isProfileIndustryFilter
                                 ? "No personas match your industry and product category. Try updating your company profile in Settings."
                                 : "We couldn't find any personas matching your current filters. Try adjusting your search."}
                         </p>

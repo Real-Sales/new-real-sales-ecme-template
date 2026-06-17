@@ -8,6 +8,11 @@ export function canSendTeamInvite(role: string | undefined): boolean {
 	return r === 'company_owner' || r === 'sales_manager' || r === 'manager'
 }
 
+/** Scenario library management (create, assign, library tab). */
+export function canManageScenarioLibrary(role: string | undefined): boolean {
+	return canSendTeamInvite(role)
+}
+
 /** Only company owners may choose Sales Manager vs Sales Person on the invite form. */
 export function canSelectInviteTargetRole(role: string | undefined): boolean {
 	return role === 'company_owner'

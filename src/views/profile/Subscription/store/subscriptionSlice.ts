@@ -1,4 +1,11 @@
-import { createSlice, PayloadAction } from '@reduxjs/toolkit'
+import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit'
+import axios from 'axios'
+import type { RootState } from '@/store/rootReducer'
+import {
+    apiGetMySubscription,
+    pickActiveUserSubscription,
+    type UserSubscriptionRecord,
+} from '@/services/SubscriptionService'
 import type { PaymentCycle, SelectedPlan, SubscriptionPlansData } from '../types'
 
 // ---- Mock Plans Data ----
@@ -64,6 +71,10 @@ export interface SubscriptionState {
     selectedPlan: Partial<SelectedPlan>
     plansData: SubscriptionPlansData
     currentPlan: typeof mockCurrentPlan
+    activeUserSubscription: UserSubscriptionRecord | null
+    userSubscriptionLoading: boolean
+    userSubscriptionInitialized: boolean
+    userSubscriptionError: string | null
 }
 
 const initialState: SubscriptionState = {
@@ -72,7 +83,46 @@ const initialState: SubscriptionState = {
     selectedPlan: {},
     plansData: mockPlansData,
     currentPlan: mockCurrentPlan,
+    activeUserSubscription: null,
+    userSubscriptionLoading: false,
+    userSubscriptionInitialized: false,
+    userSubscriptionError: null,
 }
+
+export function subscriptionRowsFromProfile(
+    rows: UserSubscriptionRecord[] | null | undefined,
+): UserSubscriptionRecord | null {
+    if (!Array.isArray(rows)) {
+        return null
+    }
+    return pickActiveUserSubscription(rows)
+}
+
+export const fetchMySubscription = createAsyncThunk(
+    'subscription/fetchMySubscription',
+    async (_, { rejectWithValue }) => {
+        try {
+            return await apiGetMySubscription()
+        } catch (error: unknown) {
+            if (axios.isAxiosError(error) && error.response?.status === 404) {
+                return null
+            }
+            const detail =
+                (error as { response?: { data?: { detail?: string } } })?.response?.data
+                    ?.detail ?? 'Unable to load subscription.'
+            return rejectWithValue(detail)
+        }
+    },
+    {
+        condition: (_, { getState }) => {
+            const state = (getState() as RootState).subscription
+            if (state.userSubscriptionLoading || state.userSubscriptionInitialized) {
+                return false
+            }
+            return Boolean((getState() as RootState).auth.user.userId?.trim())
+        },
+    },
+)
 
 // ---- Slice ----
 
@@ -89,6 +139,37 @@ const subscriptionSlice = createSlice({
         setSelectedPlan(state, action: PayloadAction<Partial<SelectedPlan>>) {
             state.selectedPlan = action.payload
         },
+        setActiveUserSubscription(state, action: PayloadAction<UserSubscriptionRecord | null>) {
+            state.activeUserSubscription = action.payload
+            state.userSubscriptionInitialized = true
+            state.userSubscriptionLoading = false
+            state.userSubscriptionError = null
+        },
+        resetSubscriptionData(state) {
+            state.activeUserSubscription = null
+            state.userSubscriptionLoading = false
+            state.userSubscriptionInitialized = false
+            state.userSubscriptionError = null
+        },
+    },
+    extraReducers: (builder) => {
+        builder
+            .addCase(fetchMySubscription.pending, (state) => {
+                state.userSubscriptionLoading = true
+                state.userSubscriptionError = null
+            })
+            .addCase(fetchMySubscription.fulfilled, (state, action) => {
+                state.userSubscriptionLoading = false
+                state.userSubscriptionInitialized = true
+                state.activeUserSubscription = action.payload
+            })
+            .addCase(fetchMySubscription.rejected, (state, action) => {
+                state.userSubscriptionLoading = false
+                state.userSubscriptionInitialized = true
+                state.activeUserSubscription = null
+                state.userSubscriptionError =
+                    (action.payload as string) ?? 'Unable to load subscription.'
+            })
     },
 })
 
@@ -96,6 +177,8 @@ export const {
     setPaymentCycle,
     setPaymentDialog,
     setSelectedPlan,
+    setActiveUserSubscription,
+    resetSubscriptionData,
 } = subscriptionSlice.actions
 
 export default subscriptionSlice.reducer

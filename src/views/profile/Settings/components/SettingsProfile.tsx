@@ -1,547 +1,686 @@
-import { useMemo, useEffect } from 'react'
-import type { ComponentType } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
 import Upload from '@/components/ui/Upload'
-import Input from '@/components/ui/Input'
-import Select, { Option as DefaultOption } from '@/components/ui/Select'
 import Avatar from '@/components/ui/Avatar'
+import Select from '@/components/ui/Select'
+import Spinner from '@/components/ui/Spinner'
+import Alert from '@/components/ui/Alert'
+import Notification from '@/components/ui/Notification'
+import toast from '@/components/ui/toast'
 import { Form, FormItem } from '@/components/ui/Form'
-import NumericInput from '@/components/shared/NumericInput'
-import { countryList } from '@/constants/countries.constant'
-import { components } from 'react-select'
-import type { ControlProps, OptionProps } from 'react-select'
 import { useAppSelector, useAppDispatch } from '@/store/hook'
-import { setProfile } from '../store/settingsSlice'
-import sleep from '@/utils/sleep'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { useForm, Controller } from 'react-hook-form'
-import { z } from 'zod'
+import { setUser } from '@/store/slices/auth/userSlice'
+import { fetchIndustries } from '@/store/slices/industriesCatalogSlice'
+import type { IndustryCatalogItem } from '@/services/IndustryService'
+import {
+    fetchUserProfile,
+    saveProfileSettings,
+    clearProfileSaveError,
+    setProfile,
+    resetProfileSaving,
+    type SaveProfileSettingsPayload,
+} from '../store/settingsSlice'
+import { formatDisplayLabel } from '@/utils/formatDisplayLabel'
+import type { GetSettingsProfileResponse } from '../types'
+import { HiOutlineUser } from 'react-icons/hi'
 import { TbPlus } from 'react-icons/tb'
-import type { ZodType } from 'zod'
 
-type ProductOption = { value: string; label: string }
+const readOnlyMutedInputClass =
+    'bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 shadow-md opacity-50 cursor-default'
 
-const industryOptions: ProductOption[] = [
-    { value: 'technology', label: 'Technology' },
-    { value: 'healthcare', label: 'Healthcare' },
-    { value: 'retail', label: 'Retail' },
-    { value: 'manufacturing', label: 'Manufacturing' },
-    { value: 'finance', label: 'Finance' },
-]
+const editableInputClass =
+    'bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-200 shadow-md'
 
-const productsByIndustry: Record<string, ProductOption[]> = {
-    technology: [
-        { value: 'crm', label: 'CRM Software' },
-        { value: 'erp', label: 'ERP System' },
-        { value: 'analytics', label: 'Analytics Platform' },
-        { value: 'cloud', label: 'Cloud Services' },
-    ],
-    healthcare: [
-        { value: 'emr', label: 'Electronic Medical Records' },
-        { value: 'telehealth', label: 'Telehealth' },
-        { value: 'pharma', label: 'Pharmaceutical' },
-        { value: 'medical-devices', label: 'Medical Devices' },
-    ],
-    retail: [
-        { value: 'pos', label: 'POS System' },
-        { value: 'inventory', label: 'Inventory Management' },
-        { value: 'ecommerce', label: 'E-commerce' },
-        { value: 'loyalty', label: 'Loyalty Program' },
-    ],
-    manufacturing: [
-        { value: 'scm', label: 'Supply Chain' },
-        { value: 'production', label: 'Production Planning' },
-        { value: 'quality', label: 'Quality Control' },
-        { value: 'iot', label: 'IoT / Industrial' },
-    ],
-    finance: [
-        { value: 'banking', label: 'Banking' },
-        { value: 'insurance', label: 'Insurance' },
-        { value: 'investment', label: 'Investment' },
-        { value: 'payments', label: 'Payments' },
-    ],
+const selectClassName =
+    '[&>div]:!bg-gray-50 [&>div]:dark:!bg-gray-800/50 [&>div]:border [&>div]:border-gray-200 [&>div]:dark:border-gray-700 [&>div]:shadow-md'
+
+const readOnlySelectClassName =
+    '[&>div]:!bg-gray-50 [&>div]:dark:!bg-gray-800/50 [&>div]:border [&>div]:border-gray-200 [&>div]:dark:border-gray-700 [&>div]:shadow-md opacity-60'
+
+type SelectOption = { value: string; label: string }
+
+const displayValue = (value?: string | null) => {
+    if (value == null || String(value).trim() === '') return 'Not provided'
+    return String(value).trim()
 }
 
-type ProfileSchema = {
-    firstName: string
-    lastName: string
-    email: string
-    industry?: string
-    products?: ProductOption[]
-    dialCode: string
-    phoneNumber: string
-    img: string
-    country: string
-    address: string
-    postcode: string
-    city: string
-}
+const normalizeKey = (value: string) =>
+    value.toLowerCase().replace(/[^a-z0-9]/g, '')
 
-type CountryOption = {
-    label: string
-    dialCode: string
-    value: string
-}
-
-const SelectControl = components.Control as ComponentType<ControlProps<CountryOption>>
-
-const validationSchema: ZodType<ProfileSchema> = z.object({
-    firstName: z.string().min(1, { message: 'First name required' }),
-    lastName: z.string().min(1, { message: 'Last name required' }),
-    email: z
-        .string()
-        .min(1, { message: 'Email required' })
-        .email({ message: 'Invalid email' }),
-    industry: z.string().optional(),
-    products: z.array(z.object({ value: z.string(), label: z.string() })).optional(),
-    dialCode: z.string().min(1, { message: 'Please select your country code' }),
-    phoneNumber: z
-        .string()
-        .min(1, { message: 'Please input your mobile number' }),
-    country: z.string().min(1, { message: 'Please select a country' }),
-    address: z.string().min(1, { message: 'Addrress required' }),
-    postcode: z.string().min(1, { message: 'Postcode required' }),
-    city: z.string().min(1, { message: 'City required' }),
-    img: z.string(),
-})
-
-const CustomSelectOption = (
-    props: OptionProps<CountryOption> & { variant: 'country' | 'phone' },
+const findIndustryMatch = (
+    industryName: string,
+    catalog: IndustryCatalogItem[],
 ) => {
-    return (
-        <DefaultOption<CountryOption>
-            {...props}
-            customLabel={(data, label) => (
-                <span className="flex items-center gap-2">
-                    <Avatar
-                        shape="circle"
-                        size={20}
-                        src={`/img/countries/${data.value}.png`}
-                    />
-                    {props.variant === 'country' && <span>{label}</span>}
-                    {props.variant === 'phone' && <span>{data.dialCode}</span>}
-                </span>
-            )}
-        />
+    if (!industryName) return undefined
+    const key = normalizeKey(industryName)
+    return catalog.find(
+        (item) =>
+            item.name === industryName || normalizeKey(item.name) === key,
     )
 }
 
-const CustomControl = ({ children, ...props }: ControlProps<CountryOption>) => {
-    const selected = props.getValue()[0]
-    return (
-        <SelectControl {...props}>
-            {selected && (
-                <Avatar
-                    className="ltr:ml-4 rtl:mr-4"
-                    shape="circle"
-                    size={20}
-                    src={`/img/countries/${selected.value}.png`}
-                />
-            )}
-            {children}
-        </SelectControl>
-    )
+/** User's linked products — not the full industry catalog from GET /auth/profile. */
+const resolveSelectedProductIds = (
+    profile: GetSettingsProfileResponse,
+    authProductIds: string[] | undefined,
+    catalogProductIds: string[],
+): string[] => {
+    const fromProfile = (profile.selectedProductIds ?? []).filter(Boolean)
+    const fromAuth = (authProductIds ?? []).filter(Boolean)
+
+    if (fromAuth.length > 0) {
+        if (fromProfile.length === 0) return fromAuth
+
+        const profileLooksLikeFullCatalog =
+            catalogProductIds.length > 0 &&
+            fromProfile.length >= catalogProductIds.length
+
+        if (
+            profileLooksLikeFullCatalog ||
+            (fromAuth.length < fromProfile.length &&
+                fromAuth.every((id) => fromProfile.includes(id)))
+        ) {
+            return fromAuth
+        }
+    }
+
+    return fromProfile
 }
 
 const SettingsProfile = () => {
     const dispatch = useAppDispatch()
     const data = useAppSelector((state) => state.settings.profile)
+    const profileLoading = useAppSelector((state) => state.settings.profileLoading)
+    const profileInitialized = useAppSelector((state) => state.settings.profileInitialized)
+    const profileError = useAppSelector((state) => state.settings.profileError)
+    const profileSaving = useAppSelector((state) => state.settings.profileSaving)
+    const profileSaveError = useAppSelector((state) => state.settings.profileSaveError)
+    const authUser = useAppSelector((state) => state.auth.user)
 
-    const dialCodeList = useMemo(() => {
-        const newCountryList: Array<CountryOption> = JSON.parse(
-            JSON.stringify(countryList),
+    const industries = useAppSelector((state) => state.industriesCatalog.industries)
+    const industriesLoading = useAppSelector((state) => state.industriesCatalog.loading)
+    const industriesInitialized = useAppSelector(
+        (state) => state.industriesCatalog.initialized,
+    )
+    const industriesError = useAppSelector((state) => state.industriesCatalog.error)
+
+    const isCompanyOwner = authUser.role === 'company_owner'
+    const hasCompany = data.hasCompany ?? Boolean(data.companyName)
+
+    const [companyName, setCompanyName] = useState('')
+    const [companyIndustry, setCompanyIndustry] = useState('')
+    const [selectedIndustryId, setSelectedIndustryId] = useState('')
+    const [productIds, setProductIds] = useState<string[]>([])
+    const [companyPhone, setCompanyPhone] = useState('')
+    const [companyAddress, setCompanyAddress] = useState('')
+    const [firstName, setFirstName] = useState('')
+    const [lastName, setLastName] = useState('')
+    const [phoneNumber, setPhoneNumber] = useState('')
+    const [avatarImg, setAvatarImg] = useState('')
+    const [avatarChanged, setAvatarChanged] = useState(false)
+    const companyFormSyncedRef = useRef('')
+    const personalFormSyncedRef = useRef('')
+    const savedIndustryRef = useRef('')
+    const skipNextFormSyncRef = useRef(false)
+
+    const salesCompanyId = data.salesCompanyId || authUser.companyId || ''
+
+    const avatarInitials =
+        `${(data.firstName?.[0] ?? '').toUpperCase()}${(data.lastName?.[0] ?? '').toUpperCase()}` ||
+        '?'
+
+    const beforeAvatarUpload = (files: FileList | null) => {
+        const allowedFileType = ['image/jpeg', 'image/png', 'image/webp']
+        if (!files) return true
+        for (const file of files) {
+            if (!allowedFileType.includes(file.type)) {
+                return 'Please upload a .jpeg, .png, or .webp file!'
+            }
+        }
+        return true
+    }
+
+    const handleAvatarUpload = (files: File[]) => {
+        if (!files.length) return
+        const previewUrl = URL.createObjectURL(files[0])
+        setAvatarImg(previewUrl)
+        setAvatarChanged(true)
+        dispatch(setProfile({ img: previewUrl }))
+        dispatch(setUser({ ...authUser, avatar: previewUrl }))
+    }
+
+    const handleAvatarRemove = () => {
+        setAvatarImg('')
+        setAvatarChanged(true)
+        dispatch(setProfile({ img: '' }))
+        dispatch(setUser({ ...authUser, avatar: '' }))
+    }
+
+    useEffect(() => {
+        if (!profileInitialized) return
+        if (skipNextFormSyncRef.current) return
+        const syncKey = `${data.firstName}|${data.lastName}|${data.phoneNumber}`
+        if (personalFormSyncedRef.current === syncKey) return
+        setFirstName(data.firstName ?? '')
+        setLastName(data.lastName ?? '')
+        setPhoneNumber(data.phoneNumber ?? '')
+        personalFormSyncedRef.current = syncKey
+    }, [
+        profileInitialized,
+        data.firstName,
+        data.lastName,
+        data.phoneNumber,
+    ])
+
+    useEffect(() => {
+        dispatch(resetProfileSaving())
+    }, [dispatch])
+
+    useEffect(() => {
+        if (!profileInitialized && !profileLoading) {
+            dispatch(fetchUserProfile())
+        }
+    }, [dispatch, profileInitialized, profileLoading])
+
+    useEffect(() => {
+        if (!profileInitialized) return
+        setAvatarImg(data.img || authUser.avatar || '')
+    }, [profileInitialized, data.img, authUser.avatar])
+
+    useEffect(() => {
+        if (isCompanyOwner && hasCompany && !industriesInitialized && !industriesLoading) {
+            dispatch(fetchIndustries())
+        }
+    }, [
+        dispatch,
+        isCompanyOwner,
+        hasCompany,
+        industriesInitialized,
+        industriesLoading,
+    ])
+
+    useEffect(() => {
+        if (!profileInitialized) return
+        if (skipNextFormSyncRef.current) {
+            skipNextFormSyncRef.current = false
+            return
+        }
+        if (!industriesInitialized && industries.length === 0) return
+
+        const rawIndustry =
+            data.companyIndustry ?? data.industryLabel ?? data.industry ?? ''
+        const matched = findIndustryMatch(rawIndustry, industries)
+        const catalogProductIds = (matched?.products ?? []).map((p) => p.product_id)
+        const resolvedProductIds = resolveSelectedProductIds(
+            data,
+            authUser.industryProducts,
+            catalogProductIds,
         )
 
-        return newCountryList.map((country) => {
-            country.label = country.dialCode
-            return country
-        })
-    }, [])
+        const syncKey = [
+            data.salesCompanyId,
+            data.companyName,
+            rawIndustry,
+            data.address,
+            data.location,
+            industries.length,
+            resolvedProductIds.join(','),
+        ].join('|')
 
-    const beforeUpload = (files: FileList | null) => {
-        let valid: string | boolean = true
+        if (companyFormSyncedRef.current === syncKey) return
 
-        const allowedFileType = ['image/jpeg', 'image/png']
-        if (files) {
-            for (const file of files) {
-                if (!allowedFileType.includes(file.type)) {
-                    valid = 'Please upload a .jpeg or .png file!'
-                }
+        setCompanyName(data.companyName ?? '')
+        setCompanyPhone(data.companyPhone ?? '')
+        setCompanyAddress((data.address || data.location || '').trim())
+        setProductIds(resolvedProductIds)
+
+        const industryName = matched?.name ?? rawIndustry
+        setCompanyIndustry(industryName)
+        setSelectedIndustryId(matched?.industry_id ?? '')
+
+        savedIndustryRef.current = industryName
+        companyFormSyncedRef.current = syncKey
+    }, [
+        profileInitialized,
+        data.salesCompanyId,
+        data.companyName,
+        data.companyIndustry,
+        data.industryLabel,
+        data.industry,
+        data.companyPhone,
+        data.address,
+        data.location,
+        data.selectedProductIds,
+        industries,
+        industriesInitialized,
+        authUser.industryProducts,
+    ])
+
+    const industryOptions: SelectOption[] = useMemo(
+        () =>
+            industries.map((industry) => ({
+                value: industry.name,
+                label: formatDisplayLabel(industry.name),
+            })),
+        [industries],
+    )
+
+    const productOptions: SelectOption[] = useMemo(() => {
+        if (!selectedIndustryId) return []
+        const industry = industries.find((item) => item.industry_id === selectedIndustryId)
+        return (industry?.products ?? []).map((product) => ({
+            value: product.product_id,
+            label: formatDisplayLabel(product.name),
+        }))
+    }, [industries, selectedIndustryId])
+
+    const isPreviewingIndustryProducts =
+        isCompanyOwner && companyIndustry !== savedIndustryRef.current
+
+    const productChipsForDisplay: SelectOption[] = useMemo(() => {
+        if (isPreviewingIndustryProducts) return productOptions
+        return productOptions.filter((opt) => productIds.includes(opt.value))
+    }, [isPreviewingIndustryProducts, productOptions, productIds])
+
+    const readOnlyProductChips: SelectOption[] = useMemo(
+        () =>
+            (data.companyProducts ?? []).map((product) => ({
+                value: product.product_id,
+                label: formatDisplayLabel(product.name),
+            })),
+        [data.companyProducts],
+    )
+
+    const handleSave = async () => {
+        dispatch(clearProfileSaveError())
+
+        const payload: SaveProfileSettingsPayload = {
+            personal: {
+                first_name: firstName.trim(),
+                last_name: lastName.trim(),
+                phone_number: phoneNumber.trim(),
+            },
+        }
+
+        if (isCompanyOwner && hasCompany && salesCompanyId) {
+            const location = companyAddress.trim()
+            payload.company = {
+                sales_company_id: salesCompanyId,
+                name: companyName.trim(),
+                industry: companyIndustry,
+                phone_number: companyPhone.trim(),
+                ...(location ? { location } : {}),
+                email: (data.companyEmail || data.email || '').trim(),
             }
         }
 
-        return valid
+        const result = await dispatch(saveProfileSettings(payload))
+
+        if (saveProfileSettings.fulfilled.match(result)) {
+            skipNextFormSyncRef.current = true
+            personalFormSyncedRef.current = `${firstName.trim()}|${lastName.trim()}|${phoneNumber.trim()}`
+            companyFormSyncedRef.current = [
+                salesCompanyId,
+                companyName.trim(),
+                companyIndustry,
+                companyAddress.trim(),
+                industries.length,
+                productIds.join(','),
+            ].join('|')
+            savedIndustryRef.current = companyIndustry
+            setAvatarChanged(false)
+
+            if (avatarImg) {
+                dispatch(setProfile({ img: avatarImg }))
+                dispatch(setUser({ ...authUser, avatar: avatarImg }))
+            }
+
+            toast.push(
+                <Notification title="Success" type="success">
+                    Profile updated successfully
+                </Notification>,
+            )
+        }
     }
 
-    const {
-        handleSubmit,
-        reset,
-        formState: { errors, isSubmitting },
-        control,
-        watch,
-        setValue,
-    } = useForm<ProfileSchema>({
-        defaultValues: {
-            industry: '',
-            products: [],
-        },
-        resolver: zodResolver(validationSchema),
-    })
+    const baselineCompanyIndustry = useMemo(() => {
+        const rawIndustry =
+            data.companyIndustry ?? data.industryLabel ?? data.industry ?? ''
+        const matched = findIndustryMatch(rawIndustry, industries)
+        return matched?.name ?? rawIndustry
+    }, [
+        data.companyIndustry,
+        data.industryLabel,
+        data.industry,
+        industries,
+    ])
 
-    const selectedIndustry = watch('industry')
-    const watchedFirstName = watch('firstName')
-    const watchedLastName = watch('lastName')
-    const avatarInitials = `${(watchedFirstName?.[0] ?? '').toUpperCase()}${(watchedLastName?.[0] ?? '').toUpperCase()}` || '?'
-    const productOptions = useMemo(
-        () => (selectedIndustry ? productsByIndustry[selectedIndustry] ?? [] : []),
-        [selectedIndustry],
+    const baselineCompanyAddress = useMemo(
+        () => (data.address || data.location || '').trim(),
+        [data.address, data.location],
     )
 
-    useEffect(() => {
-        if (data) {
-            reset({
-                ...data,
-                industry: data.industry ?? '',
-                products: data.products ?? [],
-            })
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [data])
+    const isFormDirty = useMemo(() => {
+        const personalDirty =
+            firstName.trim() !== (data.firstName ?? '').trim() ||
+            lastName.trim() !== (data.lastName ?? '').trim() ||
+            phoneNumber.trim() !== (data.phoneNumber ?? '').trim()
 
-    const onSubmit = async (values: ProfileSchema) => {
-        await sleep(500)
-        dispatch(setProfile(values))
+        const companyDirty =
+            isCompanyOwner &&
+            hasCompany &&
+            Boolean(salesCompanyId) &&
+            (companyName.trim() !== (data.companyName ?? '').trim() ||
+                companyIndustry !== baselineCompanyIndustry ||
+                companyPhone.trim() !== (data.companyPhone ?? '').trim() ||
+                companyAddress.trim() !== baselineCompanyAddress)
+
+        return personalDirty || companyDirty || avatarChanged
+    }, [
+        firstName,
+        lastName,
+        phoneNumber,
+        data.firstName,
+        data.lastName,
+        data.phoneNumber,
+        isCompanyOwner,
+        hasCompany,
+        salesCompanyId,
+        companyName,
+        companyIndustry,
+        baselineCompanyIndustry,
+        companyPhone,
+        companyAddress,
+        baselineCompanyAddress,
+        data.companyName,
+        data.companyPhone,
+        avatarChanged,
+    ])
+
+    const saveDisabled = Boolean(
+        profileSaving ||
+            !isFormDirty ||
+            !firstName.trim() ||
+            !lastName.trim() ||
+            (isCompanyOwner &&
+                hasCompany &&
+                Boolean(salesCompanyId) &&
+                (!companyName.trim() || !companyIndustry)),
+    )
+
+    if (profileLoading && !profileInitialized) {
+        return (
+            <div className="flex justify-center py-16">
+                <Spinner size={40} />
+            </div>
+        )
     }
 
     return (
         <>
-            <h4 className="mb-8">Personal information</h4>
-            <Form onSubmit={handleSubmit(onSubmit)}>
+            <h4 className="mb-2">Personal information</h4>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-8">
+                Update your personal account details below.
+            </p>
+
+            {profileError && (
+                <p className="text-sm text-red-500 dark:text-red-400 mb-6">{profileError}</p>
+            )}
+
+            <Form onSubmit={(e) => e.preventDefault()}>
                 <div className="mb-8">
-                    <Controller
-                        name="img"
-                        control={control}
-                        render={({ field }) => (
-                            <div className="flex items-center gap-4">
-                                {field.value ? (
-                                    <Avatar
-                                        size={72}
-                                        src={field.value}
-                                        className="ring-2 ring-gray-200 dark:ring-gray-600 shadow-lg"
-                                    />
-                                ) : (
-                                    <div className="w-[72px] h-[72px] rounded-full bg-gray-100 dark:bg-gray-800 ring-2 ring-gray-200 dark:ring-gray-600 shadow-lg flex items-center justify-center text-gray-600 dark:text-white text-2xl font-bold select-none shrink-0">
-                                        {avatarInitials}
-                                    </div>
-                                )}
-                                <div className="flex items-center gap-2">
-                                    <Upload
-                                        showList={false}
-                                        uploadLimit={1}
-                                        beforeUpload={beforeUpload}
-                                        onChange={(files) => {
-                                            if (files.length > 0) {
-                                                field.onChange(
-                                                    URL.createObjectURL(
-                                                        files[0],
-                                                    ),
-                                                )
-                                            }
-                                        }}
-                                    >
-                                        <Button
-                                            variant="solid"
-                                            size="sm"
-                                            type="button"
-                                            icon={<TbPlus />}
-                                            className="bg-primary hover:bg-primary-deep text-white border-none rounded-md"
-                                        >
-                                            Upload Image
-                                        </Button>
-                                    </Upload>
-                                    <Button
-                                        size="sm"
-                                        type="button"
-                                        className="bg-transparent dark:bg-transparent hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600 rounded-md"
-                                        onClick={() => {
-                                            field.onChange('')
-                                        }}
-                                    >
-                                        Remove
-                                    </Button>
-                                </div>
+                    <div className="flex items-center gap-4">
+                        {avatarImg ? (
+                            <Avatar
+                                size={90}
+                                className="border-4 border-white dark:border-gray-800 bg-gray-100 text-gray-300 shadow-lg"
+                                icon={<HiOutlineUser />}
+                                src={avatarImg}
+                            />
+                        ) : (
+                            <div
+                                className="w-[72px] h-[72px] rounded-full bg-gray-100 dark:bg-gray-800 ring-2 ring-gray-200 dark:ring-gray-600 shadow-lg flex items-center justify-center text-gray-600 dark:text-white text-2xl font-bold select-none shrink-0"
+                            >
+                                {avatarInitials}
                             </div>
                         )}
-                    />
+                        <div className="flex items-center gap-2">
+                            <Upload
+                                showList={false}
+                                uploadLimit={1}
+                                beforeUpload={beforeAvatarUpload}
+                                onChange={handleAvatarUpload}
+                            >
+                                <Button
+                                    variant="solid"
+                                    size="sm"
+                                    type="button"
+                                    icon={<TbPlus />}
+                                >
+                                    Upload Image
+                                </Button>
+                            </Upload>
+                            <Button
+                                size="sm"
+                                type="button"
+                                disabled={!avatarImg}
+                                onClick={handleAvatarRemove}
+                            >
+                                Remove
+                            </Button>
+                        </div>
+                    </div>
                 </div>
+
                 <div className="grid md:grid-cols-2 gap-4">
-                    <FormItem
-                        label="First name"
-                        invalid={Boolean(errors.firstName)}
-                        errorMessage={errors.firstName?.message}
-                    >
-                        <Controller
-                            name="firstName"
-                            control={control}
-                            render={({ field }) => (
-                                <Input
-                                    type="text"
-                                    autoComplete="off"
-                                    placeholder="First Name"
-                                    className="bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-200 shadow-md"
-                                    {...field}
-                                />
-                            )}
+                    <FormItem label="First name">
+                        <Input
+                            type="text"
+                            value={firstName}
+                            onChange={(e) => setFirstName(e.target.value)}
+                            className={editableInputClass}
                         />
                     </FormItem>
-                    <FormItem
-                        label="User name"
-                        invalid={Boolean(errors.lastName)}
-                        errorMessage={errors.lastName?.message}
-                    >
-                        <Controller
-                            name="lastName"
-                            control={control}
-                            render={({ field }) => (
-                                <Input
-                                    type="text"
-                                    autoComplete="off"
-                                    placeholder="Last Name"
-                                    className="bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-200 shadow-md"
-                                    {...field}
-                                />
-                            )}
+                    <FormItem label="Last name">
+                        <Input
+                            type="text"
+                            value={lastName}
+                            onChange={(e) => setLastName(e.target.value)}
+                            className={editableInputClass}
                         />
                     </FormItem>
                 </div>
-                <FormItem
-                    label="Email"
-                    invalid={Boolean(errors.email)}
-                    errorMessage={errors.email?.message}
-                >
-                    <Controller
-                        name="email"
-                        control={control}
-                        render={({ field }) => (
-                            <Input
-                                type="email"
-                                autoComplete="off"
-                                placeholder="Email"
-                                className="bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-200 shadow-md"
-                                {...field}
-                            />
-                        )}
+
+                <FormItem label="Email">
+                    <Input
+                        type="email"
+                        readOnly
+                        value={data.email}
+                        className={readOnlyMutedInputClass}
                     />
                 </FormItem>
-                <div className="grid md:grid-cols-2 gap-4">
-                    <FormItem
-                        label="Industry"
-                        invalid={Boolean(errors.industry)}
-                        errorMessage={errors.industry?.message}
-                    >
-                        <Controller
-                            name="industry"
-                            control={control}
-                            render={({ field }) => (
-                                <Select<ProductOption>
-                                    placeholder="Select industry"
-                                    options={industryOptions}
-                                    className="[&>div]:!bg-gray-50 [&>div]:dark:!bg-gray-800/50 [&>div]:border [&>div]:border-gray-200 [&>div]:dark:border-gray-700 [&>div]:shadow-md"
-                                    value={industryOptions.find((opt) => opt.value === field.value) ?? null}
-                                    onChange={(opt) => {
-                                        field.onChange(opt?.value ?? '')
-                                        setValue('products', [])
-                                    }}
-                                />
-                            )}
-                        />
-                    </FormItem>
-                    <FormItem
-                        label="Products"
-                        invalid={Boolean(errors.products)}
-                        errorMessage={errors.products?.message}
-                    >
-                        <Controller
-                            name="products"
-                            control={control}
-                            render={({ field }) => (
-                                <Select<ProductOption, true>
-                                    isMulti
-                                    placeholder={
-                                        selectedIndustry
-                                            ? 'Select products'
-                                            : 'Select industry first'
-                                    }
-                                    isDisabled={!selectedIndustry}
-                                    options={productOptions}
-                                    className="[&>div]:!bg-gray-50 [&>div]:dark:!bg-gray-800/50 [&>div]:border [&>div]:border-gray-200 [&>div]:dark:border-gray-700 [&>div]:shadow-md"
-                                    value={field.value ?? []}
-                                    onChange={(opts) => field.onChange(opts ?? [])}
-                                />
-                            )}
-                        />
-                    </FormItem>
-                </div>
-                <div className="flex items-end gap-4 w-full mb-6">
-                    <FormItem
-                        invalid={
-                            Boolean(errors.phoneNumber) ||
-                            Boolean(errors.dialCode)
-                        }
-                    >
-                        <label className="form-label mb-2">Phone number</label>
-                        <Controller
-                            name="dialCode"
-                            control={control}
-                            render={({ field }) => (
-                                <Select<CountryOption>
-                                    options={dialCodeList}
-                                    {...field}
-                                    className="w-[150px] [&>div]:!bg-gray-50 [&>div]:dark:!bg-gray-800/50 [&>div]:!border-gray-200 [&>div]:dark:!border-gray-700 [&>div]:!shadow-md"
-                                    components={{
-                                        Option: (props) => (
-                                            <CustomSelectOption
-                                                variant="phone"
-                                                {...(props as OptionProps<CountryOption>)}
-                                            />
-                                        ),
-                                        Control: CustomControl,
-                                    }}
-                                    placeholder=""
-                                    value={dialCodeList.filter(
-                                        (option) =>
-                                            option.dialCode === field.value,
-                                    )}
-                                    onChange={(option) =>
-                                        field.onChange(option?.dialCode)
-                                    }
-                                />
-                            )}
-                        />
-                    </FormItem>
-                    <FormItem
-                        className="w-full"
-                        invalid={
-                            Boolean(errors.phoneNumber) ||
-                            Boolean(errors.dialCode)
-                        }
-                        errorMessage={errors.phoneNumber?.message}
-                    >
-                        <Controller
-                            name="phoneNumber"
-                            control={control}
-                            render={({ field }) => (
-                                <NumericInput
-                                    autoComplete="off"
-                                    placeholder="Phone Number"
-                                    className="bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-200 shadow-md"
-                                    value={field.value}
-                                    onChange={field.onChange}
-                                    onBlur={field.onBlur}
-                                />
-                            )}
-                        />
-                    </FormItem>
-                </div>
-                <h4 className="mb-6">Address information</h4>
-                <FormItem
-                    label="Country"
-                    invalid={Boolean(errors.country)}
-                    errorMessage={errors.country?.message}
-                >
-                    <Controller
-                        name="country"
-                        control={control}
-                        render={({ field }) => (
-                            <Select<CountryOption>
-                                options={countryList}
-                                {...field}
-                                className="[&>div]:!bg-gray-50 [&>div]:dark:!bg-gray-800/50 [&>div]:!border-gray-200 [&>div]:dark:!border-gray-700 [&>div]:!shadow-md"
-                                components={{
-                                    Option: (props) => (
-                                        <CustomSelectOption
-                                            variant="country"
-                                            {...(props as OptionProps<CountryOption>)}
-                                        />
-                                    ),
-                                    Control: CustomControl,
-                                }}
-                                placeholder=""
-                                value={countryList.filter(
-                                    (option) => option.value === field.value,
-                                )}
-                                onChange={(option) =>
-                                    field.onChange(option?.value)
+
+                <FormItem label="Your phone number">
+                    <Input
+                        type="text"
+                        value={phoneNumber}
+                        onChange={(e) => setPhoneNumber(e.target.value)}
+                        placeholder="Your phone number"
+                        className={editableInputClass}
+                    />
+                </FormItem>
+
+                {hasCompany && (
+                    <>
+                        <h4 className="mb-2 mt-4">Company information</h4>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+                            {isCompanyOwner
+                                ? 'Update your company name, industry, and company phone.'
+                                : 'Company details from your sales company profile.'}
+                        </p>
+
+                        {isCompanyOwner && industriesError && (
+                            <Alert showIcon type="danger" className="mb-4">
+                                <span className="break-all">{industriesError}</span>
+                            </Alert>
+                        )}
+
+                        <FormItem label="Company name">
+                            <Input
+                                type="text"
+                                readOnly={!isCompanyOwner}
+                                value={
+                                    isCompanyOwner
+                                        ? companyName
+                                        : displayValue(data.companyName)
+                                }
+                                onChange={(e) => setCompanyName(e.target.value)}
+                                className={
+                                    isCompanyOwner
+                                        ? editableInputClass
+                                        : readOnlyMutedInputClass
                                 }
                             />
-                        )}
-                    />
-                </FormItem>
-                <FormItem
-                    label="Address"
-                    invalid={Boolean(errors.address)}
-                    errorMessage={errors.address?.message}
-                >
-                        <Controller
-                            name="address"
-                            control={control}
-                            render={({ field }) => (
+                        </FormItem>
+
+                        <div className="grid md:grid-cols-2 gap-4">
+                            <FormItem label="Industry">
+                                {isCompanyOwner ? (
+                                    <Select<SelectOption, false>
+                                        placeholder={
+                                            industriesLoading
+                                                ? 'Loading industries...'
+                                                : 'Select your industry'
+                                        }
+                                        options={industryOptions}
+                                        isDisabled={industriesLoading || !!industriesError}
+                                        value={
+                                            industryOptions.find(
+                                                (opt) => opt.value === companyIndustry,
+                                            ) || null
+                                        }
+                                        onChange={(option) => {
+                                            const name = option?.value || ''
+                                            const industry = industries.find(
+                                                (item) => item.name === name,
+                                            )
+                                            setCompanyIndustry(name)
+                                            setSelectedIndustryId(
+                                                industry?.industry_id || '',
+                                            )
+                                        }}
+                                        className={selectClassName}
+                                    />
+                                ) : (
+                                    <Input
+                                        type="text"
+                                        readOnly
+                                        value={displayValue(
+                                            data.industryLabel || data.industry,
+                                        )}
+                                        className={readOnlyMutedInputClass}
+                                    />
+                                )}
+                            </FormItem>
+                            <FormItem label="Company email">
+                                <Input
+                                    type="email"
+                                    readOnly
+                                    value={displayValue(data.companyEmail)}
+                                    className={readOnlyMutedInputClass}
+                                />
+                            </FormItem>
+                        </div>
+
+                        <div className="grid md:grid-cols-2 gap-4">
+                            <FormItem label="Company phone">
                                 <Input
                                     type="text"
-                                    autoComplete="off"
-                                    placeholder="Address"
-                                    className="bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-200 shadow-md"
-                                    {...field}
+                                    readOnly={!isCompanyOwner}
+                                    value={
+                                        isCompanyOwner
+                                            ? companyPhone
+                                            : displayValue(data.companyPhone)
+                                    }
+                                    onChange={(e) => setCompanyPhone(e.target.value)}
+                                    className={
+                                        isCompanyOwner
+                                            ? editableInputClass
+                                            : readOnlyMutedInputClass
+                                    }
                                 />
-                            )}
-                        />
-                </FormItem>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormItem
-                        label="City"
-                        invalid={Boolean(errors.city)}
-                        errorMessage={errors.city?.message}
-                    >
-                        <Controller
-                            name="city"
-                            control={control}
-                            render={({ field }) => (
+                            </FormItem>
+                            <FormItem label="Address">
                                 <Input
                                     type="text"
-                                    autoComplete="off"
-                                    placeholder="City"
-                                    className="bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-200 shadow-md"
-                                    {...field}
+                                    readOnly={!isCompanyOwner}
+                                    value={
+                                        isCompanyOwner
+                                            ? companyAddress
+                                            : displayValue(data.address || data.location)
+                                    }
+                                    onChange={(e) => setCompanyAddress(e.target.value)}
+                                    placeholder="Company address"
+                                    className={
+                                        isCompanyOwner
+                                            ? editableInputClass
+                                            : readOnlyMutedInputClass
+                                    }
                                 />
-                            )}
-                        />
-                    </FormItem>
-                    <FormItem
-                        label="Postal Code"
-                        invalid={Boolean(errors.postcode)}
-                        errorMessage={errors.postcode?.message}
-                    >
-                        <Controller
-                            name="postcode"
-                            control={control}
-                            render={({ field }) => (
-                                <Input
-                                    type="text"
-                                    autoComplete="off"
-                                    placeholder="Postal Code"
-                                    className="bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-200 shadow-md"
-                                    {...field}
+                            </FormItem>
+                        </div>
+
+                        <FormItem label="Products">
+                            {isCompanyOwner ? (
+                                <Select<SelectOption, true>
+                                    isMulti
+                                    isDisabled
+                                    isSearchable={false}
+                                    placeholder={
+                                        !selectedIndustryId
+                                            ? 'Select an industry to view products'
+                                            : productChipsForDisplay.length === 0
+                                              ? 'No products for this industry'
+                                              : undefined
+                                    }
+                                    options={productOptions}
+                                    value={productChipsForDisplay}
+                                    className={selectClassName}
                                 />
+                            ) : readOnlyProductChips.length > 0 ? (
+                                <Select<SelectOption, true>
+                                    isMulti
+                                    isDisabled
+                                    isSearchable={false}
+                                    options={readOnlyProductChips}
+                                    value={readOnlyProductChips}
+                                    className={readOnlySelectClassName}
+                                />
+                            ) : (
+                                <div
+                                    className="rounded-lg border border-dashed border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 px-4 py-4 text-sm text-gray-500 dark:text-gray-400 opacity-60"
+                                >
+                                    No products are linked to your company industry yet.
+                                </div>
                             )}
-                        />
-                    </FormItem>
-                </div>
-                <div className="flex justify-end">
+                        </FormItem>
+                    </>
+                )}
+
+                {profileSaveError && (
+                    <Alert showIcon type="danger" className="mb-4 mt-4">
+                        <span className="break-all">{profileSaveError}</span>
+                    </Alert>
+                )}
+
+                <div className="flex justify-end mt-6">
                     <Button
+                        type="button"
                         variant="solid"
-                        type="submit"
-                        loading={isSubmitting}
-                        className="bg-primary hover:bg-primary-deep text-white border-none rounded-md"
+                        loading={profileSaving}
+                        disabled={saveDisabled}
+                        onClick={handleSave}
                     >
                         Save
                     </Button>

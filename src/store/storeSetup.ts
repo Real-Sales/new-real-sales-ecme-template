@@ -16,6 +16,19 @@ import {
     REGISTER,
 } from 'redux-persist'
 import storage from 'redux-persist/lib/storage'
+import { createTransform } from 'redux-persist'
+import type { SettingsState } from '@/views/profile/Settings/store/settingsSlice'
+
+const settingsTransform = createTransform(
+    (inboundState: SettingsState) => ({
+        ...inboundState,
+        profileSaving: false,
+        profileLoading: false,
+        profileSaveError: null,
+    }),
+    (outboundState) => outboundState,
+    { whitelist: ['settings'] },
+)
 
 const persistConfig = {
     key: PERSIST_STORE_NAME,
@@ -23,6 +36,7 @@ const persistConfig = {
     storage,
     // auth is handled by its own nested persistReducer in rootReducer
     whitelist: ['locale', 'settings'],
+    transforms: [settingsTransform],
 }
 
 import { PERSIST_STORE_NAME } from '@/constants/app.constant'

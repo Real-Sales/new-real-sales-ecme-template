@@ -11,6 +11,9 @@ import type {
     SignUpResponseNoToken,
     VerifyOtpCredential,
     VerifyOtpResponse,
+    UserProfile,
+    PersonalProfileUpdateRequest,
+    CompanyProfileUpdateRequest,
 } from '@/@types/auth'
 
 export async function apiSignIn(data: SignInCredential) {
@@ -57,6 +60,29 @@ export async function apiSignOut() {
     return ApiService.fetchDataWithAxios({
         url: endpointConfig.signOut,
         method: 'get',
+    })
+}
+
+export async function apiGetUserProfile() {
+    return ApiService.fetchDataWithAxios<UserProfile>({
+        url: endpointConfig.authProfile,
+        method: 'get',
+    })
+}
+
+export async function apiPatchPersonalProfile(data: PersonalProfileUpdateRequest) {
+    return ApiService.fetchDataWithAxios<UserProfile>({
+        url: endpointConfig.authProfilePersonal,
+        method: 'patch',
+        data,
+    })
+}
+
+export async function apiPatchCompanyProfile(data: CompanyProfileUpdateRequest) {
+    return ApiService.fetchDataWithAxios<UserProfile>({
+        url: endpointConfig.authProfileCompany,
+        method: 'patch',
+        data,
     })
 }
 

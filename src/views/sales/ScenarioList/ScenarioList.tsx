@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { injectReducer } from '@/store'
 import Container from '@/components/shared/Container'
 import AdaptiveCard from '@/components/shared/AdaptiveCard'
@@ -28,6 +28,7 @@ import Notification from '@/components/ui/Notification'
 import type { Scenario } from './types'
 import { mapSalesRepDashboardRowToScenario } from './types'
 import { apiGetSalesRepScenarioDashboard } from '@/services/ScenarioLibraryService'
+import { canManageScenarioLibrary } from '@/utils/inviteAccess'
 
 type FilterValues = {
     status: string
@@ -40,9 +41,11 @@ injectReducer('scenarioLibrary', scenarioLibraryReducer)
 
 const ScenarioList = () => {
     const navigate = useNavigate()
+    const { pathname } = useLocation()
     const dispatch = useAppDispatch()
     const userRole = useAppSelector((state) => state.auth.user.role)
-    const isSalesRep = userRole === 'sales_person'
+    const canManageLibrary = canManageScenarioLibrary(userRole)
+    const isAssignedView = pathname === '/assigned-scenarios'
 
     const {
         scenariosData,
@@ -69,14 +72,15 @@ const ScenarioList = () => {
     const [salesRepTotalPending, setSalesRepTotalPending] = useState(0)
 
     useEffect(() => {
-        if (isSalesRep) return
+        if (isAssignedView) return
+        if (!canManageLibrary) return
         if (!initialized && !scenarioLibraryLoading) {
             dispatch(fetchScenarioLibrary())
         }
-    }, [dispatch, initialized, scenarioLibraryLoading, isSalesRep])
+    }, [dispatch, initialized, scenarioLibraryLoading, canManageLibrary, isAssignedView])
 
     useEffect(() => {
-        if (!isSalesRep) return
+        if (!isAssignedView) return
         let cancelled = false
         ;(async () => {
             setSalesRepLoading(true)
@@ -107,7 +111,7 @@ const ScenarioList = () => {
         return () => {
             cancelled = true
         }
-    }, [isSalesRep])
+    }, [isAssignedView])
 
     useEffect(() => {
         if (notification) {
@@ -122,10 +126,10 @@ const ScenarioList = () => {
     }, [notification, dispatch])
 
     useEffect(() => {
-        if (isSalesRep) return
+        if (!canManageLibrary || isAssignedView) return
         dispatch(fetchPersonas())
         dispatch(fetchModes())
-    }, [dispatch, isSalesRep])
+    }, [dispatch, canManageLibrary, isAssignedView])
     const [searchQuery, setSearchQuery] = useState('')
     const [isDrawerOpen, setIsDrawerOpen] = useState(false)
     const [isViewDrawerOpen, setIsViewDrawerOpen] = useState(false)
@@ -146,8 +150,8 @@ const ScenarioList = () => {
     })
     const [sortConfig, setSortConfig] = useState<{ key: string; order: 'asc' | 'desc' | '' }>({ key: '', order: '' })
 
-    const rawScenarios = isSalesRep ? salesRepScenarios : scenariosData
-    const listLoading = isSalesRep ? salesRepLoading : scenarioLibraryLoading
+    const rawScenarios = isAssignedView ? salesRepScenarios : scenariosData
+    const listLoading = isAssignedView ? salesRepLoading : scenarioLibraryLoading
 
     const handleSalesRepOpenSession = (scenario: Scenario) => {
         if (!scenario.session_id) return
@@ -401,10 +405,10 @@ const ScenarioList = () => {
                         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
                             <div>
                                 <h3 className="text-2xl font-bold">
-                                    {isSalesRep ? 'Assigned scenarios' : 'Scenarios'}
+                                    {isAssignedView ? 'Assigned scenarios' : 'Scenario Library'}
                                 </h3>
                                 <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                                    {isSalesRep
+                                    {isAssignedView
                                         ? salesRepTotalPending > 0
                                             ? `Sessions assigned to you · ${salesRepTotalPending} not completed`
                                             : 'Sessions assigned to you'
@@ -413,7 +417,7 @@ const ScenarioList = () => {
                             </div>
                             <ScenarioListActionTools
                                 onAddNew={handleAddNew}
-                                showAddButton={!isSalesRep}
+                                showAddButton={canManageLibrary && !isAssignedView}
                             />
                         </div>
                         <ScenarioListTableTools
@@ -432,7 +436,7 @@ const ScenarioList = () => {
                         onEdit={handleEdit}
                         onShare={handleShare}
                         onConfirmDeleteScenario={handleConfirmDeleteScenario}
-                        variant={isSalesRep ? 'salesRep' : 'manager'}
+                        variant={isAssignedView ? 'salesRep' : 'manager'}
                         onSalesRepOpenSession={handleSalesRepOpenSession}
                         onSalesRepViewReport={handleSalesRepViewReport}
                         pagingData={{
@@ -505,7 +509,7 @@ const ScenarioList = () => {
             />
 
             {/* Selected Scenarios Sticky Footer */}
-            {!isSalesRep && (
+            {canManageLibrary && !isAssignedView && (
             <ScenarioListSelected
                 selectedScenarios={selectedScenarios}
                 onClearSelection={handleClearSelection}

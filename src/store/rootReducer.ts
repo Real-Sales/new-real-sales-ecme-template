@@ -7,6 +7,9 @@ import type { Theme } from '@/@types/theme'
 import routeKey, { RouteKeyState } from './slices/routeKeySlice'
 import settings, { SettingsState } from '@/views/profile/Settings/store/settingsSlice'
 import subscription, { SubscriptionState } from '@/views/profile/Subscription/store/subscriptionSlice'
+import industriesCatalog, {
+    IndustriesCatalogState,
+} from './slices/industriesCatalogSlice'
 import RtkQueryService from '@/services/RtkQueryService'
 import { persistReducer } from 'redux-persist'
 import storage from 'redux-persist/lib/storage'
@@ -30,6 +33,7 @@ export type RootState = {
     routeKey: RouteKeyState
     settings: SettingsState
     subscription: SubscriptionState
+    industriesCatalog: IndustriesCatalogState
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     [key: string]: any
 }
@@ -46,6 +50,7 @@ const staticReducers = {
     routeKey,
     settings,
     subscription,
+    industriesCatalog,
     [RtkQueryService.reducerPath]: RtkQueryService.reducer,
 }
 

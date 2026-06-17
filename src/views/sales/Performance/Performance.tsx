@@ -52,6 +52,7 @@ const Performance = () => {
     const {
         performanceReport,
         performanceLoading,
+        initialized,
         notification,
     } = useAppSelector(
         (state) =>
@@ -89,6 +90,7 @@ const Performance = () => {
     const totalSessions = reportData?.total_sessions_analyzed || 0
     const averageScore = reportData?.overall_average_score || 0
     const loading = performanceLoading
+    const showEmptyState = initialized && !loading && totalSessions === 0
 
     return (
         <div className="min-h-full">
@@ -98,6 +100,12 @@ const Performance = () => {
                     <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
                         Performance
                     </h1>
+                    {showEmptyState && (
+                        <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                            No session data yet. Complete a practice session to see your
+                            performance here.
+                        </p>
+                    )}
                 </div>
 
                 {/* Analytics Cards */}

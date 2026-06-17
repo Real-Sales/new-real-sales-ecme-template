@@ -2,11 +2,14 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Logo from '@/components/template/Logo'
 import Alert from '@/components/ui/Alert'
+import Button from '@/components/ui/Button'
 import OnboardingForm from './components/OnboardingForm'
 import { useAppSelector, useAppDispatch } from '@/store'
 import { setOnboardingComplete } from '@/store/slices/auth/userSlice'
 import { apiCreateSalesCompany } from '@/services/SalesCompanyService'
 import { apiGetManagerMe } from '@/services/ManagerService'
+import { useAuth } from '@/auth'
+import { HiArrowLeft } from 'react-icons/hi'
 import type { OnboardingFormSchema } from './components/OnboardingForm'
 
 const Onboarding = () => {
@@ -14,8 +17,13 @@ const Onboarding = () => {
     const [error, setError] = useState('')
     const navigate = useNavigate()
     const dispatch = useAppDispatch()
+    const { signOut } = useAuth()
     const mode = useAppSelector((state) => state.theme.mode)
     const userName = useAppSelector((state) => state.auth.user.userName)
+
+    const handleBack = async () => {
+        await signOut()
+    }
 
     const handleComplete = async (data: OnboardingFormSchema) => {
         setSubmitting(true)
@@ -27,6 +35,7 @@ const Onboarding = () => {
                 location: data.location || 'N/A',
                 phone_number: data.phone_number || 'N/A',
                 email: data.email || 'N/A',
+                product_ids: data.industryProducts,
             })
 
             if (resp) {
@@ -55,6 +64,16 @@ const Onboarding = () => {
     return (
         <div className="flex flex-col items-center min-h-screen w-full bg-gray-50 dark:bg-gray-900 py-10 overflow-y-auto">
             <div className="w-full min-w-[320px] max-w-[400px] flex-shrink-0 px-4">
+                <Button
+                    variant="plain"
+                    size="sm"
+                    className="mb-4 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+                    icon={<HiArrowLeft className="text-lg" />}
+                    onClick={handleBack}
+                >
+                    Back to sign in
+                </Button>
+
                 <div className="flex-shrink-0 mb-4 flex items-center gap-4">
                     <Logo
                         type="streamline"

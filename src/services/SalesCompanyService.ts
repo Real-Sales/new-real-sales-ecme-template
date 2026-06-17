@@ -7,6 +7,7 @@ export type CreateSalesCompanyRequest = {
     location: string
     phone_number: string
     email: string
+    product_ids?: string[]
 }
 
 export type SalesCompanyResponse = {
@@ -49,6 +50,34 @@ export async function apiCreateSalesCompany(data: CreateSalesCompanyRequest) {
     return ApiService.fetchDataWithAxios<SalesCompanyResponse>({
         url: endpointConfig.salesCompanies,
         method: 'post',
+        data,
+    })
+}
+
+export type UpdateSalesCompanyRequest = {
+    name?: string
+    industry?: string
+    location?: string
+    phone_number?: string
+    email?: string
+    product_ids?: string[]
+    is_active?: boolean
+}
+
+export async function apiGetSalesCompanyDetail(salesCompanyId: string) {
+    return ApiService.fetchDataWithAxios<SalesCompanyResponse>({
+        url: endpointConfig.salesCompanyDetail(salesCompanyId),
+        method: 'get',
+    })
+}
+
+export async function apiUpdateSalesCompany(
+    salesCompanyId: string,
+    data: UpdateSalesCompanyRequest,
+) {
+    return ApiService.fetchDataWithAxios<SalesCompanyResponse>({
+        url: endpointConfig.salesCompanyDetail(salesCompanyId),
+        method: 'put',
         data,
     })
 }
@@ -169,8 +198,10 @@ export async function apiGetCompanyMembers(salesCompanyId: string) {
 }
 
 export type CompanyMemberAssignmentUpdate = {
+    role?: 'sales_person' | 'sales_manager'
     sales_division_id?: string | null
     company_team_id?: string | null
+    status_active?: boolean
 }
 
 export async function apiAssignCompanyMember(

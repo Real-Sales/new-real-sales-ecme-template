@@ -3,7 +3,8 @@ import { Card, Badge, Spinner, Input, Button, toast, Notification } from '@/comp
 import Container from '@/components/shared/Container'
 import Avatar from '@/components/ui/Avatar'
 import DataTable from '@/components/shared/DataTable'
-import { TbSearch, TbUsers, TbUserCheck, TbUserPlus, TbArrowsExchange, TbBuildingCommunity } from 'react-icons/tb'
+import { TbSearch, TbUsers, TbUserCheck } from 'react-icons/tb'
+import { HiPencil } from 'react-icons/hi'
 import { injectReducer } from '@/store'
 import { useAppSelector as useAuthSelector } from '@/store/hook'
 import companyMembersReducer, {
@@ -11,10 +12,11 @@ import companyMembersReducer, {
     useAppDispatch,
     fetchCompanyMembers,
     resetNotification,
+    updateMemberRow,
 } from './store'
 import salesDivisionsReducer, { resetSalesDivisionsData } from '@/store/slices/salesDivisions'
 import teamsReducer, { resetTeamsData } from '@/store/slices/teams'
-import AssignTeamDialog from './components/AssignTeamDialog'
+import EditMemberDrawer from './components/EditMemberDrawer'
 import type { CompanyMemberRow } from './types'
 import type { ColumnDef } from '@/components/shared/DataTable'
 
@@ -28,34 +30,10 @@ const getInitials = (firstName: string, lastName: string) =>
 const formatRole = (role?: string) =>
     role ? role.replace(/_/g, ' ') : '—'
 
-const getMemberAction = (row: CompanyMemberRow) => {
-    const hasDivision = !!(row.sales_division_id || row.sales_division_name)
-    const hasTeam = !!row.team_id
-
-    if (!hasDivision) {
-        return {
-            label: 'Assign division',
-            variant: 'solid' as const,
-            icon: <TbBuildingCommunity className="text-sm" />,
-        }
-    }
-    if (!hasTeam) {
-        return {
-            label: 'Assign team',
-            variant: 'solid' as const,
-            icon: <TbUserPlus className="text-sm" />,
-        }
-    }
-    return {
-        label: 'Change team',
-        variant: 'default' as const,
-        icon: <TbArrowsExchange className="text-sm" />,
-    }
-}
-
 const MemberList = () => {
     const dispatch = useAppDispatch()
     const userId = useAuthSelector((state) => state.auth.user.userId)
+    const userRole = useAuthSelector((state) => state.auth.user.role)
     const companyIdFromAuth = useAuthSelector((state) => state.auth.user.companyId)
 
     const {
@@ -64,6 +42,7 @@ const MemberList = () => {
         initialized,
         companyName,
         salesCompanyId,
+        companyManagerId,
         totalMembers,
         activeMembers,
         error,
@@ -75,6 +54,7 @@ const MemberList = () => {
                 initialized: false,
                 companyName: '',
                 salesCompanyId: null,
+                companyManagerId: null,
                 totalMembers: 0,
                 activeMembers: 0,
                 membersData: [],
@@ -86,28 +66,21 @@ const MemberList = () => {
     const [searchTerm, setSearchTerm] = useState('')
     const [currentPage, setCurrentPage] = useState(1)
     const [pageSize, setPageSize] = useState(10)
-    const [assignDialogOpen, setAssignDialogOpen] = useState(false)
-    const [memberToAssign, setMemberToAssign] = useState<CompanyMemberRow | null>(
-        null,
-    )
+    const [editDrawerOpen, setEditDrawerOpen] = useState(false)
+    const [memberToEdit, setMemberToEdit] = useState<CompanyMemberRow | null>(null)
 
-    const openAssignDialog = (member: CompanyMemberRow) => {
-        setMemberToAssign(member)
-        setAssignDialogOpen(true)
+    const openEditDrawer = (member: CompanyMemberRow) => {
+        setMemberToEdit(member)
+        setEditDrawerOpen(true)
     }
 
-    const closeAssignDialog = () => {
-        setAssignDialogOpen(false)
-        setMemberToAssign(null)
+    const closeEditDrawer = () => {
+        setEditDrawerOpen(false)
+        setMemberToEdit(null)
     }
 
-    const handleAssignSuccess = () => {
-        dispatch(
-            fetchCompanyMembers({
-                userId,
-                companyId: companyIdFromAuth,
-            }),
-        )
+    const handleMemberUpdated = (updated: CompanyMemberRow) => {
+        dispatch(updateMemberRow(updated))
         dispatch(resetSalesDivisionsData())
         dispatch(resetTeamsData())
     }
@@ -254,17 +227,15 @@ const MemberList = () => {
                 enableSorting: false,
                 cell: (props) => {
                     const row = props.row.original
-                    const action = getMemberAction(row)
                     return (
                         <Button
                             size="xs"
-                            variant={action.variant}
-                            icon={action.icon}
-                            className="h-8 px-2.5 text-xs whitespace-nowrap"
-                            onClick={() => openAssignDialog(row)}
-                        >
-                            {action.label}
-                        </Button>
+                            variant="plain"
+                            icon={<HiPencil />}
+                            className="h-8 w-8 p-0"
+                            aria-label={`Edit ${row.first_name} ${row.last_name}`}
+                            onClick={() => openEditDrawer(row)}
+                        />
                     )
                 },
             },
@@ -371,12 +342,15 @@ const MemberList = () => {
                 )}
             </Container>
 
-            <AssignTeamDialog
-                isOpen={assignDialogOpen}
-                member={memberToAssign}
+            <EditMemberDrawer
+                isOpen={editDrawerOpen}
+                member={memberToEdit}
                 salesCompanyId={salesCompanyId}
-                onClose={closeAssignDialog}
-                onSuccess={handleAssignSuccess}
+                companyManagerId={companyManagerId}
+                currentUserId={userId}
+                currentUserRole={userRole}
+                onClose={closeEditDrawer}
+                onUpdated={handleMemberUpdated}
             />
         </div>
     )

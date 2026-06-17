@@ -49,6 +49,12 @@ const salesRoute: Routes = [
         authority: [],
     },
     {
+        key: 'salesPerson.assignedScenarios',
+        path: '/assigned-scenarios',
+        component: lazy(() => import('@/views/sales/ScenarioList')),
+        authority: [],
+    },
+    {
         key: 'salesManager.personaSelection',
         path: '/persona-selection',
         component: lazy(() => import('@/views/sales/PersonaSelection')),

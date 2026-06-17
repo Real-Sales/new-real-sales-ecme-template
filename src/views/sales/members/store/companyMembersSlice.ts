@@ -1,4 +1,4 @@
-import { createSlice, createAsyncThunk } from '@reduxjs/toolkit'
+import { createSlice, createAsyncThunk, type PayloadAction } from '@reduxjs/toolkit'
 import { apiGetCompanyMembers } from '@/services/SalesCompanyService'
 import { resolveSalesCompanyContext } from '@/utils/companyScope'
 import { mapCompanyMember, type CompanyMemberRow } from '../types'
@@ -10,6 +10,7 @@ export interface CompanyMembersState {
     initialized: boolean
     companyName: string
     salesCompanyId: string | null
+    companyManagerId: string | null
     totalMembers: number
     activeMembers: number
     membersData: CompanyMemberRow[]
@@ -38,6 +39,7 @@ export const fetchCompanyMembers = createAsyncThunk(
             return {
                 salesCompanyId: companyCtx.salesCompanyId,
                 companyName: companyCtx.companyName,
+                companyManagerId: companyCtx.managerId ?? null,
                 totalMembers: data.total_members,
                 activeMembers: data.active_members,
                 members: (data.members ?? []).map(mapCompanyMember),
@@ -57,6 +59,7 @@ const initialState: CompanyMembersState = {
     initialized: false,
     companyName: '',
     salesCompanyId: null,
+    companyManagerId: null,
     totalMembers: 0,
     activeMembers: 0,
     membersData: [],
@@ -79,11 +82,21 @@ const companyMembersSlice = createSlice({
             state.initialized = false
             state.companyName = ''
             state.salesCompanyId = null
+            state.companyManagerId = null
             state.totalMembers = 0
             state.activeMembers = 0
             state.membersData = []
             state.error = null
             state.notification = null
+        },
+        updateMemberRow: (state, action: PayloadAction<CompanyMemberRow>) => {
+            const index = state.membersData.findIndex(
+                (m) => m.user_id === action.payload.user_id,
+            )
+            if (index >= 0) {
+                state.membersData[index] = action.payload
+            }
+            state.activeMembers = state.membersData.filter((m) => m.status_active).length
         },
     },
     extraReducers: (builder) => {
@@ -97,6 +110,7 @@ const companyMembersSlice = createSlice({
                 state.initialized = true
                 state.salesCompanyId = action.payload.salesCompanyId
                 state.companyName = action.payload.companyName
+                state.companyManagerId = action.payload.companyManagerId
                 state.totalMembers = action.payload.totalMembers
                 state.activeMembers = action.payload.activeMembers
                 state.membersData = action.payload.members
@@ -107,6 +121,7 @@ const companyMembersSlice = createSlice({
                 state.membersData = []
                 state.companyName = ''
                 state.salesCompanyId = null
+                state.companyManagerId = null
                 state.totalMembers = 0
                 state.activeMembers = 0
                 state.error =
@@ -121,7 +136,7 @@ const companyMembersSlice = createSlice({
     },
 })
 
-export const { resetError, resetNotification, resetCompanyMembersData } =
+export const { resetError, resetNotification, resetCompanyMembersData, updateMemberRow } =
     companyMembersSlice.actions
 
 export default companyMembersSlice.reducer

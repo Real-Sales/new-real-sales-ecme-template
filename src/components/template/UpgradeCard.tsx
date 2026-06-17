@@ -1,14 +1,10 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { Button } from '@/components/ui'
 import { HiArrowRight } from 'react-icons/hi'
 import { NumericFormat } from 'react-number-format'
 import { Link } from 'react-router-dom'
-import { useAppSelector } from '@/store/hook'
-import {
-    apiGetUserSubscriptionsByUser,
-    pickActiveUserSubscription,
-    type UserSubscriptionRecord,
-} from '@/services/SubscriptionService'
+import { useAppDispatch, useAppSelector } from '@/store/hook'
+import { fetchMySubscription } from '@/views/profile/Subscription/store/subscriptionSlice'
 
 type UpgradeCardProps = {
     /** When true, ignore theme and render with the dark palette (used by the always-dark desktop side nav). */
@@ -60,33 +56,19 @@ const CircleProgress = ({
 }
 
 const UpgradeCard = ({ forceDark = false }: UpgradeCardProps) => {
+    const dispatch = useAppDispatch()
     const userId = useAppSelector((state) => state.auth.user.userId?.trim() ?? '')
-
-    const [activeSub, setActiveSub] = useState<UserSubscriptionRecord | null>(null)
-    const [loading, setLoading] = useState(true)
-
-    const load = useCallback(async () => {
-        if (!userId) {
-            setActiveSub(null)
-            setLoading(false)
-            return
-        }
-        setLoading(true)
-        try {
-            const rows = await apiGetUserSubscriptionsByUser(userId)
-            setActiveSub(
-                pickActiveUserSubscription(Array.isArray(rows) ? rows : []),
-            )
-        } catch {
-            setActiveSub(null)
-        } finally {
-            setLoading(false)
-        }
-    }, [userId])
+    const activeSub = useAppSelector((state) => state.subscription.activeUserSubscription)
+    const loading = useAppSelector((state) => state.subscription.userSubscriptionLoading)
+    const initialized = useAppSelector(
+        (state) => state.subscription.userSubscriptionInitialized,
+    )
 
     useEffect(() => {
-        void load()
-    }, [load])
+        if (userId && !initialized) {
+            dispatch(fetchMySubscription())
+        }
+    }, [dispatch, userId, initialized])
 
     const totalCredits = Number(activeSub?.credits_allocated ?? 0)
     const usedCredits = Number(activeSub?.credits_used ?? 0)

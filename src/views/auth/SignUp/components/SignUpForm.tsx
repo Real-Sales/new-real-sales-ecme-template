@@ -70,6 +70,7 @@ const SignUpForm = (props: SignUpFormProps) => {
         formState: { errors },
         control,
         setValue,
+        setError,
     } = useForm<SignUpFormSchema>({
         resolver: zodResolver(validationSchema),
         defaultValues: {
@@ -109,7 +110,14 @@ const SignUpForm = (props: SignUpFormProps) => {
                 })
 
             if (result?.status === 'failed') {
-                setMessage?.(result.message)
+                const message = result.message
+                if (message === 'This phone number is already registered') {
+                    setError('phone_number', { message })
+                } else if (message === 'This email is already registered') {
+                    setError('email', { message })
+                } else {
+                    setMessage?.(message)
+                }
             }
 
             setSubmitting(false)

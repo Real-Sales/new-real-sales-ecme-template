@@ -3,12 +3,13 @@ import { REDIRECT_URL_KEY } from '@/constants/app.constant'
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '@/auth'
 import { useAppSelector } from '@/store'
+import { companyOwnerNeedsOnboarding } from '@/utils/onboarding'
 
-const { unAuthenticatedEntryPath } = appConfig
+const { unAuthenticatedEntryPath, authenticatedEntryPath } = appConfig
 
 const ProtectedRoute = () => {
     const { authenticated } = useAuth()
-    const isNewUser = useAppSelector((state) => state.auth.user.isNewUser)
+    const user = useAppSelector((state) => state.auth.user)
 
     const { pathname } = useLocation()
 
@@ -24,8 +25,17 @@ const ProtectedRoute = () => {
         )
     }
 
-    if (isNewUser && pathname !== '/onboarding') {
+    const mustCompleteOnboarding = companyOwnerNeedsOnboarding(
+        user.role,
+        user.companyId,
+    )
+
+    if (mustCompleteOnboarding && pathname !== '/onboarding') {
         return <Navigate replace to="/onboarding" />
+    }
+
+    if (!mustCompleteOnboarding && pathname === '/onboarding') {
+        return <Navigate replace to={authenticatedEntryPath} />
     }
 
     return <Outlet />

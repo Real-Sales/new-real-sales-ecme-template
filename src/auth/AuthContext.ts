@@ -34,8 +34,9 @@ const defaultOAuthSignInPlaceHolder = (
     callback: (payload: OauthSignInCallbackPayload) => void,
 ): void => {
     callback({
-        onSignIn: () => {},
+        onSignIn: async () => false,
         redirect: () => {},
+        navigateToOnboarding: () => {},
     })
 }
 

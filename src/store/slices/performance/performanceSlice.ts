@@ -33,6 +33,37 @@ export interface PerformanceState {
     notification: { type: string; message: string } | null
 }
 
+const emptyPerformanceReport = (userId: string): PerformanceReportResponse => ({
+    manager_id: userId,
+    total_sessions_analyzed: 0,
+    overall_average_score: 0,
+    mode_averages: [],
+})
+
+const emptyMonthlyTrend = (userId: string): PerformanceMonthlyTrendResponse => ({
+    manager_id: userId,
+    date_range: { start_date: '', end_date: '', months_back: 0 },
+    total_sessions_analyzed: 0,
+    include_all_sessions: true,
+    monthly_trends: [],
+})
+
+function isNoPerformanceDataError(error: unknown): boolean {
+    const err = error as {
+        response?: { status?: number; data?: { detail?: string } }
+    }
+    const status = err.response?.status
+    const detail = String(err.response?.data?.detail ?? '').toLowerCase()
+    return (
+        status === 404 ||
+        (status === 400 &&
+            (detail.includes('no session') ||
+                detail.includes('not found') ||
+                detail.includes('no data') ||
+                detail.includes('no performance')))
+    )
+}
+
 export const fetchPerformanceByMode = createAsyncThunk(
     SLICE_NAME + '/fetchPerformanceByMode',
     async (userId: string, { rejectWithValue }) => {
@@ -40,6 +71,9 @@ export const fetchPerformanceByMode = createAsyncThunk(
             const response = await apiGetPerformanceReports(userId)
             return response
         } catch (error: unknown) {
+            if (isNoPerformanceDataError(error)) {
+                return emptyPerformanceReport(userId)
+            }
             const err = error as { response?: { data?: { detail?: string } } }
             if (err.response?.data) {
                 return rejectWithValue(err.response.data)
@@ -56,6 +90,9 @@ export const fetchMonthlyTrend = createAsyncThunk(
             const response = await apiGetPerformanceMonthlyTrend(userId)
             return response
         } catch (error: unknown) {
+            if (isNoPerformanceDataError(error)) {
+                return emptyMonthlyTrend(userId)
+            }
             const err = error as { response?: { data?: { detail?: string } } }
             if (err.response?.data) {
                 return rejectWithValue(err.response.data)
@@ -103,8 +140,9 @@ const performanceSlice = createSlice({
                 state.performanceLoading = true
             })
             .addCase(fetchPerformanceByMode.fulfilled, (state, action) => {
-                state.performanceReport = action.payload
-                state.performanceByMode = action.payload.mode_averages.map(m => ({
+                const payload = action.payload
+                state.performanceReport = payload
+                state.performanceByMode = (payload.mode_averages ?? []).map(m => ({
                     mode: m.mode_name.toLowerCase(),
                     modeName: m.mode_name,
                     avgScore: m.average_scores.overall_score,
@@ -113,14 +151,11 @@ const performanceSlice = createSlice({
                 }))
                 state.performanceLoading = false
                 state.initialized = true
+                state.error = null
             })
             .addCase(fetchPerformanceByMode.rejected, (state, action) => {
                 state.performanceLoading = false
                 state.error = (action.payload as { detail?: string })?.detail ?? null
-                state.notification = { 
-                    type: 'danger', 
-                    message: 'Failed to load performance data. Please try again.' 
-                }
                 state.initialized = true
             })
             .addCase(fetchMonthlyTrend.pending, (state) => {

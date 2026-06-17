@@ -28,6 +28,12 @@ export type Integration = {
 
 export type ProfileProductOption = { value: string; label: string }
 
+export type ProfileProductSummary = {
+    product_id: string
+    name: string
+    details: string
+}
+
 export type GetSettingsProfileResponse = {
     id: string
     name: string
@@ -44,7 +50,16 @@ export type GetSettingsProfileResponse = {
     birthday: string
     phoneNumber: string
     industry?: string
+    industryLabel?: string
     products?: ProfileProductOption[]
+    companyName?: string
+    companyEmail?: string
+    companyPhone?: string
+    companyProducts?: ProfileProductSummary[]
+    hasCompany?: boolean
+    salesCompanyId?: string
+    companyIndustry?: string
+    selectedProductIds?: string[]
 }
 
 export type GetSettingsNotificationResponse = {

@@ -11,19 +11,69 @@ import wildCardSearch from '@/utils/wildCardSearch'
 import classNames from '@/utils/classNames'
 import { TbSearch } from 'react-icons/tb'
 import debounce from 'lodash/debounce'
-import { apiGetCompanyUsers } from '@/services/TeamService'
 import { apiManagerCreateSession } from '@/services/SessionService'
 import { apiAssignScenario, apiGetScenarioAssignmentStatus } from '@/services/ScenarioLibraryService'
 import { apiGetCompanyTeams } from '@/services/TeamsService'
 import type { Scenario } from '../types'
 import type { ChangeEvent } from 'react'
 import { useAppSelector } from '@/store'
+import { canManageScenarioLibrary } from '@/utils/inviteAccess'
 
 type Member = {
     id: string
     name: string
     email: string
     img?: string
+}
+
+function memberFromTeamRow(
+    m: {
+        user_id: string
+        user: { first_name: string; last_name: string; email: string }
+    },
+    authUser: {
+        userId?: string
+        email?: string
+        firstName?: string
+        lastName?: string
+        userName?: string
+    },
+): Member {
+    const isSelf = m.user_id === authUser.userId
+    const name = `${m.user.first_name} ${m.user.last_name}`.trim()
+    const selfName =
+        [authUser.firstName, authUser.lastName].filter(Boolean).join(' ').trim() ||
+        authUser.userName ||
+        'You'
+
+    return {
+        id: m.user_id,
+        name: isSelf && !name ? selfName : name,
+        email: m.user.email || (isSelf ? authUser.email || '' : ''),
+        img: `/img/avatars/thumb-${Math.floor(Math.random() * 5) + 1}.jpg`,
+    }
+}
+
+function selfMemberFromAuth(authUser: {
+    userId?: string
+    email?: string
+    firstName?: string
+    lastName?: string
+    userName?: string
+}): Member | null {
+    if (!authUser.userId) return null
+
+    const name =
+        [authUser.firstName, authUser.lastName].filter(Boolean).join(' ').trim() ||
+        authUser.userName ||
+        'You'
+
+    return {
+        id: authUser.userId,
+        name,
+        email: authUser.email || '',
+        img: `/img/avatars/thumb-${Math.floor(Math.random() * 5) + 1}.jpg`,
+    }
 }
 
 type ShareScenarioDialogProps = {
@@ -38,7 +88,8 @@ const ShareScenarioDialog = ({
     scenario,
 }: ShareScenarioDialogProps) => {
     const inputRef = useRef(null)
-    const companyId = useAppSelector((state) => state.auth.user.companyId)
+    const authUser = useAppSelector((state) => state.auth.user)
+    const companyId = authUser.companyId
 
     const [allCompanyMembers, setAllCompanyMembers] = useState<Member[]>([])
     const [memberList, setMemberList] = useState<Member[]>([])
@@ -51,20 +102,42 @@ const ShareScenarioDialog = ({
         if (!companyId || !isOpen || !scenario) return
         setIsLoading(true)
         try {
-            // Fetch users
-            const companyData = await apiGetCompanyUsers(companyId)
-            const members = companyData.users.map(user => ({
-                id: user.user_id,
-                name: `${user.first_name} ${user.last_name}`,
-                email: user.email,
-                img: `/img/avatars/thumb-${Math.floor(Math.random() * 5) + 1}.jpg`
-            }))
+            const teams = await apiGetCompanyTeams(companyId)
+            const memberMap = new Map<string, Member>()
+
+            // Assign list = unique users across all company teams (team.members only).
+            teams?.forEach((team) => {
+                team.members.forEach((m) => {
+                    if (!memberMap.has(m.user_id)) {
+                        memberMap.set(m.user_id, memberFromTeamRow(m, authUser))
+                    }
+                })
+            })
+
+            const isOnAnyTeam =
+                teams?.some(
+                    (team) =>
+                        team.manager_id === authUser.userId ||
+                        team.members.some((m) => m.user_id === authUser.userId),
+                ) ?? false
+
+            // Managers are often team.manager_id but not in team.members — include self when
+            // they manage or belong to a team, or when they can manage the library (self-assign).
+            if (
+                authUser.userId &&
+                !memberMap.has(authUser.userId) &&
+                (canManageScenarioLibrary(authUser.role) || isOnAnyTeam)
+            ) {
+                const self = selfMemberFromAuth(authUser)
+                if (self) {
+                    memberMap.set(authUser.userId, self)
+                }
+            }
+
+            const members = Array.from(memberMap.values())
             setAllCompanyMembers(members)
             setMemberList(members)
 
-            // Fetch status map for all available teams and merge them
-            const teams = await apiGetCompanyTeams(companyId)
-            
             if (teams && teams.length > 0) {
                 const statusResponses = await Promise.all(
                     teams.map(t => apiGetScenarioAssignmentStatus(scenario.scenario_id, t.company_team_id))
@@ -228,7 +301,9 @@ const ShareScenarioDialog = ({
                             ))}
                             {memberList.length === 0 && !isLoading && (
                                 <div className="text-center py-10 text-gray-500">
-                                    No members found matching your search.
+                                    {searchQuery
+                                        ? 'No members found matching your search.'
+                                        : 'No team members found. Add people to a team first.'}
                                 </div>
                             )}
                         </ScrollBar>
