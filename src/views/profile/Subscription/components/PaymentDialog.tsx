@@ -199,7 +199,7 @@ const PaymentDialog = () => {
                 amount: String(payAmount),
                 currency,
                 order_id: order.order_id,
-                name: 'RealSales',
+                name: 'SalesWana',
                 description: `${selectedPlan.planName ?? planType ?? 'Plan'} (${billing_cycle})`,
                 ...(checkoutLogo?.trim()
                     ? { image: checkoutLogo.trim() }

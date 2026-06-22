@@ -113,7 +113,7 @@ const FinalCTA = () => {
                         />
                         <SectionDesc
                             t={t}
-                            text="Your team has all the knowledge. They just need the reps. RealSales gives them a place to fail safely, so they stop failing in front of real customers."
+                            text="Your team has all the knowledge. They just need the reps. SalesWana gives them a place to fail safely, so they stop failing in front of real customers."
                             className="leading-relaxed mb-10 max-w-lg mx-auto"
                             delay={getDescDelay(1.8)}
                         />
@@ -140,7 +140,7 @@ const FinalCTA = () => {
                                 />
                             </motion.button>
                             <motion.a
-                                href="mailto:hello@realsales.ai"
+                                href="mailto:hello@saleswana.com"
                                 whileHover={shouldReduceMotion ? {} : { scale: 1.02, y: -2 }}
                                 whileTap={shouldReduceMotion ? {} : { scale: 0.97 }}
                                 transition={{ type: 'spring', stiffness: 400, damping: 20 }}

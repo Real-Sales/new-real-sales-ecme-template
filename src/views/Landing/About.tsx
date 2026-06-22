@@ -88,7 +88,7 @@ const About = () => {
                                 </span>
                             </h1>
                             <p className="text-lg md:text-xl text-gray-600 dark:text-gray-300 mb-8 leading-relaxed">
-                                RealSales uses AI-driven buyer conversations to help sales teams practice real scenarios, handle real objections, and build real confidence—before they ever talk to a customer.
+                                SalesWana uses AI-driven buyer conversations to help sales teams practice real scenarios, handle real objections, and build real confidence—before they ever talk to a customer.
                             </p>
                             <div className="flex flex-col sm:flex-row gap-4">
                                 <Button
@@ -207,7 +207,7 @@ const About = () => {
                 </Container>
             </section>
 
-            {/* The RealSales Approach */}
+            {/* The SalesWana Approach */}
             <section className="py-20 md:py-32">
                 <Container>
                     <div className="grid md:grid-cols-2 gap-12 items-center">
@@ -311,7 +311,7 @@ const About = () => {
                 </Container>
             </section>
 
-            {/* How RealSales Works */}
+            {/* How SalesWana Works */}
             <section className="py-20 md:py-32 bg-gray-50 dark:bg-gray-900">
                 <Container>
                     <motion.div
@@ -322,7 +322,7 @@ const About = () => {
                         className="text-center mb-16"
                     >
                         <h2 className="text-3xl md:text-4xl font-bold mb-4 text-gray-900 dark:text-white">
-                            How RealSales Works
+                            How SalesWana Works
                         </h2>
                     </motion.div>
                     <div className="relative">
@@ -548,7 +548,7 @@ const About = () => {
                                 They're practiced."
                             </h2>
                             <p className="text-lg text-gray-600 dark:text-gray-400 leading-relaxed">
-                                Confidence comes from preparation. Mastery comes from repetition. RealSales gives your team the practice they need to turn every customer interaction into an opportunity to win. Build the skills that matter, measure what works, and scale what drives results.
+                                Confidence comes from preparation. Mastery comes from repetition. SalesWana gives your team the practice they need to turn every customer interaction into an opportunity to win. Build the skills that matter, measure what works, and scale what drives results.
                             </p>
                         </div>
                     </motion.div>

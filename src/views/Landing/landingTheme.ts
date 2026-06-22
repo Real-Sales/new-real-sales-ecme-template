@@ -52,7 +52,7 @@ export function getLandingTheme(mode: Mode): LandingTheme {
         textSecondary: isLight ? '#374151' : '#D1D5DB',
         textMuted: isLight ? '#6B7280' : '#9CA3AF',
         textFaint: isLight ? '#9CA3AF' : '#6B7280',
-        textDim: isLight ? '#D1D5DB' : '#4B5563',
+        textDim: isLight ? '#6B7280' : '#4B5563',
         border: isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.08)',
         borderStrong: isLight ? 'rgba(0,0,0,0.14)' : 'rgba(255,255,255,0.14)',
         surface: isLight ? 'rgba(0,0,0,0.02)' : 'rgba(255,255,255,0.02)',

@@ -120,7 +120,7 @@ const Overview = () => {
                 <Container>
                     <div className="text-center max-w-4xl mx-auto">
                         <h1 className="text-4xl md:text-5xl font-bold mb-6 text-gray-900 dark:text-white">
-                            Realsales AI Platform
+                            SalesWana AI Platform
                         </h1>
                         <p className="text-base text-gray-600 dark:text-gray-300 leading-relaxed">
                             Advanced AI-driven sales acceleration platform
@@ -171,7 +171,7 @@ const Overview = () => {
                                         Watch the Demo
                                     </h2>
                                     <p className="text-sm text-gray-600 dark:text-gray-400">
-                                        See how Realsales AI transforms sales training with realistic AI conversations
+                                        See how SalesWana AI transforms sales training with realistic AI conversations
                                     </p>
                                 </div>
                                 <Badge
@@ -184,7 +184,7 @@ const Overview = () => {
                                 <div className="aspect-video w-full">
                                     {isVideoPlaying ? (
                                         <iframe
-                                            title="Realsales Demo Video"
+                                            title="SalesWana Demo Video"
                                             className="w-full h-full"
                                             src="https://www.youtube.com/embed/4zd9hzngFwY?autoplay=1"
                                             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"

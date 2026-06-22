@@ -6,9 +6,9 @@ import { SectionBadge, SectionHeading, SectionDesc } from './landingUi'
 
 const faqs = [
     {
-        question: 'How is RealSales different from role-playing with a colleague?',
+        question: 'How is SalesWana different from role-playing with a colleague?',
         answer:
-            'Colleagues avoid being too harsh, forget to stay in character, and are unavailable at 11pm before a big demo. The RealSales AI buyer is always skeptical, never breaks character, and is available on demand. It also scores your performance objectively, which no colleague can do consistently.',
+            'Colleagues avoid being too harsh, forget to stay in character, and are unavailable at 11pm before a big demo. The SalesWana AI buyer is always skeptical, never breaks character, and is available on demand. It also scores your performance objectively, which no colleague can do consistently.',
     },
     {
         question: 'What types of sales scenarios can I practice?',
@@ -38,7 +38,7 @@ const faqs = [
     {
         question: 'Can I create custom scenarios specific to my industry?',
         answer:
-            'On the Professional and Enterprise plans, yes. Upload product docs, competitive battle cards, or CRM notes and RealSales will train the AI buyer to challenge you on your actual differentiators, pricing objections, and common deal blockers.',
+            'On the Professional and Enterprise plans, yes. Upload product docs, competitive battle cards, or CRM notes and SalesWana will train the AI buyer to challenge you on your actual differentiators, pricing objections, and common deal blockers.',
     },
     {
         question: 'What integrations are currently supported?',
@@ -143,11 +143,11 @@ const FAQSection = () => {
                         >
                             {' '}
                             <a
-                                href="mailto:hello@realsales.ai"
+                                href="mailto:hello@saleswana.com"
                                 className="transition-colors underline underline-offset-2"
                                 style={{ color: t.accent }}
                             >
-                                hello@realsales.ai
+                                hello@saleswana.com
                             </a>
                         </SectionDesc>
                     </div>

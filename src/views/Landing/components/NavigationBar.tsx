@@ -199,7 +199,7 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
                             src={t.logoSrc}
                             width={110}
                             height={36}
-                            alt="RealSales"
+                            alt="SalesWana"
                             className="h-8 w-auto"
                         />
                     </Link>
@@ -426,7 +426,7 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
                                     src={t.logoSrc}
                                     width={110}
                                     height={36}
-                                    alt="RealSales"
+                                    alt="SalesWana"
                                     className="h-8 w-auto"
                                 />
                             </Link>

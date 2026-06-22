@@ -141,7 +141,7 @@ function BookDemoContent({ mode, toggleMode }: { mode: Mode; toggleMode: () => v
                                         </div>
 
                                         <h1 className="text-3xl sm:text-4xl md:text-5xl xl:text-[3.25rem] font-bold tracking-tight leading-[1.1] mb-4" style={{ color: t.text }}>
-                                            See RealSales<br />
+                                            See SalesWana<br />
                                             <span style={{ color: '#0CAF60' }}>live in 30 min</span>
                                         </h1>
 

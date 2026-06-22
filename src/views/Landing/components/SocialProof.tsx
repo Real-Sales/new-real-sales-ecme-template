@@ -160,7 +160,7 @@ const SocialProof = () => {
                     />
                     <SectionDesc
                         t={t}
-                        text="Revenue teams across industries use RealSales to train faster and close more."
+                        text="Revenue teams across industries use SalesWana to train faster and close more."
                         className="max-w-md mx-auto"
                     />
                 </div>

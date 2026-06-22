@@ -224,7 +224,7 @@ const DashboardSection = () => {
                         />
                         <SectionDesc
                             t={t}
-                            text="Generic feedback is useless. RealSales gives managers and reps the specific data they need to improve - one session at a time."
+                            text="Generic feedback is useless. SalesWana gives managers and reps the specific data they need to improve - one session at a time."
                             className="leading-relaxed mb-10"
                         />
 

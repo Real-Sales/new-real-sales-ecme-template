@@ -48,7 +48,7 @@ const Plans = ({
         const title = planDisplayTitle(plan)
         if (plan.is_custom || plan.plan_type.toLowerCase() === 'enterprise') {
             window.location.href =
-                'mailto:sales@realsales.com?subject=RealSales%20Enterprise%20plan'
+                'mailto:sales@saleswana.com?subject=SalesWana%20Enterprise%20plan'
             return
         }
         dispatch(
@@ -133,7 +133,7 @@ const Plans = ({
                     >
                         <div className="mb-4 flex flex-wrap items-center gap-2">
                             <span className="text-lg font-bold tracking-tight">
-                                RealSales
+                                SalesWana
                             </span>
                             <Tag className="rounded-full border-0 bg-amber-100 px-2.5 py-0.5 text-xs font-semibold uppercase text-amber-900 dark:bg-amber-500/20 dark:text-amber-200">
                                 Punctuate

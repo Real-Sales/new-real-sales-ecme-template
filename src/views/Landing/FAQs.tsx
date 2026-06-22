@@ -24,38 +24,38 @@ interface FAQItem {
 const faqData: FAQItem[] = [
     {
         id: 1,
-        question: 'What is RealSales?',
-        answer: 'RealSales is an AI-powered sales practice platform that lets sales professionals rehearse real buyer conversations using live, voice-based AI personas. It helps reps improve discovery, objection handling, negotiation, and closing skills in realistic, risk-free scenarios.',
+        question: 'What is SalesWana?',
+        answer: 'SalesWana is an AI-powered sales practice platform that lets sales professionals rehearse real buyer conversations using live, voice-based AI personas. It helps reps improve discovery, objection handling, negotiation, and closing skills in realistic, risk-free scenarios.',
     },
     {
         id: 2,
         question: 'How is this different from traditional sales training?',
-        answer: 'Traditional sales training is static and theory-driven. RealSales is interactive and adaptive. Instead of watching videos or role-playing with peers, reps engage in dynamic conversations that evolve based on what they say—just like real buyers do.',
+        answer: 'Traditional sales training is static and theory-driven. SalesWana is interactive and adaptive. Instead of watching videos or role-playing with peers, reps engage in dynamic conversations that evolve based on what they say—just like real buyers do.',
     },
     {
         id: 3,
-        question: 'Who is RealSales built for?',
-        answer: 'RealSales is designed for:\n\n• Sales representatives looking to sharpen real-world selling skills\n• Sales managers who want measurable coaching insights\n• Revenue leaders aiming to improve consistency and reduce ramp time\n\nIt works for individuals as well as growing sales teams.',
+        question: 'Who is SalesWana built for?',
+        answer: 'SalesWana is designed for:\n\n• Sales representatives looking to sharpen real-world selling skills\n• Sales managers who want measurable coaching insights\n• Revenue leaders aiming to improve consistency and reduce ramp time\n\nIt works for individuals as well as growing sales teams.',
     },
     {
         id: 4,
-        question: 'Does RealSales use scripts or predefined answers?',
-        answer: 'No. RealSales does not rely on scripts. Each AI buyer responds dynamically based on your tone, logic, confidence, and strategy. This ensures every conversation feels natural, unpredictable, and realistic.',
+        question: 'Does SalesWana use scripts or predefined answers?',
+        answer: 'No. SalesWana does not rely on scripts. Each AI buyer responds dynamically based on your tone, logic, confidence, and strategy. This ensures every conversation feels natural, unpredictable, and realistic.',
     },
     {
         id: 5,
-        question: 'Can RealSales adapt to different industries and products?',
-        answer: 'Yes. RealSales supports multiple industries, deal types, and sales motions. Scenarios can be customized based on product complexity, buyer persona, and stage of the sales cycle.',
+        question: 'Can SalesWana adapt to different industries and products?',
+        answer: 'Yes. SalesWana supports multiple industries, deal types, and sales motions. Scenarios can be customized based on product complexity, buyer persona, and stage of the sales cycle.',
     },
     {
         id: 6,
-        question: 'Is RealSales voice-based or text-based?',
-        answer: 'RealSales primarily supports voice-based conversations to simulate real sales calls. This helps reps practice delivery, confidence, and real-time thinking—not just what to say, but how to say it.',
+        question: 'Is SalesWana voice-based or text-based?',
+        answer: 'SalesWana primarily supports voice-based conversations to simulate real sales calls. This helps reps practice delivery, confidence, and real-time thinking—not just what to say, but how to say it.',
     },
     {
         id: 7,
         question: 'What kind of feedback do users get after a session?',
-        answer: 'After each session, RealSales provides structured feedback across key areas such as:\n\n• Discovery quality\n• Objection handling\n• Value articulation\n• Close readiness\n\nThis helps reps understand what worked and what to improve immediately.',
+        answer: 'After each session, SalesWana provides structured feedback across key areas such as:\n\n• Discovery quality\n• Objection handling\n• Value articulation\n• Close readiness\n\nThis helps reps understand what worked and what to improve immediately.',
     },
     {
         id: 8,
@@ -64,8 +64,8 @@ const faqData: FAQItem[] = [
     },
     {
         id: 9,
-        question: 'Is RealSales meant to replace sales managers or coaches?',
-        answer: 'No. RealSales complements human coaching. It handles repetitive practice and performance analysis, allowing managers to focus on higher-impact coaching and strategy.',
+        question: 'Is SalesWana meant to replace sales managers or coaches?',
+        answer: 'No. SalesWana complements human coaching. It handles repetitive practice and performance analysis, allowing managers to focus on higher-impact coaching and strategy.',
     },
     {
         id: 10,
@@ -74,27 +74,27 @@ const faqData: FAQItem[] = [
     },
     {
         id: 11,
-        question: 'Is RealSales suitable for remote or distributed teams?',
-        answer: 'Absolutely. RealSales is cloud-based and works equally well for in-office, remote, and hybrid sales teams.',
+        question: 'Is SalesWana suitable for remote or distributed teams?',
+        answer: 'Absolutely. SalesWana is cloud-based and works equally well for in-office, remote, and hybrid sales teams.',
     },
     {
         id: 12,
         question: 'How is data privacy handled?',
-        answer: 'All conversations and performance data are securely processed and stored. RealSales follows best practices for data security and access control to ensure user information remains protected.',
+        answer: 'All conversations and performance data are securely processed and stored. SalesWana follows best practices for data security and access control to ensure user information remains protected.',
     },
     {
         id: 13,
-        question: 'Can RealSales be used for onboarding new hires?',
-        answer: 'Yes. Many teams use RealSales to reduce ramp-up time by allowing new hires to practice real scenarios before speaking with actual customers.',
+        question: 'Can SalesWana be used for onboarding new hires?',
+        answer: 'Yes. Many teams use SalesWana to reduce ramp-up time by allowing new hires to practice real scenarios before speaking with actual customers.',
     },
     {
         id: 14,
-        question: 'Do I need technical knowledge to use RealSales?',
-        answer: 'No. RealSales is designed to be intuitive and easy to use. If you can have a sales conversation, you can use RealSales.',
+        question: 'Do I need technical knowledge to use SalesWana?',
+        answer: 'No. SalesWana is designed to be intuitive and easy to use. If you can have a sales conversation, you can use SalesWana.',
     },
     {
         id: 15,
-        question: 'How do I get access to RealSales?',
+        question: 'How do I get access to SalesWana?',
         answer: 'You can start by booking a demo or signing up directly from the platform. Our team will help you choose the right setup based on your goals.',
     },
 ]
@@ -187,7 +187,7 @@ const FAQs = () => {
                             </span>
                         </h1>
                         <p className="text-lg text-gray-600 dark:text-gray-300">
-                            Everything you need to know about RealSales, answered in one place.
+                            Everything you need to know about SalesWana, answered in one place.
                         </p>
                     </motion.div>
                 </Container>

@@ -20,7 +20,7 @@ const footerLinks = {
     Company: [
         { label: 'About', href: '/about' },
         { label: 'Careers', href: '#' },
-        { label: 'Contact', href: 'mailto:hello@realsales.ai' },
+        { label: 'Contact', href: 'mailto:hello@saleswana.com' },
         { label: 'Partners', href: '#' },
     ],
     Legal: [
@@ -52,11 +52,11 @@ const LandingFooter = () => {
                                 src={t.logoSrc}
                                 width={110}
                                 height={36}
-                                alt="RealSales"
+                                alt="SalesWana"
                                 className="h-8 w-auto"
                             />
                         </a>
-                        <p className="text-xs leading-relaxed max-w-[180px]" style={{ color: t.textDim }}>
+                        <p className="text-xs leading-relaxed max-w-[180px]" style={{ color: t.textMuted }}>
                             AI-powered sales training for revenue teams that want to close more deals.
                         </p>
                         <div className="flex items-center gap-2 mt-5">
@@ -73,8 +73,8 @@ const LandingFooter = () => {
                                         aria-label={item.label}
                                         className="w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2"
                                         style={{
-                                            border: `1px solid ${t.border}`,
-                                            color: t.textMuted,
+                                            border: `1px solid ${t.borderStrong}`,
+                                            color: t.textSecondary,
                                             backgroundColor: t.surface,
                                         }}
                                     >
@@ -89,7 +89,7 @@ const LandingFooter = () => {
                         <div key={category}>
                             <p
                                 className="text-xs font-semibold uppercase tracking-[0.15em] mb-4"
-                                style={{ color: t.textFaint }}
+                                style={{ color: t.textSecondary }}
                             >
                                 {category}
                             </p>
@@ -100,7 +100,7 @@ const LandingFooter = () => {
                                             <button
                                                 onClick={() => handleNavClick(link.href)}
                                                 className="text-xs transition-colors duration-200 hover:underline underline-offset-4"
-                                                style={{ color: t.textDim }}
+                                                style={{ color: t.textMuted }}
                                             >
                                                 {link.label}
                                             </button>
@@ -108,7 +108,7 @@ const LandingFooter = () => {
                                             <a
                                                 href={link.href}
                                                 className="text-xs transition-colors duration-200 hover:underline underline-offset-4"
-                                                style={{ color: t.textDim }}
+                                                style={{ color: t.textMuted }}
                                             >
                                                 {link.label}
                                             </a>
@@ -116,7 +116,7 @@ const LandingFooter = () => {
                                             <a
                                                 href={link.href}
                                                 className="text-xs transition-colors duration-200 hover:underline underline-offset-4"
-                                                style={{ color: t.textDim }}
+                                                style={{ color: t.textMuted }}
                                             >
                                                 {link.label}
                                             </a>
@@ -132,8 +132,8 @@ const LandingFooter = () => {
                     className="py-6 flex flex-col sm:flex-row items-center justify-between gap-4"
                     style={{ borderTop: `1px solid ${t.border}` }}
                 >
-                    <p className="text-[11px]" style={{ color: t.textDim }}>
-                        &copy; {year} RealSales. All rights reserved.
+                    <p className="text-[11px]" style={{ color: t.textMuted }}>
+                        &copy; {year} SalesWana. All rights reserved.
                     </p>
                     <div className="flex items-center gap-6">
                         {['Privacy', 'Terms'].map((label) => (
@@ -141,17 +141,17 @@ const LandingFooter = () => {
                                 key={label}
                                 href="#"
                                 className="text-[11px] transition-colors duration-200 hover:underline underline-offset-4"
-                                style={{ color: t.textDim }}
+                                style={{ color: t.textMuted }}
                             >
                                 {label}
                             </a>
                         ))}
                         <a
-                            href="mailto:hello@realsales.ai"
+                            href="mailto:hello@saleswana.com"
                             className="text-[11px] transition-colors duration-200 hover:underline underline-offset-4"
-                            style={{ color: t.textDim }}
+                            style={{ color: t.textMuted }}
                         >
-                            hello@realsales.ai
+                            hello@saleswana.com
                         </a>
                     </div>
                 </div>
