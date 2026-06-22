@@ -24,6 +24,7 @@ type ScenarioFormSchema = {
     scenario: string
     message?: string
     document_content?: string
+    document_filename?: string
 }
 
 const validationSchema = z.object({
@@ -36,6 +37,7 @@ const validationSchema = z.object({
     scenario: z.string().min(1, { message: 'Scenario description is required' }).max(1000, 'Scenario too long!'),
     message: z.string().max(1000, 'Message too long!').optional(),
     document_content: z.string().optional(),
+    document_filename: z.string().optional(),
 })
 
 const defaultModeOptions: ScenarioFormOption[] = [
@@ -78,7 +80,6 @@ const ScenarioForm = ({
     onSubmit,
     onCancel,
 }: ScenarioFormProps) => {
-    const [uploadedFile, setUploadedFile] = useState<File | null>(null)
     const [personaPopupOpen, setPersonaPopupOpen] = useState(false)
     const [personaForPopup, setPersonaForPopup] = useState<AiPersonaListItem | null>(null)
     const [personaMenuOpenByUser, setPersonaMenuOpenByUser] = useState(false)
@@ -107,11 +108,13 @@ const ScenarioForm = ({
             scenario: '',
             message: '',
             document_content: '',
+            document_filename: '',
         },
         resolver: zodResolver(validationSchema),
     })
 
     const scenarioValue = watch('scenario')
+    const documentFilename = watch('document_filename')
     const selectedPersonaId = watch('persona')
     const selectedPersona = personasData?.find((p) => p.persona_id === selectedPersonaId)
 
@@ -141,7 +144,7 @@ const ScenarioForm = ({
             const response = await apiUploadDocument(file)
             if (response.success && response.summary) {
                 setValue('document_content', response.summary)
-                setUploadedFile(file)
+                setValue('document_filename', response.filename)
             } else {
                 setUploadError(response.error ?? 'Upload failed')
             }
@@ -419,9 +422,9 @@ const ScenarioForm = ({
                             <p className="mt-1 text-xs opacity-60 dark:text-white">
                                 PDF, DOC, DOCX (Max 10MB). Content will be extracted and used as document content.
                             </p>
-                            {uploadedFile && (
+                            {documentFilename && (
                                 <p className="mt-2 text-sm text-primary font-medium">
-                                    Uploaded: {uploadedFile.name}
+                                    Uploaded: {documentFilename}
                                 </p>
                             )}
                             {uploadError && (

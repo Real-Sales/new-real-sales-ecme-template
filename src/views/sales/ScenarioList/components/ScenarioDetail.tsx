@@ -7,6 +7,7 @@ import dayjs from 'dayjs'
 import { FcImageFile } from 'react-icons/fc'
 import { TbInfoCircle } from 'react-icons/tb'
 import type { Scenario, ScenarioSession, ScenarioLibraryPersona } from '../types'
+import MarkdownContent from '@/components/shared/MarkdownContent'
 
 type ScenarioDetailProps = {
     scenario: Scenario | ScenarioSession
@@ -191,6 +192,10 @@ const ScenarioDetail = ({ scenario }: ScenarioDetailProps) => {
     const modeName = isLibraryScenario(scenario) ? (scenario.mode?.name ?? '') : (scenario as ScenarioSession).mode
     const personaName = isLibraryScenario(scenario) ? (scenario.persona?.name ?? '') : (scenario as ScenarioSession).persona
     const modeStyle = getModeStyle(modeName)
+    const documentFilename = isLibraryScenario(scenario)
+        ? scenario.document_filename
+        : (scenario as ScenarioSession).document_name
+    const documentContent = isLibraryScenario(scenario) ? scenario.document_content : undefined
 
     return (
         <div className="space-y-7">
@@ -289,23 +294,24 @@ const ScenarioDetail = ({ scenario }: ScenarioDetailProps) => {
                 </div>
             )}
 
-            {/* Document content (API) or document name (legacy) */}
-            {(isLibraryScenario(scenario) ? scenario.document_content : (scenario as ScenarioSession).document_name) && (
+            {/* Attached document */}
+            {(documentFilename || documentContent) && (
                 <div>
                     <span className="font-semibold block mb-2">Document</span>
                     <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
-                        <div className="flex items-center gap-3">
-                            <div className="text-4xl">
-                                <FcImageFile />
+                        {documentFilename && (
+                            <div className="flex items-center gap-3 pb-3 mb-3 border-b border-gray-200 dark:border-gray-700">
+                                <div className="text-3xl shrink-0">
+                                    <FcImageFile />
+                                </div>
+                                <p className="text-sm font-semibold heading-text break-all">{documentFilename}</p>
                             </div>
-                            <div className="min-w-0 flex-1">
-                                <p className="text-sm heading-text whitespace-pre-wrap leading-relaxed">
-                                    {isLibraryScenario(scenario)
-                                        ? scenario.document_content
-                                        : (scenario as ScenarioSession).document_name}
-                                </p>
+                        )}
+                        {documentContent && (
+                            <div className="max-h-[320px] overflow-y-auto pr-1 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 dark:[&::-webkit-scrollbar-thumb]:bg-gray-600">
+                                <MarkdownContent content={documentContent} />
                             </div>
-                        </div>
+                        )}
                     </div>
                 </div>
             )}

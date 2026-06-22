@@ -261,6 +261,7 @@ const ScenarioList = () => {
             title: values.title || null,
             scenario_text: values.scenario || null,
             document_content: values.document_content || null,
+            document_filename: values.document_filename || null,
             time_limit_days: values.deadline ?? 7,
             message: values.message || null,
         }
@@ -476,6 +477,8 @@ const ScenarioList = () => {
                             deadline: editingScenario.time_limit_days,
                             scenario: editingScenario.scenario_text || '',
                             message: editingScenario.message || '',
+                            document_content: editingScenario.document_content || '',
+                            document_filename: editingScenario.document_filename || '',
                         } : undefined}
                         isEditMode={isEditMode}
                         modeOptions={modeOptions}

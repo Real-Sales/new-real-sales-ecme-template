@@ -51,6 +51,7 @@ export type ScenarioLibraryItem = {
     title: string
     scenario_text: string
     document_content?: string
+    document_filename?: string | null
     message: string
     time_limit_days: number
     created_at: string
@@ -115,6 +116,7 @@ export type ScenarioDashboardDataForSalesRep = {
     title: string | null
     time_limit_days: number
     created_at: string
+    assigned_at: string
     session_status: string
     is_completed: boolean
     days_remaining: number | null
@@ -204,8 +206,8 @@ export function mapSalesRepDashboardRowToScenario(
         scenario_text: row.scenario_text ?? '',
         message: row.message ?? '',
         time_limit_days: row.time_limit_days,
-        created_at: row.created_at,
-        updated_at: row.created_at,
+        created_at: row.assigned_at ?? row.created_at,
+        updated_at: row.assigned_at ?? row.created_at,
         assigned_sessions_count: 0,
         users_assigned_count: 0,
         users_completed_count: row.is_completed ? 1 : 0,
@@ -312,6 +314,7 @@ export type CreateScenarioRequest = {
     title?: string | null
     scenario_text?: string | null
     document_content?: string | null
+    document_filename?: string | null
     time_limit_days?: number
     message?: string | null
 }
