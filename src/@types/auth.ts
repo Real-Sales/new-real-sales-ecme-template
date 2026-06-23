@@ -87,6 +87,7 @@ export type CompanyProfile = {
     sales_company_id: string
     name: string
     industry: string | null
+    industry_id: string | null
     address: string | null
     phone_number: string | null
     email: string | null

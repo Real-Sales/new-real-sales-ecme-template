@@ -8,6 +8,12 @@ export function canSendTeamInvite(role: string | undefined): boolean {
 	return r === 'company_owner' || r === 'sales_manager' || r === 'manager'
 }
 
+export function canLoadAllPersonas(role: string | undefined): boolean {
+    if (!role) return false
+    const r = role.toLowerCase()
+    return r === 'admin' || r === 'super_admin'
+}
+
 /** Scenario library management (create, assign, library tab). */
 export function canManageScenarioLibrary(role: string | undefined): boolean {
 	return canSendTeamInvite(role)

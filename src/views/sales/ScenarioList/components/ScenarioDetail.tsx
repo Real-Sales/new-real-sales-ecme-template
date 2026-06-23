@@ -245,14 +245,15 @@ const ScenarioDetail = ({ scenario }: ScenarioDetailProps) => {
                             </button>
                         </span>
                         <p className="heading-text font-bold">{scenario.persona.name}</p>
-                    <Dialog
-                        isOpen={personaPopupOpen}
-                        onClose={() => setPersonaPopupOpen(false)}
-                        onRequestClose={() => setPersonaPopupOpen(false)}
-                        width={560}
-                        contentClassName="!p-6 !rounded-xl !bg-gray-100 dark:!bg-gray-900"
-                        overlayClassName="!bg-black/20 dark:!bg-gray-900/40 !backdrop-blur-md"
-                    >
+                        <Dialog
+                            isOpen={personaPopupOpen}
+                            onClose={() => setPersonaPopupOpen(false)}
+                            onRequestClose={() => setPersonaPopupOpen(false)}
+                            width={560}
+                            contentClassName="!p-6 !rounded-xl !bg-gray-100 dark:!bg-gray-900 max-h-[min(85vh,720px)] overflow-y-auto"
+                            overlayClassName="!bg-black/20 dark:!bg-gray-900/40 !backdrop-blur-md"
+                            shouldFocusAfterRender={false}
+                        >
                             <PersonaCard persona={scenario.persona} />
                         </Dialog>
                     </div>
@@ -264,10 +265,10 @@ const ScenarioDetail = ({ scenario }: ScenarioDetailProps) => {
                 )}
             </div>
 
-            {/* Created Date */}
-            <InfoField 
-                title="Created Date" 
-                value={dayjs(scenario.created_at).format('DD MMM YYYY')} 
+            {/* Created / assigned date */}
+            <InfoField
+                title={scenario.assigned_at ? 'Assigned Date' : 'Created Date'}
+                value={dayjs(scenario.assigned_at ?? scenario.created_at).format('DD MMM YYYY')}
             />
 
             {/* Scenario */}

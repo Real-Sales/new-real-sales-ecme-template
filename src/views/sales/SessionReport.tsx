@@ -6,9 +6,12 @@ import Loading from '@/components/shared/Loading'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import { TbArrowLeft, TbDownload, TbRefresh } from 'react-icons/tb'
+import toast from '@/components/ui/toast'
+import Notification from '@/components/ui/Notification'
 import {
     apiEnsurePerformanceReport,
-    apiDownloadPerformanceReportPdf,
+    downloadPerformanceReportPdf,
+    getPerformanceReportPdfErrorMessage,
     type CoachingSummary,
     type PerformanceReportPayload,
     type ReportCategory,
@@ -165,17 +168,13 @@ const SessionReport = () => {
         if (!sessionId || downloading) return
         try {
             setDownloading(true)
-            const blob = await apiDownloadPerformanceReportPdf(sessionId)
-            const url = URL.createObjectURL(blob)
-            const a = document.createElement('a')
-            a.href = url
-            a.download = `performance_report_${sessionId}.pdf`
-            document.body.appendChild(a)
-            a.click()
-            a.remove()
-            URL.revokeObjectURL(url)
-        } catch {
-            /* swallow */
+            await downloadPerformanceReportPdf(sessionId)
+        } catch (err: unknown) {
+            toast.push(
+                <Notification title="Error" type="danger">
+                    {getPerformanceReportPdfErrorMessage(err)}
+                </Notification>,
+            )
         } finally {
             setDownloading(false)
         }

@@ -28,7 +28,10 @@ import Notification from '@/components/ui/Notification'
 import type { Scenario } from './types'
 import { mapSalesRepDashboardRowToScenario } from './types'
 import { apiGetSalesRepScenarioDashboard } from '@/services/ScenarioLibraryService'
-import { canManageScenarioLibrary } from '@/utils/inviteAccess'
+import { canManageScenarioLibrary, canLoadAllPersonas } from '@/utils/inviteAccess'
+import { fetchUserProfile } from '@/views/profile/Settings/store/settingsSlice'
+import { scenarioToAudioVizState } from '@/utils/audioVizSessionState'
+import type { FetchPersonasParams } from './store'
 
 type FilterValues = {
     status: string
@@ -44,6 +47,10 @@ const ScenarioList = () => {
     const { pathname } = useLocation()
     const dispatch = useAppDispatch()
     const userRole = useAppSelector((state) => state.auth.user.role)
+    const companyIndustryId = useAppSelector(
+        (state) => state.auth.user.industryId || state.settings.profile?.companyIndustryId,
+    )
+    const profileInitialized = useAppSelector((state) => state.settings.profileInitialized)
     const canManageLibrary = canManageScenarioLibrary(userRole)
     const isAssignedView = pathname === '/assigned-scenarios'
 
@@ -70,6 +77,25 @@ const ScenarioList = () => {
     const [salesRepScenarios, setSalesRepScenarios] = useState<Scenario[]>([])
     const [salesRepLoading, setSalesRepLoading] = useState(false)
     const [salesRepTotalPending, setSalesRepTotalPending] = useState(0)
+    const [searchQuery, setSearchQuery] = useState('')
+    const [isDrawerOpen, setIsDrawerOpen] = useState(false)
+    const [isViewDrawerOpen, setIsViewDrawerOpen] = useState(false)
+    const [isShareDialogOpen, setIsShareDialogOpen] = useState(false)
+    const [selectedScenario, setSelectedScenario] = useState<Scenario | null>(null)
+    const [selectedScenarios, setSelectedScenarios] = useState<Scenario[]>([])
+    const [editingScenario, setEditingScenario] = useState<Scenario | null>(null)
+    const [isEditMode, setIsEditMode] = useState(false)
+    const formRef = useRef<HTMLFormElement>(null)
+    const [filters, setFilters] = useState<FilterValues>({
+        status: 'all',
+        mode: 'all',
+        persona: 'all',
+    })
+    const [tableData, setTableData] = useState({
+        pageIndex: 1,
+        pageSize: 10,
+    })
+    const [sortConfig, setSortConfig] = useState<{ key: string; order: 'asc' | 'desc' | '' }>({ key: '', order: '' })
 
     useEffect(() => {
         if (isAssignedView) return
@@ -127,35 +153,45 @@ const ScenarioList = () => {
 
     useEffect(() => {
         if (!canManageLibrary || isAssignedView) return
-        dispatch(fetchPersonas())
         dispatch(fetchModes())
     }, [dispatch, canManageLibrary, isAssignedView])
-    const [searchQuery, setSearchQuery] = useState('')
-    const [isDrawerOpen, setIsDrawerOpen] = useState(false)
-    const [isViewDrawerOpen, setIsViewDrawerOpen] = useState(false)
-    const [isShareDialogOpen, setIsShareDialogOpen] = useState(false)
-    const [selectedScenario, setSelectedScenario] = useState<Scenario | null>(null)
-    const [selectedScenarios, setSelectedScenarios] = useState<Scenario[]>([])
-    const [editingScenario, setEditingScenario] = useState<Scenario | null>(null)
-    const [isEditMode, setIsEditMode] = useState(false)
-    const formRef = useRef<HTMLFormElement>(null)
-    const [filters, setFilters] = useState<FilterValues>({
-        status: 'all',
-        mode: 'all',
-        persona: 'all',
-    })
-    const [tableData, setTableData] = useState({
-        pageIndex: 1,
-        pageSize: 10,
-    })
-    const [sortConfig, setSortConfig] = useState<{ key: string; order: 'asc' | 'desc' | '' }>({ key: '', order: '' })
+
+    useEffect(() => {
+        if (!isDrawerOpen || !canManageLibrary || isAssignedView) return
+
+        if (!companyIndustryId && !canLoadAllPersonas(userRole) && !profileInitialized) {
+            dispatch(fetchUserProfile())
+            return
+        }
+
+        const params: FetchPersonasParams = {}
+        if (!canLoadAllPersonas(userRole) && companyIndustryId) {
+            params.industryId = companyIndustryId
+        }
+        if (isEditMode && editingScenario?.persona?.persona_id) {
+            params.includePersonaId = editingScenario.persona.persona_id
+        }
+        dispatch(fetchPersonas(params))
+    }, [
+        dispatch,
+        isDrawerOpen,
+        canManageLibrary,
+        isAssignedView,
+        userRole,
+        companyIndustryId,
+        profileInitialized,
+        isEditMode,
+        editingScenario?.persona?.persona_id,
+    ])
 
     const rawScenarios = isAssignedView ? salesRepScenarios : scenariosData
     const listLoading = isAssignedView ? salesRepLoading : scenarioLibraryLoading
 
     const handleSalesRepOpenSession = (scenario: Scenario) => {
         if (!scenario.session_id) return
-        navigate(`/audio-visualizer/${scenario.session_id}`)
+        navigate(`/audio-visualizer/${scenario.session_id}`, {
+            state: scenarioToAudioVizState(scenario),
+        })
     }
 
     const handleSalesRepViewReport = (scenario: Scenario) => {

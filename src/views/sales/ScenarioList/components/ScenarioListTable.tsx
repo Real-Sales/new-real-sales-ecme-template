@@ -385,11 +385,12 @@ const ScenarioListTable = ({
             },
             {
                 header: 'Created',
-                accessorKey: 'created_at',
+                id: 'assigned_at',
+                accessorFn: (row) => row.assigned_at ?? row.created_at,
                 enableSorting: false,
                 cell: (props) => (
                     <span className="font-semibold">
-                        {dayjs(props.row.original.created_at).format('DD/MM/YYYY')}
+                        {dayjs(props.row.original.assigned_at ?? props.row.original.created_at).format('DD/MM/YYYY')}
                     </span>
                 ),
             },

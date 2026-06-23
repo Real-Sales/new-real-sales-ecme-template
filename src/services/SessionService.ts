@@ -209,6 +209,32 @@ export async function apiDownloadPerformanceReportPdf(sessionId: string) {
     })
 }
 
+export function getPerformanceReportPdfErrorMessage(err: unknown): string {
+    const ax = err as { response?: { status?: number; data?: { detail?: string } } }
+    const status = ax?.response?.status
+    const detail = ax?.response?.data?.detail ?? ''
+    if (status === 404) {
+        return detail || 'Report not found. Generate the report before downloading the PDF.'
+    }
+    if (status === 500) {
+        return detail || 'PDF generation failed. Please try again later.'
+    }
+    return detail || 'Failed to download PDF.'
+}
+
+/** GET /performance-reports/{session_id}/pdf — trigger browser download. */
+export async function downloadPerformanceReportPdf(sessionId: string): Promise<void> {
+    const blob = await apiDownloadPerformanceReportPdf(sessionId)
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `performance_report_${sessionId}.pdf`
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(url)
+}
+
 /** In-flight ensure per session — dedupes React Strict Mode dev double-mount and parallel navigations. */
 const ensurePerformanceReportPromises = new Map<
     string,

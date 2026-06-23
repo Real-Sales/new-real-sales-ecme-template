@@ -11,6 +11,7 @@ import {
 } from '@/services/SessionService';
 import { apiGetGeminiEphemeralToken } from '@/services/GeminiService';
 import type { ChatHistoryItem } from '@/services/GeminiService';
+import type { AudioVizSessionState } from '@/utils/audioVizSessionState';
 import ConfirmDialog from '@/components/shared/ConfirmDialog';
 import Loading from '@/components/shared/Loading';
 import ScrollBar from '@/components/ui/ScrollBar';
@@ -391,27 +392,24 @@ export default function InteractiveVisualizerSession() {
 
   const sessionData = useMemo(() => {
     const fromState = location.state as Record<string, unknown> | null | undefined;
+    let resolved: AudioVizSessionState | null = null;
     if (fromState && typeof fromState === 'object' && (fromState as { persona?: unknown }).persona) {
-      return fromState as {
-        mode?: string
-        persona?: { name?: string; role?: string; avatar?: string }
-        scenarios?: string[]
-      };
-    }
-    if (sessionId) {
+      resolved = fromState as AudioVizSessionState;
+    } else if (sessionId) {
       try {
         const raw = sessionStorage.getItem(audioVizSessionMetaKey(sessionId));
         if (raw) {
-          const parsed = JSON.parse(raw) as { persona?: unknown; mode?: string };
-          if (parsed?.persona) return parsed as typeof parsed & {
-            persona: { name?: string; role?: string; avatar?: string }
-          };
+          const parsed = JSON.parse(raw) as AudioVizSessionState;
+          if (parsed?.persona) resolved = parsed;
         }
       } catch {
         /* ignore */
       }
     }
-    return (fromState as { mode?: string; persona?: { name?: string; role?: string; avatar?: string } }) ?? null;
+    if (!resolved && fromState && typeof fromState === 'object') {
+      resolved = fromState as AudioVizSessionState;
+    }
+    return resolved;
   }, [location.state, sessionId]);
 
   useEffect(() => {
@@ -509,8 +507,8 @@ export default function InteractiveVisualizerSession() {
     return SESSION_DURATION;
   });
   
-  const userName = sessionData?.persona?.name || 'Tony Romano';
-  const userRole = sessionData?.persona?.role || 'Prospecting · Operations Manager';
+  const userName = sessionData?.persona?.name || '—';
+  const userRole = sessionData?.persona?.role || '—';
   const userAvatar = sessionData?.persona?.avatar;
 
   const [hints, setHints] = useState<Hint[]>(AVAILABLE_HINTS);

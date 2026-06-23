@@ -64,6 +64,7 @@ const emptyProfile: GetSettingsProfileResponse = {
     hasCompany: false,
     salesCompanyId: '',
     companyIndustry: '',
+    companyIndustryId: '',
     selectedProductIds: [],
 }
 
@@ -105,6 +106,7 @@ export function mapUserProfileToSettings(
         hasCompany: Boolean(company),
         salesCompanyId: company?.sales_company_id ?? '',
         companyIndustry: company?.industry ?? '',
+        companyIndustryId: company?.industry_id ?? '',
         selectedProductIds: companyProducts.map((p) => p.product_id).filter(Boolean),
     }
 }
@@ -126,6 +128,7 @@ export function mapUserProfileToAuthUser(
         companyId: profile.company_id ?? company?.sales_company_id ?? '',
         companyName: company?.name ?? '',
         industry: company?.industry ?? '',
+        industryId: company?.industry_id ?? '',
         industryProducts: (company?.products ?? [])
             .map((p) => p.product_id)
             .filter(Boolean),

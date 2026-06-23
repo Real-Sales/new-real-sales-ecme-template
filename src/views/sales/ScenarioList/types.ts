@@ -66,6 +66,7 @@ export type ScenarioLibraryItem = {
     days_remaining?: number | null
     creator_name?: string | null
     end_time?: string | null
+    assigned_at?: string
     user_name?: string
     user_email?: string
     user_id?: string
@@ -206,7 +207,8 @@ export function mapSalesRepDashboardRowToScenario(
         scenario_text: row.scenario_text ?? '',
         message: row.message ?? '',
         time_limit_days: row.time_limit_days,
-        created_at: row.assigned_at ?? row.created_at,
+        created_at: row.created_at,
+        assigned_at: row.assigned_at,
         updated_at: row.assigned_at ?? row.created_at,
         assigned_sessions_count: 0,
         users_assigned_count: 0,

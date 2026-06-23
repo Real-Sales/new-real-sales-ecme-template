@@ -59,6 +59,7 @@ export type GetSettingsProfileResponse = {
     hasCompany?: boolean
     salesCompanyId?: string
     companyIndustry?: string
+    companyIndustryId?: string
     selectedProductIds?: string[]
 }
 

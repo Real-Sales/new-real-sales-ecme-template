@@ -17,6 +17,11 @@ import type {
 
 export const SLICE_NAME = 'scenarioLibrary'
 
+export type FetchPersonasParams = {
+    industryId?: string
+    includePersonaId?: string
+}
+
 export interface ScenarioLibraryState {
     scenarioLibraryLoading: boolean
     initialized: boolean
@@ -47,9 +52,9 @@ export const fetchScenarioLibrary = createAsyncThunk(
 
 export const fetchPersonas = createAsyncThunk(
     SLICE_NAME + '/fetchPersonas',
-    async (_, { rejectWithValue }) => {
+    async (params: FetchPersonasParams | undefined, { rejectWithValue }) => {
         try {
-            const data = await apiGetAiPersonas()
+            const data = await apiGetAiPersonas(params)
             return Array.isArray(data) ? data : []
         } catch (error: unknown) {
             const err = error as { response?: { data?: { detail?: string } } }

@@ -63,9 +63,22 @@ export async function apiGetInteractionModes() {
     })
 }
 
-export async function apiGetAiPersonas() {
+export type FetchAiPersonasParams = {
+    industryId?: string
+    includePersonaId?: string
+}
+
+export async function apiGetAiPersonas(params?: FetchAiPersonasParams) {
+    const searchParams = new URLSearchParams()
+    if (params?.industryId) {
+        searchParams.set('industry_id', params.industryId)
+    }
+    if (params?.includePersonaId) {
+        searchParams.set('include_persona_id', params.includePersonaId)
+    }
+    const query = searchParams.toString()
     return ApiService.fetchDataWithAxios<AiPersonaListItem[]>({
-        url: endpointConfig.aiPersonas,
+        url: query ? `${endpointConfig.aiPersonas}?${query}` : endpointConfig.aiPersonas,
         method: 'get',
     })
 }

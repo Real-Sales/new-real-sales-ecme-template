@@ -6,7 +6,12 @@ import ScenarioDetail from '@/views/sales/ScenarioList/components/ScenarioDetail
 import classNames from '@/utils/classNames'
 import { TbChevronDown, TbAlertCircle, TbChecks, TbTrash, TbDownload, TbClock } from 'react-icons/tb'
 import { motion, AnimatePresence } from 'framer-motion'
-import type { ScenarioSession } from '@/views/sales/ScenarioList/types'
+import toast from '@/components/ui/toast'
+import Notification from '@/components/ui/Notification'
+import {
+    downloadPerformanceReportPdf,
+    getPerformanceReportPdfErrorMessage,
+} from '@/services/SessionService'
 
 type UserScenariosDrawerProps = {
     isOpen: boolean
@@ -141,7 +146,7 @@ const AccordionItem = ({
                                                         variant="solid"
                                                         icon={<TbDownload />}
                                                         className="bg-primary hover:bg-primary-deep text-white border-0"
-                                                        onClick={() => onDownloadReport(scenario.scenario_id)}
+                                                        onClick={() => onDownloadReport(scenario.sessionId)}
                                                     >
                                                         Download Report
                                                     </Button>
@@ -180,8 +185,16 @@ const UserScenariosDrawer = ({ isOpen, onClose, user, scenarios, onUnassignScena
         }
     }
 
-    const handleDownloadReport = (sessionId: string) => {
-        console.log('Download performance report for session:', sessionId)
+    const handleDownloadReport = async (sessionId: string) => {
+        try {
+            await downloadPerformanceReportPdf(sessionId)
+        } catch (err: unknown) {
+            toast.push(
+                <Notification title="Error" type="danger">
+                    {getPerformanceReportPdfErrorMessage(err)}
+                </Notification>,
+            )
+        }
     }
 
     const DrawerTitle = user ? (
