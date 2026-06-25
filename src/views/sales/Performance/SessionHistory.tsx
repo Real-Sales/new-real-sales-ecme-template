@@ -18,8 +18,7 @@ import type { ColumnDef } from '@/components/shared/DataTable'
 import type { OptionProps, ControlProps } from 'react-select'
 import { components } from 'react-select'
 import { type SessionHistory as SessionHistoryType } from './performanceData'
-import { apiGetSessionsByUser, apiGetInteractionMode, apiGetAiPersona } from '@/services/SessionService'
-import { useAppSelector } from '@/store'
+import { useAppSelector, useAppDispatch, fetchSessionHistory } from '@/store/slices/performance'
 
 type Option = {
     value: string
@@ -70,8 +69,7 @@ const defaultFilterValues: FilterSchema = {
 const FILTER_SESSIONS_FORM_ID = 'filter-sessions-form'
 
 const SessionHistorySection = () => {
-    const [sessions, setSessions] = useState<SessionHistoryType[]>([])
-    const [loading, setLoading] = useState(true)
+    const dispatch = useAppDispatch()
     const [currentPage, setCurrentPage] = useState(1)
     const [pageSize, setPageSize] = useState(10)
     const [filterIsOpen, setFilterIsOpen] = useState(false)
@@ -81,97 +79,25 @@ const SessionHistorySection = () => {
     const [selectedSession, setSelectedSession] = useState<SessionHistoryType | null>(null)
 
     const userId = useAppSelector((state) => state.auth.user.userId)
+    const {
+        sessionHistory: sessions,
+        sessionHistoryLoading: loading,
+        sessionHistoryInitialized,
+    } = useAppSelector(
+        (state) =>
+            state.performance?.data ?? {
+                sessionHistory: [],
+                sessionHistoryLoading: false,
+                sessionHistoryInitialized: false,
+            },
+    )
 
     useEffect(() => {
-        if (!userId) {
-            setSessions([])
-            setLoading(false)
-            return
+        if (!userId) return
+        if (!sessionHistoryInitialized && !loading) {
+            dispatch(fetchSessionHistory(userId))
         }
-
-        const fetchSessions = async () => {
-            try {
-                setLoading(true)
-                const sessionData = await apiGetSessionsByUser(userId)
-                
-                // Fetch personas and modes for all unique IDs
-                const uniquePersonaIds = Array.from(new Set(sessionData.map(s => s.persona_id)))
-                const uniqueModeIds = Array.from(new Set(sessionData.map(s => s.mode_id)))
-
-                const personaMap: Record<string, string> = {}
-                const modeMap: Record<string, string> = {}
-
-                await Promise.all([
-                    ...uniquePersonaIds.map(async (id) => {
-                        try {
-                            const details = await apiGetAiPersona(id)
-                            personaMap[id] = details.name
-                        } catch (e) {
-                            personaMap[id] = 'Unknown Persona'
-                        }
-                    }),
-                    ...uniqueModeIds.map(async (id) => {
-                        try {
-                            const details = await apiGetInteractionMode(id)
-                            modeMap[id] = details.name
-                        } catch (e) {
-                            modeMap[id] = 'Unknown Mode'
-                        }
-                    })
-                ])
-
-                const formattedSessions: SessionHistoryType[] = sessionData.map(s => {
-                    const report = s.performance_report
-
-                    // Flatten categories array → { category_key: score, ... }
-                    const flatMetrics: Record<string, number> = {}
-                    if (typeof report?.overall_score === 'number') {
-                        flatMetrics.overall_score = report.overall_score
-                    }
-                    if (Array.isArray(report?.categories)) {
-                        ;(report.categories as { name: string; score: number }[]).forEach((cat) => {
-                            if (cat.name && typeof cat.score === 'number') {
-                                const key = cat.name
-                                    .toLowerCase()
-                                    .replace(/\s+/g, '_')
-                                    .replace(/[^a-z0-9_]/g, '')
-                                flatMetrics[key] = cat.score
-                            }
-                        })
-                    }
-
-                    // Extract coaching summary string from flat or nested shapes
-                    const cs = report?.coaching_summary as string | { summary?: string } | undefined
-                    const coachingSummaryText: string | undefined =
-                        typeof cs === 'string'
-                            ? cs
-                            : typeof cs?.summary === 'string'
-                              ? cs.summary
-                              : undefined
-
-                    return {
-                        id: s.session_id,
-                        persona: personaMap[s.persona_id],
-                        mode: modeMap[s.mode_id],
-                        date: s.start_time,
-                        duration: s.duration ?? 0,
-                        overallScore: report?.overall_score ?? 0,
-                        status: s.status,
-                        coachingSummary: coachingSummaryText,
-                        metrics: Object.keys(flatMetrics).length > 0 ? flatMetrics : undefined,
-                    }
-                })
-
-                setSessions(formattedSessions)
-            } catch (error) {
-                console.error('Failed to fetch sessions:', error)
-            } finally {
-                setLoading(false)
-            }
-        }
-
-        fetchSessions()
-    }, [userId])
+    }, [dispatch, userId, sessionHistoryInitialized, loading])
 
     const personaOptions: Option[] = useMemo(() => [
         { value: 'all', label: 'All Personas' },

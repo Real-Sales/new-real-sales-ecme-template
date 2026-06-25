@@ -84,7 +84,7 @@ const StatItem = ({
     )
 }
 
-const RealSalesHero = () => {
+const SalesWanaHero = () => {
     const navigate = useNavigate()
     const t = useLandingTheme()
     const [currentObjection, setCurrentObjection] = useState(0)
@@ -415,4 +415,4 @@ const RealSalesHero = () => {
     )
 }
 
-export default RealSalesHero
+export default SalesWanaHero

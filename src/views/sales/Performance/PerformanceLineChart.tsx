@@ -20,6 +20,7 @@ const PerformanceLineChart = () => {
     const {
         monthlyTrend,
         trendLoading,
+        trendInitialized,
     } = useAppSelector(
         (state) =>
             state.performance?.data ?? {
@@ -28,6 +29,7 @@ const PerformanceLineChart = () => {
                 monthlyTrend: null,
                 performanceLoading: false,
                 trendLoading: false,
+                trendInitialized: false,
                 initialized: false,
                 error: null,
                 notification: null,
@@ -35,10 +37,10 @@ const PerformanceLineChart = () => {
     )
 
     useEffect(() => {
-        if (userId) {
+        if (userId && !trendInitialized && !trendLoading) {
             dispatch(fetchMonthlyTrend(userId))
         }
-    }, [dispatch, userId])
+    }, [dispatch, userId, trendInitialized, trendLoading])
 
     const trendData = monthlyTrend
     const loading = trendLoading

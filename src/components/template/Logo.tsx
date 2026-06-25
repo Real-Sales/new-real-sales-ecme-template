@@ -1,5 +1,4 @@
-import classNames from 'classnames'
-import { APP_NAME } from '@/constants/app.constant'
+import SalesWanaLogo from './SalesWanaLogo'
 import type { CommonProps } from '@/@types/common'
 
 interface LogoProps extends CommonProps {
@@ -7,9 +6,9 @@ interface LogoProps extends CommonProps {
     mode?: 'light' | 'dark'
     imgClass?: string
     logoWidth?: number | string
+    iconSize?: number
+    textSize?: string
 }
-
-const LOGO_SRC_PATH = '/img/logo/'
 
 const Logo = (props: LogoProps) => {
     const {
@@ -18,23 +17,22 @@ const Logo = (props: LogoProps) => {
         className,
         imgClass,
         style,
-        logoWidth = 'auto',
+        logoWidth,
+        iconSize,
+        textSize,
     } = props
 
     return (
-        <div
-            className={classNames('logo', className)}
-            style={{
-                ...style,
-                ...{ width: logoWidth },
-            }}
-        >
-            <img
-                className={imgClass}
-                src={`${LOGO_SRC_PATH}logo-${mode}-${type}.png`}
-                alt={`${APP_NAME} logo`}
-            />
-        </div>
+        <SalesWanaLogo
+            type={type}
+            mode={mode}
+            logoWidth={logoWidth}
+            iconSize={iconSize}
+            textSize={textSize}
+            imgClass={imgClass}
+            className={className}
+            style={style}
+        />
     )
 }
 

@@ -228,12 +228,35 @@ export async function apiGetCompanyTeamsBySalesCompany(companyId: string) {
     })
 }
 
-export async function apiGetTeamScenariosDashboard(teamId: string) {
-    return ApiService.fetchDataWithAxios<TeamScenariosDashboardResponse>({
+const teamScenariosDashboardCache = new Map<string, TeamScenariosDashboardResponse>()
+
+export function peekTeamScenariosDashboard(teamId: string) {
+    return teamScenariosDashboardCache.get(teamId) ?? null
+}
+
+export function invalidateTeamScenariosDashboardCache(teamId?: string) {
+    if (teamId) {
+        teamScenariosDashboardCache.delete(teamId)
+        return
+    }
+    teamScenariosDashboardCache.clear()
+}
+
+export async function apiGetTeamScenariosDashboard(
+    teamId: string,
+    options?: { force?: boolean },
+) {
+    if (!options?.force) {
+        const cached = teamScenariosDashboardCache.get(teamId)
+        if (cached) return cached
+    }
+    const response = await ApiService.fetchDataWithAxios<TeamScenariosDashboardResponse>({
         url: endpointConfig.teamScenariosDashboard,
         method: 'get',
         params: { team_id: teamId },
     })
+    teamScenariosDashboardCache.set(teamId, response)
+    return response
 }
 
 export async function apiUnassignScenario(sessionId: string) {

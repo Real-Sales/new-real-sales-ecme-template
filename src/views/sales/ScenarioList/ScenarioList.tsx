@@ -16,6 +16,7 @@ import scenarioLibraryReducer, {
     useAppSelector,
     useAppDispatch,
     fetchScenarioLibrary,
+    fetchSalesRepDashboard,
     fetchPersonas,
     fetchModes,
     createScenario,
@@ -26,8 +27,6 @@ import scenarioLibraryReducer, {
 import toast from '@/components/ui/toast'
 import Notification from '@/components/ui/Notification'
 import type { Scenario } from './types'
-import { mapSalesRepDashboardRowToScenario } from './types'
-import { apiGetSalesRepScenarioDashboard } from '@/services/ScenarioLibraryService'
 import { canManageScenarioLibrary, canLoadAllPersonas } from '@/utils/inviteAccess'
 import { fetchUserProfile } from '@/views/profile/Settings/store/settingsSlice'
 import { scenarioToAudioVizState } from '@/utils/audioVizSessionState'
@@ -60,6 +59,11 @@ const ScenarioList = () => {
         initialized,
         personasData,
         modesData,
+        modesLoading,
+        salesRepScenarios,
+        salesRepTotalPending,
+        salesRepLoading,
+        salesRepInitialized,
         notification,
     } = useAppSelector(
         (state) =>
@@ -69,14 +73,16 @@ const ScenarioList = () => {
                 initialized: false,
                 personasData: [],
                 modesData: [],
+                modesLoading: false,
+                salesRepScenarios: [],
+                salesRepTotalPending: 0,
+                salesRepLoading: false,
+                salesRepInitialized: false,
                 error: null,
                 notification: null,
             }
     )
 
-    const [salesRepScenarios, setSalesRepScenarios] = useState<Scenario[]>([])
-    const [salesRepLoading, setSalesRepLoading] = useState(false)
-    const [salesRepTotalPending, setSalesRepTotalPending] = useState(0)
     const [searchQuery, setSearchQuery] = useState('')
     const [isDrawerOpen, setIsDrawerOpen] = useState(false)
     const [isViewDrawerOpen, setIsViewDrawerOpen] = useState(false)
@@ -107,37 +113,10 @@ const ScenarioList = () => {
 
     useEffect(() => {
         if (!isAssignedView) return
-        let cancelled = false
-        ;(async () => {
-            setSalesRepLoading(true)
-            try {
-                const data = await apiGetSalesRepScenarioDashboard()
-                if (cancelled || !data) return
-                setSalesRepTotalPending(
-                    typeof data.total_pending === 'number' ? data.total_pending : 0,
-                )
-                setSalesRepScenarios(
-                    (data.pending_scenarios ?? []).map(mapSalesRepDashboardRowToScenario),
-                )
-            } catch (e) {
-                console.error('Sales rep dashboard:', e)
-                toast.push(
-                    <Notification title="Error" type="danger">
-                        Failed to load assigned scenarios
-                    </Notification>,
-                )
-                if (!cancelled) {
-                    setSalesRepScenarios([])
-                    setSalesRepTotalPending(0)
-                }
-            } finally {
-                if (!cancelled) setSalesRepLoading(false)
-            }
-        })()
-        return () => {
-            cancelled = true
+        if (!salesRepInitialized && !salesRepLoading) {
+            dispatch(fetchSalesRepDashboard())
         }
-    }, [isAssignedView])
+    }, [dispatch, isAssignedView, salesRepInitialized, salesRepLoading])
 
     useEffect(() => {
         if (notification) {
@@ -153,8 +132,10 @@ const ScenarioList = () => {
 
     useEffect(() => {
         if (!canManageLibrary || isAssignedView) return
-        dispatch(fetchModes())
-    }, [dispatch, canManageLibrary, isAssignedView])
+        if (modesData.length === 0 && !modesLoading) {
+            dispatch(fetchModes())
+        }
+    }, [dispatch, canManageLibrary, isAssignedView, modesData.length, modesLoading])
 
     useEffect(() => {
         if (!isDrawerOpen || !canManageLibrary || isAssignedView) return

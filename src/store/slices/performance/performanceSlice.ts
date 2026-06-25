@@ -5,6 +5,12 @@ import {
     type PerformanceReportResponse,
     type PerformanceMonthlyTrendResponse,
 } from '@/services/PerformanceService'
+import {
+    apiGetSessionsByUser,
+    apiGetInteractionMode,
+    apiGetAiPersona,
+} from '@/services/SessionService'
+import type { SessionHistory } from '@/views/sales/Performance/performanceData'
 
 export const SLICE_NAME = 'performance'
 
@@ -29,6 +35,10 @@ export interface PerformanceState {
     performanceReport: PerformanceReportResponse | null
     monthlyTrend: PerformanceMonthlyTrendResponse | null
     trendLoading: boolean
+    trendInitialized: boolean
+    sessionHistory: SessionHistory[]
+    sessionHistoryLoading: boolean
+    sessionHistoryInitialized: boolean
     error: string | null
     notification: { type: string; message: string } | null
 }
@@ -102,6 +112,85 @@ export const fetchMonthlyTrend = createAsyncThunk(
     }
 )
 
+export const fetchSessionHistory = createAsyncThunk(
+    SLICE_NAME + '/fetchSessionHistory',
+    async (userId: string, { rejectWithValue }) => {
+        try {
+            const sessionData = await apiGetSessionsByUser(userId)
+            const uniquePersonaIds = Array.from(new Set(sessionData.map((s) => s.persona_id)))
+            const uniqueModeIds = Array.from(new Set(sessionData.map((s) => s.mode_id)))
+
+            const personaMap: Record<string, string> = {}
+            const modeMap: Record<string, string> = {}
+
+            await Promise.all([
+                ...uniquePersonaIds.map(async (id) => {
+                    try {
+                        const details = await apiGetAiPersona(id)
+                        personaMap[id] = details.name
+                    } catch {
+                        personaMap[id] = 'Unknown Persona'
+                    }
+                }),
+                ...uniqueModeIds.map(async (id) => {
+                    try {
+                        const details = await apiGetInteractionMode(id)
+                        modeMap[id] = details.name
+                    } catch {
+                        modeMap[id] = 'Unknown Mode'
+                    }
+                }),
+            ])
+
+            const sessions: SessionHistory[] = sessionData.map((s) => {
+                const report = s.performance_report
+                const flatMetrics: Record<string, number> = {}
+                if (typeof report?.overall_score === 'number') {
+                    flatMetrics.overall_score = report.overall_score
+                }
+                if (Array.isArray(report?.categories)) {
+                    ;(report.categories as { name: string; score: number }[]).forEach((cat) => {
+                        if (cat.name && typeof cat.score === 'number') {
+                            const key = cat.name
+                                .toLowerCase()
+                                .replace(/\s+/g, '_')
+                                .replace(/[^a-z0-9_]/g, '')
+                            flatMetrics[key] = cat.score
+                        }
+                    })
+                }
+                const cs = report?.coaching_summary as string | { summary?: string } | undefined
+                const coachingSummaryText: string | undefined =
+                    typeof cs === 'string'
+                        ? cs
+                        : typeof cs?.summary === 'string'
+                          ? cs.summary
+                          : undefined
+
+                return {
+                    id: s.session_id,
+                    persona: personaMap[s.persona_id],
+                    mode: modeMap[s.mode_id],
+                    date: s.start_time,
+                    duration: s.duration ?? 0,
+                    overallScore: report?.overall_score ?? 0,
+                    status: s.status,
+                    coachingSummary: coachingSummaryText,
+                    metrics: Object.keys(flatMetrics).length > 0 ? flatMetrics : undefined,
+                }
+            })
+
+            return sessions
+        } catch (error: unknown) {
+            const err = error as { response?: { data?: { detail?: string } } }
+            if (err.response?.data) {
+                return rejectWithValue(err.response.data)
+            }
+            return rejectWithValue({ detail: 'Failed to fetch session history.' })
+        }
+    },
+)
+
 const initialState: PerformanceState = {
     performanceLoading: false,
     initialized: false,
@@ -109,6 +198,10 @@ const initialState: PerformanceState = {
     performanceReport: null,
     monthlyTrend: null,
     trendLoading: false,
+    trendInitialized: false,
+    sessionHistory: [],
+    sessionHistoryLoading: false,
+    sessionHistoryInitialized: false,
     error: null,
     notification: null,
 }
@@ -127,11 +220,20 @@ const performanceSlice = createSlice({
             state.performanceByMode = []
             state.performanceReport = null
             state.monthlyTrend = null
+            state.sessionHistory = []
             state.error = null
             state.notification = null
             state.performanceLoading = false
             state.trendLoading = false
+            state.sessionHistoryLoading = false
             state.initialized = false
+            state.trendInitialized = false
+            state.sessionHistoryInitialized = false
+        },
+        invalidatePerformanceData: (state) => {
+            state.initialized = false
+            state.trendInitialized = false
+            state.sessionHistoryInitialized = false
         },
     },
     extraReducers: (builder) => {
@@ -164,14 +266,29 @@ const performanceSlice = createSlice({
             .addCase(fetchMonthlyTrend.fulfilled, (state, action) => {
                 state.monthlyTrend = action.payload
                 state.trendLoading = false
+                state.trendInitialized = true
             })
             .addCase(fetchMonthlyTrend.rejected, (state) => {
                 state.trendLoading = false
+                state.trendInitialized = true
+            })
+            .addCase(fetchSessionHistory.pending, (state) => {
+                state.sessionHistoryLoading = true
+            })
+            .addCase(fetchSessionHistory.fulfilled, (state, action) => {
+                state.sessionHistory = action.payload
+                state.sessionHistoryLoading = false
+                state.sessionHistoryInitialized = true
+            })
+            .addCase(fetchSessionHistory.rejected, (state) => {
+                state.sessionHistory = []
+                state.sessionHistoryLoading = false
+                state.sessionHistoryInitialized = true
             })
     },
 })
 
-export const { resetError, resetNotification, resetPerformanceData } =
+export const { resetError, resetNotification, resetPerformanceData, invalidatePerformanceData } =
     performanceSlice.actions
 
 export default performanceSlice.reducer

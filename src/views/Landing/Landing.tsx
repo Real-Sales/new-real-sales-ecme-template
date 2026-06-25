@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
 import Lenis from 'lenis'
-import RealSalesHero from './components/RealSalesHero'
+import SalesWanaHero from './components/SalesWanaHero'
 import NavigationBar from './components/NavigationBar'
 import LandingNavSentinel from './components/LandingNavSentinel'
 import FeatureGrid from './components/FeatureGrid'
@@ -42,7 +42,7 @@ const LandingContent = ({ mode, toggleMode }: LandingContentProps) => {
         >
             <LandingNavSentinel />
             <NavigationBar mode={mode} toggleMode={toggleMode} />
-            <RealSalesHero />
+            <SalesWanaHero />
             <FeatureGrid />
             <VideoSection />
             <IndustriesTeaser />

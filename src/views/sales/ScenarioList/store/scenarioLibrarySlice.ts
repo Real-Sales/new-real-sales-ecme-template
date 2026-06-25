@@ -6,6 +6,7 @@ import {
     apiCreateScenario,
     apiUpdateScenario,
     apiDeleteScenario,
+    apiGetSalesRepScenarioDashboard,
 } from '@/services/ScenarioLibraryService'
 import type {
     ScenarioLibraryItem,
@@ -13,7 +14,9 @@ import type {
     InteractionModeListItem,
     CreateScenarioRequest,
     UpdateScenarioRequest,
+    Scenario,
 } from '../types'
+import { mapSalesRepDashboardRowToScenario } from '../types'
 
 export const SLICE_NAME = 'scenarioLibrary'
 
@@ -30,6 +33,10 @@ export interface ScenarioLibraryState {
     modesData: InteractionModeListItem[]
     personasLoading: boolean
     modesLoading: boolean
+    salesRepScenarios: Scenario[]
+    salesRepTotalPending: number
+    salesRepLoading: boolean
+    salesRepInitialized: boolean
     error: string | null
     notification: { type: string; message: string } | null
 }
@@ -64,6 +71,26 @@ export const fetchPersonas = createAsyncThunk(
             return rejectWithValue({ detail: 'An unknown error occurred.' })
         }
     }
+)
+
+export const fetchSalesRepDashboard = createAsyncThunk(
+    SLICE_NAME + '/fetchSalesRepDashboard',
+    async (_, { rejectWithValue }) => {
+        try {
+            const data = await apiGetSalesRepScenarioDashboard()
+            return {
+                scenarios: (data?.pending_scenarios ?? []).map(mapSalesRepDashboardRowToScenario),
+                totalPending:
+                    typeof data?.total_pending === 'number' ? data.total_pending : 0,
+            }
+        } catch (error: unknown) {
+            const err = error as { response?: { data?: { detail?: string } } }
+            if (err.response?.data) {
+                return rejectWithValue(err.response.data)
+            }
+            return rejectWithValue({ detail: 'Failed to load assigned scenarios.' })
+        }
+    },
 )
 
 export const fetchModes = createAsyncThunk(
@@ -141,6 +168,10 @@ const initialState: ScenarioLibraryState = {
     modesData: [],
     personasLoading: false,
     modesLoading: false,
+    salesRepScenarios: [],
+    salesRepTotalPending: 0,
+    salesRepLoading: false,
+    salesRepInitialized: false,
     error: null,
     notification: null,
 }
@@ -159,12 +190,19 @@ const scenarioLibrarySlice = createSlice({
             state.scenariosData = []
             state.personasData = []
             state.modesData = []
+            state.salesRepScenarios = []
+            state.salesRepTotalPending = 0
+            state.salesRepInitialized = false
             state.error = null
             state.notification = null
             state.scenarioLibraryLoading = false
+            state.salesRepLoading = false
             state.personasLoading = false
             state.modesLoading = false
             state.initialized = false
+        },
+        invalidateSalesRepDashboard: (state) => {
+            state.salesRepInitialized = false
         },
     },
     extraReducers: (builder) => {
@@ -202,6 +240,27 @@ const scenarioLibrarySlice = createSlice({
             })
             .addCase(fetchModes.rejected, (state) => {
                 state.modesLoading = false
+            })
+            .addCase(fetchSalesRepDashboard.pending, (state) => {
+                state.salesRepLoading = true
+            })
+            .addCase(fetchSalesRepDashboard.fulfilled, (state, action) => {
+                state.salesRepScenarios = action.payload.scenarios
+                state.salesRepTotalPending = action.payload.totalPending
+                state.salesRepLoading = false
+                state.salesRepInitialized = true
+            })
+            .addCase(fetchSalesRepDashboard.rejected, (state, action) => {
+                state.salesRepLoading = false
+                state.salesRepScenarios = []
+                state.salesRepTotalPending = 0
+                state.salesRepInitialized = true
+                state.notification = {
+                    type: 'danger',
+                    message:
+                        (action.payload as { detail?: string })?.detail ??
+                        'Failed to load assigned scenarios',
+                }
             })
             .addCase(createScenario.pending, (state) => {
                 state.scenarioLibraryLoading = true
@@ -255,7 +314,11 @@ const scenarioLibrarySlice = createSlice({
     },
 })
 
-export const { resetError, resetNotification, resetScenarioLibraryData } =
-    scenarioLibrarySlice.actions
+export const {
+    resetError,
+    resetNotification,
+    resetScenarioLibraryData,
+    invalidateSalesRepDashboard,
+} = scenarioLibrarySlice.actions
 
 export default scenarioLibrarySlice.reducer

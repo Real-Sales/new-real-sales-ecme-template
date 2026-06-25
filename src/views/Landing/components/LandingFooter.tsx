@@ -1,6 +1,7 @@
 import { useLandingTheme } from '../LandingThemeProvider'
 import { scrollToLandingSection } from '../smoothScroll'
 import { FiLinkedin, FiTwitter, FiYoutube } from 'react-icons/fi'
+import SalesWanaLogo from '@/components/template/SalesWanaLogo'
 
 const footerLinks = {
     Product: [
@@ -48,12 +49,11 @@ const LandingFooter = () => {
                 <div className="py-14 md:py-16 grid grid-cols-2 md:grid-cols-[240px_1fr_1fr_1fr_1fr] gap-x-8 gap-y-10">
                     <div className="col-span-2 md:col-span-1">
                         <a href="/" className="inline-block mb-4">
-                            <img
-                                src={t.logoSrc}
-                                width={110}
-                                height={36}
-                                alt="SalesWana"
-                                className="h-8 w-auto"
+                            <SalesWanaLogo
+                                mode={t.isLight ? 'light' : 'dark'}
+                                type="full"
+                                iconSize={38}
+                                textSize="1.4rem"
                             />
                         </a>
                         <p className="text-xs leading-relaxed max-w-[180px]" style={{ color: t.textMuted }}>

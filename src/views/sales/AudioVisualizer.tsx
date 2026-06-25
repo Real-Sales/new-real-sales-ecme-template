@@ -16,7 +16,11 @@ import ConfirmDialog from '@/components/shared/ConfirmDialog';
 import Loading from '@/components/shared/Loading';
 import ScrollBar from '@/components/ui/ScrollBar';
 import { toast, Notification, Tooltip } from '@/components/ui';
-import { useAppSelector } from '@/store/hook';
+import { useAppSelector, useAppDispatch } from '@/store/hook';
+import { invalidateSalesRepDashboard } from '@/views/sales/ScenarioList/store/scenarioLibrarySlice';
+import { invalidatePerformanceData } from '@/store/slices/performance';
+import { invalidateLeaderboard } from '@/views/sales/Leaderboard/store/leaderboardSlice';
+import { invalidateTeamScenariosDashboardCache } from '@/services/TeamService';
 
 // --- 1. Audio Analyzer Hook ---
 const useAudioAnalyzer = () => {
@@ -388,6 +392,7 @@ export default function InteractiveVisualizerSession() {
   const location = useLocation();
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigateTo = useNavigate();
+  const dispatch = useAppDispatch();
   const direction = useAppSelector((state) => state.theme.direction);
 
   const sessionData = useMemo(() => {
@@ -799,6 +804,12 @@ export default function InteractiveVisualizerSession() {
     setCurrentHintIndex(0);
     sessionStorage.removeItem(storageKey('session_started'));
     sessionStorage.removeItem(storageKey('session_start_timestamp'));
+    if (destination.includes('/report')) {
+      dispatch(invalidateSalesRepDashboard());
+      dispatch(invalidatePerformanceData());
+      dispatch(invalidateLeaderboard());
+      invalidateTeamScenariosDashboardCache();
+    }
     navigateTo(destination);
   };
 

@@ -76,7 +76,7 @@ const CompanyDetail = () => {
     )
 
     const division = id ? divisionInfo[id] : null
-    const isLoading = infoLoading
+    const isLoading = infoLoading && !division
 
     useEffect(() => {
         if (id && !divisionInfo[id]) {

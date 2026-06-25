@@ -6,7 +6,7 @@ import UserScenariosDrawer from './UserScenariosDrawer'
 import ScenarioUsersDrawer from './ScenarioUsersDrawer'
 import classNames from '@/utils/classNames'
 import { TbUsers, TbListDetails, TbChecks, TbClock, TbPercentage } from 'react-icons/tb'
-import { apiGetTeamScenariosDashboard, apiUnassignScenario, type TeamScenariosDashboardResponse } from '@/services/TeamService'
+import { apiGetTeamScenariosDashboard, apiUnassignScenario, peekTeamScenariosDashboard, type TeamScenariosDashboardResponse } from '@/services/TeamService'
 import type { ColumnDef } from '@/components/shared/DataTable'
 import { NumericFormat } from 'react-number-format'
 import dayjs from 'dayjs'
@@ -46,8 +46,12 @@ type TeamScenariosSectionProps = {
 
 const TeamScenariosSection = ({ teamId, teamMembers }: TeamScenariosSectionProps) => {
     const [viewMode, setViewMode] = useState<'users' | 'scenarios'>('users')
-    const [isLoading, setIsLoading] = useState(false)
-    const [data, setData] = useState<TeamScenariosDashboardResponse | null>(null)
+    const [data, setData] = useState<TeamScenariosDashboardResponse | null>(
+        () => (teamId ? peekTeamScenariosDashboard(teamId) : null),
+    )
+    const [isLoading, setIsLoading] = useState(
+        () => !(teamId && peekTeamScenariosDashboard(teamId)),
+    )
     
     // UI Local state
     const [currentPage, setCurrentPage] = useState(1)
@@ -69,11 +73,16 @@ const TeamScenariosSection = ({ teamId, teamMembers }: TeamScenariosSectionProps
     const [selectedScenario, setSelectedScenario] = useState<any | null>(null)
     const [selectedScenarioUsers, setSelectedScenarioUsers] = useState<any[]>([])
 
-    const fetchData = async () => {
+    const fetchData = async (force = false) => {
         if (!teamId) return
+        if (!force && peekTeamScenariosDashboard(teamId)) {
+            setData(peekTeamScenariosDashboard(teamId))
+            setIsLoading(false)
+            return
+        }
         setIsLoading(true)
         try {
-            const response = await apiGetTeamScenariosDashboard(teamId)
+            const response = await apiGetTeamScenariosDashboard(teamId, { force })
             setData(response)
         } catch (error) {
             console.error('Failed to fetch team scenarios dashboard:', error)
@@ -207,7 +216,7 @@ const TeamScenariosSection = ({ teamId, teamMembers }: TeamScenariosSectionProps
                     Scenario unassigned successfully
                 </Notification>
             )
-            fetchData()
+            fetchData(true)
         } catch (error) {
             console.error('Failed to unassign scenario:', error)
             toast.push(

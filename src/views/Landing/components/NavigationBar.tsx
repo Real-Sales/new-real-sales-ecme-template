@@ -7,6 +7,7 @@ import { MODE_DARK } from '@/constants/theme.constant'
 import { useLandingTheme } from '../LandingThemeProvider'
 import { getLenis, scrollToLandingSection } from '../smoothScroll'
 import AnimatedThemeToggler from './AnimatedThemeToggler'
+import SalesWanaLogo from '@/components/template/SalesWanaLogo'
 import type { Mode } from '@/@types/theme'
 
 type NavigationProps = {
@@ -178,7 +179,7 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
                     transition={{ duration: shouldReduceMotion ? 0.01 : 0.6, ease: [0.16, 1, 0.3, 1] }}
                     className={classNames(
                         'flex flex-nowrap items-center justify-between gap-4 px-4 xl:px-5 py-2 rounded-full',
-                        'border transition-all duration-500 mx-4 w-full max-w-6xl min-h-[52px]',
+                        'border transition-all duration-500 mx-4 w-full max-w-6xl min-h-[56px]',
                     )}
                     style={{
                         backgroundColor: isSticky ? t.navStickyBg : 'transparent',
@@ -193,14 +194,13 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
                 >
                     <Link
                         to="/landing"
-                        className="flex shrink-0 items-center justify-start min-w-[100px] xl:min-w-[110px]"
+                        className="flex shrink-0 items-center justify-start"
                     >
-                        <img
-                            src={t.logoSrc}
-                            width={110}
-                            height={36}
-                            alt="SalesWana"
-                            className="h-8 w-auto"
+                        <SalesWanaLogo
+                            mode={t.isLight ? 'light' : 'dark'}
+                            type="full"
+                            iconSize={48}
+                            textSize="1.75rem"
                         />
                     </Link>
 
@@ -422,12 +422,11 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
                     >
                         <div className="flex items-center justify-between px-6 pt-6 pb-4">
                             <Link to="/landing" onClick={() => setMenuOpen(false)}>
-                                <img
-                                    src={t.logoSrc}
-                                    width={110}
-                                    height={36}
-                                    alt="SalesWana"
-                                    className="h-8 w-auto"
+                                <SalesWanaLogo
+                                    mode={t.isLight ? 'light' : 'dark'}
+                                    type="full"
+                                    iconSize={48}
+                                    textSize="1.75rem"
                                 />
                             </Link>
                             <div className="flex items-center gap-2">

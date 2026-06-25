@@ -241,6 +241,9 @@ const ensurePerformanceReportPromises = new Map<
     Promise<PerformanceReportPayload>
 >()
 
+/** Cached reports for the current browser tab — avoids refetch when revisiting a report. */
+const performanceReportCache = new Map<string, PerformanceReportPayload>()
+
 /**
  * Fetch the saved report for `sessionId`, generating it only if the DB doesn't have one yet.
  *  1. GET /performance-reports/{sessionId}             -> 200, return the saved blob.
@@ -252,6 +255,11 @@ const ensurePerformanceReportPromises = new Map<
 export function apiEnsurePerformanceReport(
     sessionId: string,
 ): Promise<PerformanceReportPayload> {
+    const cached = performanceReportCache.get(sessionId)
+    if (cached) {
+        return Promise.resolve(cached)
+    }
+
     let pending = ensurePerformanceReportPromises.get(sessionId)
     if (!pending) {
         pending = (async () => {
@@ -276,9 +284,14 @@ export function apiEnsurePerformanceReport(
                 }
                 throw err
             }
-        })().finally(() => {
-            ensurePerformanceReportPromises.delete(sessionId)
-        })
+        })()
+            .then((report) => {
+                performanceReportCache.set(sessionId, report)
+                return report
+            })
+            .finally(() => {
+                ensurePerformanceReportPromises.delete(sessionId)
+            })
         ensurePerformanceReportPromises.set(sessionId, pending)
     }
     return pending

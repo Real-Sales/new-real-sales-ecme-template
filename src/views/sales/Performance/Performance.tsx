@@ -69,10 +69,10 @@ const Performance = () => {
     )
 
     useEffect(() => {
-        if (userId) {
+        if (userId && !initialized && !performanceLoading) {
             dispatch(fetchPerformanceByMode(userId))
         }
-    }, [dispatch, userId])
+    }, [dispatch, userId, initialized, performanceLoading])
 
     useEffect(() => {
         if (notification) {

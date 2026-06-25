@@ -7,10 +7,15 @@ export const SLICE_NAME = 'leaderboard'
 export interface LeaderboardState {
     loading: boolean
     initialized: boolean
+    cacheKey: string | null
     selectedMonth: string
     data: LeaderboardResponse | null
     error: string | null
     notification: { type: string; message: string } | null
+}
+
+function leaderboardCacheKey(params: FetchLeaderboardParams): string {
+    return `${params.month ?? getCurrentMonth()}-${params.limit ?? 10}`
 }
 
 function getCurrentMonth(): string {
@@ -30,11 +35,21 @@ export const fetchLeaderboard = createAsyncThunk(
             return rejectWithValue({ detail: 'Failed to load leaderboard.' })
         }
     },
+    {
+        condition: (params, { getState }) => {
+            const state = (getState() as { leaderboard?: { data?: LeaderboardState } })
+                .leaderboard?.data
+            if (!state) return true
+            const key = leaderboardCacheKey(params)
+            return !(state.initialized && state.cacheKey === key && !state.loading)
+        },
+    },
 )
 
 const initialState: LeaderboardState = {
     loading: false,
     initialized: false,
+    cacheKey: null,
     selectedMonth: getCurrentMonth(),
     data: null,
     error: null,
@@ -51,6 +66,10 @@ const leaderboardSlice = createSlice({
         resetNotification: (state) => {
             state.notification = null
         },
+        invalidateLeaderboard: (state) => {
+            state.initialized = false
+            state.cacheKey = null
+        },
         resetLeaderboardData: () => initialState,
     },
     extraReducers: (builder) => {
@@ -62,6 +81,7 @@ const leaderboardSlice = createSlice({
             .addCase(fetchLeaderboard.fulfilled, (state, action) => {
                 state.loading = false
                 state.initialized = true
+                state.cacheKey = leaderboardCacheKey(action.meta.arg)
                 state.data = action.payload
             })
             .addCase(fetchLeaderboard.rejected, (state, action) => {
@@ -80,7 +100,11 @@ const leaderboardSlice = createSlice({
     },
 })
 
-export const { setSelectedMonth, resetNotification, resetLeaderboardData } =
-    leaderboardSlice.actions
+export const {
+    setSelectedMonth,
+    resetNotification,
+    resetLeaderboardData,
+    invalidateLeaderboard,
+} = leaderboardSlice.actions
 
 export default leaderboardSlice.reducer

@@ -77,7 +77,7 @@ const TeamDetail = () => {
     )
 
     const data = id ? teamPerformance[id] : null
-    const isLoading = performanceLoading
+    const isLoading = performanceLoading && !data
 
     useEffect(() => {
         if (id && !teamPerformance[id]) {

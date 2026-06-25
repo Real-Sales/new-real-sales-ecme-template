@@ -17,6 +17,7 @@ import { REDIRECT_URL_KEY } from '@/constants/app.constant'
 import { useNavigate } from 'react-router-dom'
 import Cookies from 'js-cookie'
 import { apiGetSalesCompanyByManager } from '@/services/SalesCompanyService'
+import { resetLeaderboardData } from '@/views/sales/Leaderboard/store/leaderboardSlice'
 import { resetPerformanceData } from '@/store/slices/performance'
 import { resetScenarioLibraryData } from '@/views/sales/ScenarioList/store/scenarioLibrarySlice'
 import { resetCompanyMembersData } from '@/views/sales/members/store/companyMembersSlice'
@@ -197,6 +198,7 @@ function AuthProvider({ children }: AuthProviderProps) {
     const handleSignOut = () => {
         dispatch(resetPerformanceData())
         dispatch(resetScenarioLibraryData())
+        dispatch(resetLeaderboardData())
         dispatch(resetCompanyMembersData())
         dispatch(resetTeamsData())
         dispatch(resetSalesDivisionsData())
