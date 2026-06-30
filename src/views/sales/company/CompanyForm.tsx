@@ -1,41 +1,77 @@
 import { forwardRef, useMemo } from 'react'
 import Input from '@/components/ui/Input'
+import Select from '@/components/ui/Select'
 import { FormItem, Form } from '@/components/ui/Form'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
+import type { MultiValue, ActionMeta } from 'react-select'
+import { useAppSelector } from '@/store'
+import {
+    MAX_DIVISION_PRODUCTS,
+    capDivisionProductIds,
+    profileProductsToOptions,
+} from '@/utils/companyProducts'
+
+type ProductOption = { value: string; label: string }
 
 type CompanyFormSchema = {
     companyName: string
     category: string
+    productIds: string[]
 }
 
 const validationSchema = z.object({
     companyName: z.string().min(1, { message: 'Sales division name is required' }).max(100, 'Too Long!'),
     category: z.string().min(1, { message: 'Category is required' }),
+    productIds: z
+        .array(z.string())
+        .min(1, { message: 'Select at least one product' })
+        .max(MAX_DIVISION_PRODUCTS, {
+            message: `You can select up to ${MAX_DIVISION_PRODUCTS} products`,
+        }),
 })
 
-/** Stable reference — inline `{ companyName: '', category: '' }` in defaults changes every render and breaks `reset` deps. */
-const EMPTY_FORM: CompanyFormSchema = { companyName: '', category: '' }
+const EMPTY_FORM: CompanyFormSchema = { companyName: '', category: '', productIds: [] }
+
+const inputClassName =
+    'bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-200 shadow-md'
+
+const selectClassName =
+    '[&>div]:!bg-gray-50 [&>div]:dark:!bg-gray-800/50 [&>div]:border [&>div]:border-gray-200 [&>div]:dark:border-gray-700 [&>div]:shadow-md'
 
 type CompanyFormProps = {
+    salesCompanyId: string
     onSubmit: (values: CompanyFormSchema) => void
     onCancel: () => void
-    defaultValues?: CompanyFormSchema
+    defaultValues?: Partial<CompanyFormSchema>
 }
 
 const CompanyForm = forwardRef<HTMLFormElement, CompanyFormProps>(
-    ({ onSubmit, onCancel, defaultValues }, ref) => {
-        // Stable object for useForm initial state only; parent remounts via `key` when defaults change.
+    ({ onSubmit, defaultValues }, ref) => {
+        const profileCompanyProducts = useAppSelector(
+            (state) => state.settings.profile.companyProducts,
+        )
+
         const resolvedDefaults = useMemo(() => {
             if (!defaultValues) {
                 return EMPTY_FORM
             }
             return {
-                companyName: defaultValues.companyName,
-                category: defaultValues.category,
+                companyName: defaultValues.companyName ?? '',
+                category: defaultValues.category ?? '',
+                productIds: capDivisionProductIds(defaultValues.productIds ?? []),
             }
-        }, [defaultValues?.companyName, defaultValues?.category])
+        }, [
+            defaultValues?.companyName,
+            defaultValues?.category,
+            defaultValues?.productIds?.join(','),
+        ])
+
+        const productOptions = useMemo(
+            () => profileProductsToOptions(profileCompanyProducts),
+            [profileCompanyProducts],
+        )
 
         const {
             handleSubmit,
@@ -45,6 +81,11 @@ const CompanyForm = forwardRef<HTMLFormElement, CompanyFormProps>(
             defaultValues: resolvedDefaults,
             resolver: zodResolver(validationSchema),
         })
+
+        const productsPlaceholder =
+            productOptions.length === 0
+                ? 'No company products yet — add products in Settings first'
+                : `Select up to ${MAX_DIVISION_PRODUCTS} products for this division`
 
         return (
             <Form ref={ref} onSubmit={handleSubmit(onSubmit)}>
@@ -64,7 +105,7 @@ const CompanyForm = forwardRef<HTMLFormElement, CompanyFormProps>(
                                     autoFocus
                                     autoComplete="off"
                                     placeholder="Enter company name"
-                                    className="bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-200 shadow-md"
+                                    className={inputClassName}
                                     {...field}
                                 />
                             )}
@@ -84,8 +125,43 @@ const CompanyForm = forwardRef<HTMLFormElement, CompanyFormProps>(
                                     type="text"
                                     autoComplete="off"
                                     placeholder="e.g., Technology, Healthcare"
-                                    className="bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-200 shadow-md"
+                                    className={inputClassName}
                                     {...field}
+                                />
+                            )}
+                        />
+                    </FormItem>
+
+                    <FormItem
+                        label="Products"
+                        asterisk
+                        invalid={Boolean(errors.productIds)}
+                        errorMessage={errors.productIds?.message}
+                        extra={`Choose from your company products (max ${MAX_DIVISION_PRODUCTS})`}
+                    >
+                        <Controller
+                            name="productIds"
+                            control={control}
+                            render={({ field }) => (
+                                <Select<ProductOption, true>
+                                    isMulti
+                                    placeholder={productsPlaceholder}
+                                    options={productOptions}
+                                    isDisabled={productOptions.length === 0}
+                                    value={productOptions.filter((opt) =>
+                                        field.value.includes(opt.value),
+                                    )}
+                                    onChange={(
+                                        newValue: MultiValue<ProductOption>,
+                                        _actionMeta: ActionMeta<ProductOption>,
+                                    ) => {
+                                        field.onChange(
+                                            capDivisionProductIds(
+                                                newValue.map((opt) => opt.value),
+                                            ),
+                                        )
+                                    }}
+                                    className={selectClassName}
                                 />
                             )}
                         />

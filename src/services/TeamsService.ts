@@ -1,5 +1,6 @@
 import ApiService from './ApiService'
 import endpointConfig from '@/configs/endpoint.config'
+import type { ProfileProduct } from '@/@types/auth'
 
 export type CreateTeamRequest = {
     name: string
@@ -35,6 +36,8 @@ export type TeamPerformanceResponse = {
             last_name: string
             email: string
         }
+        products?: ProfileProduct[]
+        product?: ProfileProduct
         performance_by_mode: {
             mode_name: string
             session_count: number

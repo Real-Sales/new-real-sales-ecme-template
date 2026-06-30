@@ -273,9 +273,7 @@ const OnboardingForm = ({ className, onComplete, isSubmitting = false }: Onboard
                                     newValue: MultiValue<ProductOption>,
                                     _actionMeta: ActionMeta<ProductOption>,
                                 ) => {
-                                    field.onChange(
-                                        newValue.map((opt) => opt.value),
-                                    )
+                                    field.onChange(newValue.map((opt) => opt.value))
                                 }}
                                 menuPlacement="top"
                                 className={selectClassName}

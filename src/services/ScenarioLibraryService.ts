@@ -1,5 +1,6 @@
 import ApiService from './ApiService'
 import endpointConfig from '@/configs/endpoint.config'
+import type { ProfileProduct } from '@/@types/auth'
 import type {
     ScenarioLibraryResponse,
     DocumentUploadResponse,
@@ -90,23 +91,27 @@ export async function apiAssignScenario(scenarioId: string, sessionId: string) {
     })
 }
 
-export type AssignmentStatusResponse = {
-    scenario_id: string
-    team_id: string
-    members: Array<{
-        user_id: string
-        first_name: string
-        last_name: string
-        email: string
-        is_assigned: boolean
-        session_id: string | null
-        session_status: string | null
-    }>
+export type AssignmentStatusMember = {
+    user_id: string
+    first_name: string
+    last_name: string
+    email: string
+    sales_division_id?: string | null
+    sales_division_name?: string | null
+    products?: ProfileProduct[]
+    can_assign: boolean
+    session_id: string | null
+    session_status: string | null
 }
 
-export async function apiGetScenarioAssignmentStatus(scenarioId: string, teamId: string) {
+export type AssignmentStatusResponse = {
+    scenario_id: string
+    members: AssignmentStatusMember[]
+}
+
+export async function apiGetScenarioAssignmentStatus(scenarioId: string) {
     return ApiService.fetchDataWithAxios<AssignmentStatusResponse>({
-        url: endpointConfig.scenarioAssignmentStatus(scenarioId, teamId),
+        url: endpointConfig.scenarioAssignmentStatus(scenarioId),
         method: 'get',
     })
 }

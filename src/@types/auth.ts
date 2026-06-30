@@ -147,6 +147,7 @@ export type CompanyProfileUpdateRequest = {
     address?: string
     phone_number?: string
     email?: string
+    product_ids?: string[]
 }
 
 export type User = {

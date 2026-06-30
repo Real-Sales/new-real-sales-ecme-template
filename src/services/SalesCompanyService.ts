@@ -1,5 +1,6 @@
 import ApiService from './ApiService'
 import endpointConfig from '@/configs/endpoint.config'
+import type { ProfileProduct } from '@/@types/auth'
 
 export type CreateSalesCompanyRequest = {
     name: string
@@ -37,6 +38,7 @@ export type SalesDivisionResponse = {
     is_active: boolean
     sales_division_id: string
     created_at: string
+    products?: ProfileProduct[]
 }
 
 export type CreateSalesDivisionRequest = {
@@ -44,6 +46,7 @@ export type CreateSalesDivisionRequest = {
     division_category: string
     sales_company_id: string
     is_active: boolean
+    product_ids?: string[]
 }
 
 export async function apiCreateSalesCompany(data: CreateSalesCompanyRequest) {
@@ -67,6 +70,13 @@ export type UpdateSalesCompanyRequest = {
 export async function apiGetSalesCompanyDetail(salesCompanyId: string) {
     return ApiService.fetchDataWithAxios<SalesCompanyResponse>({
         url: endpointConfig.salesCompanyDetail(salesCompanyId),
+        method: 'get',
+    })
+}
+
+export async function apiGetSalesCompanyProducts(salesCompanyId: string) {
+    return ApiService.fetchDataWithAxios<ProfileProduct[]>({
+        url: endpointConfig.salesCompanyProducts(salesCompanyId),
         method: 'get',
     })
 }
@@ -159,6 +169,7 @@ export type SalesDivisionInfoResponse = {
     sales_division_id: string
     created_at: string
     users: DivisionUser[]
+    products?: ProfileProduct[]
 }
 
 export async function apiGetSalesDivisionInfo(divisionId: string) {
@@ -182,6 +193,8 @@ export type CompanyMemberResponse = {
     team_name?: string | null
     sales_division_id?: string | null
     sales_division_name?: string | null
+    products?: ProfileProduct[]
+    product?: ProfileProduct
 }
 
 export type CompanyMembersListResponse = {

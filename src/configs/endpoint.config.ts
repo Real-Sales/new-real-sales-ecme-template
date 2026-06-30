@@ -35,6 +35,8 @@ const endpointConfig = {
     salesCompanies: 'sales-companies/',
     salesCompanyByManager: (managerId: string) => `sales-companies/manager/${managerId}`,
     salesCompanyDetail: (companyId: string) => `sales-companies/${companyId}`,
+    salesCompanyProducts: (companyId: string) =>
+        `sales-companies/${companyId}/products`,
     salesCompanyMembers: (companyId: string) => `sales-companies/${companyId}/members`,
     salesCompanyMemberAssignment: (companyId: string, userId: string) =>
         `sales-companies/${companyId}/members/${userId}`,
@@ -59,7 +61,8 @@ const endpointConfig = {
     unassignScenario: (sessionId: string) => `scenarios/unassign/${sessionId}`,
     sessionsManagerCreate: 'sessions/manager-create',
     assignScenario: (scenarioId: string, sessionId: string) => `scenarios/${scenarioId}/assign/${sessionId}`,
-    scenarioAssignmentStatus: (scenarioId: string, teamId: string) => `scenarios/${scenarioId}/team/${teamId}/assignment-status`,
+    scenarioAssignmentStatus: (scenarioId: string) =>
+        `scenarios/${scenarioId}/assignment-status`,
     authMe: 'auth/me',
     authProfile: 'auth/profile',
     authProfilePersonal: 'auth/profile/personal',

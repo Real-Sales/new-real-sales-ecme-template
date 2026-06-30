@@ -156,23 +156,6 @@ export const PersonaCard = ({ persona }: { persona: ScenarioLibraryPersona }) =>
             rightValue={persona.gender ?? '—'}
         />
 
-        {persona.persona_products && persona.persona_products.length > 0 && (
-            <div className="pt-4">
-                <span className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400 block mb-2">Products</span>
-                <div className="flex flex-wrap gap-2">
-                    {persona.persona_products.map((pp) =>
-                        pp.product?.name ? (
-                            <span
-                                key={pp.persona_product_id}
-                                className="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-gray-50 dark:bg-gray-800/50 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-700"
-                            >
-                                {pp.product.name}
-                            </span>
-                        ) : null
-                    )}
-                </div>
-            </div>
-        )}
     </div>
 )
 

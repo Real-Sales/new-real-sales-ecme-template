@@ -11,7 +11,7 @@ import { Form, FormItem } from '@/components/ui/Form'
 import DataTable from '@/components/shared/DataTable'
 import SessionDetailDrawer from './SessionDetailDrawer'
 import classNames from '@/utils/classNames'
-import { TbHistory, TbFilter } from 'react-icons/tb'
+import { TbHistory, TbFilter, TbDownload } from 'react-icons/tb'
 import { NumericFormat } from 'react-number-format'
 import { useForm, Controller } from 'react-hook-form'
 import type { ColumnDef } from '@/components/shared/DataTable'
@@ -19,6 +19,13 @@ import type { OptionProps, ControlProps } from 'react-select'
 import { components } from 'react-select'
 import { type SessionHistory as SessionHistoryType } from './performanceData'
 import { useAppSelector, useAppDispatch, fetchSessionHistory } from '@/store/slices/performance'
+import {
+    downloadPerformanceReportPdf,
+    getPerformanceReportPdfErrorMessage,
+} from '@/services/SessionService'
+import toast from '@/components/ui/toast'
+import Notification from '@/components/ui/Notification'
+import Tooltip from '@/components/ui/Tooltip'
 
 type Option = {
     value: string
@@ -77,6 +84,7 @@ const SessionHistorySection = () => {
     const [sortConfig, setSortConfig] = useState<{ key: string; order: 'asc' | 'desc' | '' }>({ key: '', order: '' })
     const [detailDrawerOpen, setDetailDrawerOpen] = useState(false)
     const [selectedSession, setSelectedSession] = useState<SessionHistoryType | null>(null)
+    const [downloadingSessionId, setDownloadingSessionId] = useState<string | null>(null)
 
     const userId = useAppSelector((state) => state.auth.user.userId)
     const {
@@ -229,6 +237,22 @@ const SessionHistorySection = () => {
         removeBodyScrollLock()
     }
 
+    const handleDownloadReport = async (sessionId: string) => {
+        if (downloadingSessionId) return
+        try {
+            setDownloadingSessionId(sessionId)
+            await downloadPerformanceReportPdf(sessionId)
+        } catch (err: unknown) {
+            toast.push(
+                <Notification title="Error" type="danger">
+                    {getPerformanceReportPdfErrorMessage(err)}
+                </Notification>,
+            )
+        } finally {
+            setDownloadingSessionId(null)
+        }
+    }
+
     const activeFilterCount = useMemo(() => {
         let count = 0
         if (activeFilters.persona !== 'all') count++
@@ -334,8 +358,35 @@ const SessionHistorySection = () => {
                     )
                 },
             },
+            {
+                header: 'Action',
+                id: 'action',
+                enableSorting: false,
+                cell: (props) => {
+                    const row = props.row.original
+                    const isDownloading = downloadingSessionId === row.id
+                    return (
+                        <Tooltip title="Download performance report">
+                            <Button
+                                size="xs"
+                                variant="solid"
+                                icon={<TbDownload className="text-sm" />}
+                                loading={isDownloading}
+                                disabled={Boolean(downloadingSessionId)}
+                                className="bg-primary hover:bg-primary-deep text-white border-none h-8 min-w-[8.5rem]"
+                                onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleDownloadReport(row.id)
+                                }}
+                            >
+                                Download
+                            </Button>
+                        </Tooltip>
+                    )
+                },
+            },
         ],
-        [handleRowClick],
+        [handleRowClick, downloadingSessionId],
     )
 
     return (

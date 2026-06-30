@@ -1,16 +1,5 @@
 // API response types for /scenarios/library
 
-export type ScenarioLibraryPersonaProduct = {
-    persona_product_id: string
-    product: {
-        name: string
-        details: string
-        product_id: string
-        created_at: string
-        updated_at: string
-    }
-}
-
 export type ScenarioLibraryPersona = {
     persona_id: string
     name: string
@@ -30,7 +19,6 @@ export type ScenarioLibraryPersona = {
     profile_pic?: string
     gender?: string
     voice_id?: string
-    persona_products?: ScenarioLibraryPersonaProduct[]
 }
 
 export type ScenarioLibraryMode = {
@@ -81,17 +69,6 @@ export type InteractionModeDashboardResponse = {
     updated_at: string
 }
 
-export type PersonaDashboardProduct = {
-    persona_product_id: string
-    product: {
-        product_id: string
-        name: string
-        details: string
-        created_at: string
-        updated_at: string
-    } | null
-}
-
 export type PersonaDashboardResponse = {
     persona_id: string
     name: string
@@ -105,7 +82,6 @@ export type PersonaDashboardResponse = {
     profile_pic: string | null
     gender: string | null
     voice_id: string | null
-    persona_products: PersonaDashboardProduct[]
 }
 
 /** GET /scenarios/dashboard/sales-rep — one row per assigned session with scenario_id. */
@@ -133,7 +109,29 @@ export type ScenarioDashboardDataForSalesRep = {
 
 export type SalesRepDashboardResponse = {
     pending_scenarios: ScenarioDashboardDataForSalesRep[]
+    active_scenarios?: ScenarioDashboardDataForSalesRep[]
+    completed_scenarios?: ScenarioDashboardDataForSalesRep[]
+    expired_scenarios?: ScenarioDashboardDataForSalesRep[]
     total_pending: number
+}
+
+export type AssignedScenarioTab = 'pending' | 'completed' | 'expired'
+
+const PENDING_TAB_STATUSES = new Set([
+    'pending',
+    'active',
+    'abandoned',
+    'inactive',
+])
+
+export function getAssignedScenarioTab(
+    scenario: Pick<ScenarioLibraryItem, 'session_status'>,
+): AssignedScenarioTab {
+    const status = (scenario.session_status ?? '').toLowerCase()
+    if (status === 'completed') return 'completed'
+    if (status === 'expired') return 'expired'
+    if (!status || PENDING_TAB_STATUSES.has(status)) return 'pending'
+    return 'pending'
 }
 
 const emptyPersonaForTable = (): ScenarioLibraryPersona => ({
@@ -168,7 +166,6 @@ function personaDashboardToLibrary(p: PersonaDashboardResponse): ScenarioLibrary
         profile_pic: p.profile_pic ?? undefined,
         gender: p.gender ?? undefined,
         voice_id: p.voice_id ?? undefined,
-        persona_products: p.persona_products as ScenarioLibraryPersona['persona_products'],
     }
 }
 
@@ -306,7 +303,6 @@ export type AiPersonaListItem = {
     profile_pic?: string
     gender?: string
     voice_id?: string
-    persona_products?: unknown[]
 }
 
 // Create scenario (POST /scenarios/)

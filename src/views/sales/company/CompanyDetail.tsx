@@ -11,12 +11,17 @@ import {
     useAppSelector,
     useAppDispatch,
     fetchDivisionInfo,
+    fetchSalesDivisions,
 } from '@/store/slices/salesDivisions'
+import salesDivisionsReducer from '@/store/slices/salesDivisions'
 import teamsReducer, { fetchTeams } from '@/store/slices/teams'
 import { injectReducer } from '@/store'
+import { formatDisplayLabel } from '@/utils/formatDisplayLabel'
+import Tag from '@/components/ui/Tag'
 import type { DivisionUser, SalesDivisionInfoResponse } from '@/services/SalesCompanyService'
 import type { ColumnDef } from '@/components/shared/DataTable'
 
+injectReducer('salesDivisions', salesDivisionsReducer)
 injectReducer('teams', teamsReducer)
 
 const deduplicateUsers = (users: DivisionUser[]): DivisionUser[] => {
@@ -43,8 +48,10 @@ const CompanyDetail = () => {
     const [sortConfig, setSortConfig] = useState<{ key: string; order: 'asc' | 'desc' | '' }>({ key: '', order: '' })
 
     const {
+        divisionsData,
         divisionInfo,
         infoLoading,
+        initialized,
     } = useAppSelector(
         (state) =>
             state.salesDivisions?.data ?? {
@@ -75,16 +82,32 @@ const CompanyDetail = () => {
         [teamsData, id]
     )
 
-    const division = id ? divisionInfo[id] : null
-    const isLoading = infoLoading && !division
+    useEffect(() => {
+        if (!companyId || initialized) return
+        dispatch(fetchSalesDivisions(companyId))
+    }, [dispatch, companyId, initialized])
 
     useEffect(() => {
-        if (id && !divisionInfo[id]) {
+        if (id) {
             dispatch(fetchDivisionInfo(id))
         }
-    }, [id, dispatch, divisionInfo])
+    }, [id, dispatch])
+
+    const division = id ? divisionInfo[id] : null
+    const divisionFromList = useMemo(
+        () => divisionsData.find((d) => d.sales_division_id === id),
+        [divisionsData, id],
+    )
+    const divisionProducts = useMemo(() => {
+        const products = division?.products ?? divisionFromList?.products ?? []
+        return products.map((p) => ({
+            id: p.product_id,
+            name: formatDisplayLabel(p.name),
+        }))
+    }, [division, divisionFromList])
 
     const members = division ? deduplicateUsers(division.users) : []
+    const isLoading = infoLoading && !division
 
     const filteredMembers = useMemo(() => members.filter((m) => {
         const fullName = `${m.first_name} ${m.last_name}`.toLowerCase()
@@ -254,6 +277,22 @@ const CompanyDetail = () => {
                                     <p className="text-sm text-gray-500 dark:text-gray-400">
                                         {division?.division_category}
                                     </p>
+                                    {divisionProducts.length > 0 ? (
+                                        <div className="mt-2 flex flex-wrap gap-1.5">
+                                            {divisionProducts.map((product) => (
+                                                <Tag
+                                                    key={product.id || product.name}
+                                                    className="rounded-full border-0 bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary dark:bg-primary/20 dark:text-primary-mild"
+                                                >
+                                                    {product.name}
+                                                </Tag>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <p className="mt-2 text-xs text-gray-400 dark:text-gray-500">
+                                            No products assigned
+                                        </p>
+                                    )}
                                 </div>
                             </div>
                             <Button

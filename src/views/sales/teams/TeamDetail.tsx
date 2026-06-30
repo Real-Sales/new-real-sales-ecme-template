@@ -10,13 +10,16 @@ import TeamScenariosSection from './components/TeamScenariosSection'
 import { allSalesReps } from './mockTeamData'
 import { HiArrowLeft } from 'react-icons/hi'
 import { TbUserPlus, TbUsers } from 'react-icons/tb'
+import { injectReducer } from '@/store'
 import { apiDeleteTeamMember } from '@/services/TeamService'
-import {
+import teamsReducer, {
     useAppSelector,
     useAppDispatch,
     fetchTeamPerformance,
 } from '@/store/slices/teams'
 import dayjs from 'dayjs'
+
+injectReducer('teams', teamsReducer)
 
 type TeamMember = {
     id: string
@@ -80,10 +83,10 @@ const TeamDetail = () => {
     const isLoading = performanceLoading && !data
 
     useEffect(() => {
-        if (id && !teamPerformance[id]) {
+        if (id) {
             dispatch(fetchTeamPerformance(id))
         }
-    }, [id, dispatch, teamPerformance])
+    }, [id, dispatch])
 
     const fetchTeamData = () => {
         if (id) {

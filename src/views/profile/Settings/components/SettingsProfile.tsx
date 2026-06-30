@@ -22,6 +22,10 @@ import {
     type SaveProfileSettingsPayload,
 } from '../store/settingsSlice'
 import { formatDisplayLabel } from '@/utils/formatDisplayLabel'
+import {
+    mergeProductOptions,
+    profileProductsToOptions,
+} from '@/utils/companyProducts'
 import type { GetSettingsProfileResponse } from '../types'
 import { HiOutlineUser } from 'react-icons/hi'
 import { TbPlus } from 'react-icons/tb'
@@ -58,34 +62,6 @@ const findIndustryMatch = (
         (item) =>
             item.name === industryName || normalizeKey(item.name) === key,
     )
-}
-
-/** User's linked products — not the full industry catalog from GET /auth/profile. */
-const resolveSelectedProductIds = (
-    profile: GetSettingsProfileResponse,
-    authProductIds: string[] | undefined,
-    catalogProductIds: string[],
-): string[] => {
-    const fromProfile = (profile.selectedProductIds ?? []).filter(Boolean)
-    const fromAuth = (authProductIds ?? []).filter(Boolean)
-
-    if (fromAuth.length > 0) {
-        if (fromProfile.length === 0) return fromAuth
-
-        const profileLooksLikeFullCatalog =
-            catalogProductIds.length > 0 &&
-            fromProfile.length >= catalogProductIds.length
-
-        if (
-            profileLooksLikeFullCatalog ||
-            (fromAuth.length < fromProfile.length &&
-                fromAuth.every((id) => fromProfile.includes(id)))
-        ) {
-            return fromAuth
-        }
-    }
-
-    return fromProfile
 }
 
 const SettingsProfile = () => {
@@ -211,12 +187,7 @@ const SettingsProfile = () => {
         const rawIndustry =
             data.companyIndustry ?? data.industryLabel ?? data.industry ?? ''
         const matched = findIndustryMatch(rawIndustry, industries)
-        const catalogProductIds = (matched?.products ?? []).map((p) => p.product_id)
-        const resolvedProductIds = resolveSelectedProductIds(
-            data,
-            authUser.industryProducts,
-            catalogProductIds,
-        )
+        const savedProductIds = (data.selectedProductIds ?? []).filter(Boolean)
 
         const syncKey = [
             data.salesCompanyId,
@@ -224,8 +195,7 @@ const SettingsProfile = () => {
             rawIndustry,
             data.address,
             data.location,
-            industries.length,
-            resolvedProductIds.join(','),
+            savedProductIds.join(','),
         ].join('|')
 
         if (companyFormSyncedRef.current === syncKey) return
@@ -233,7 +203,7 @@ const SettingsProfile = () => {
         setCompanyName(data.companyName ?? '')
         setCompanyPhone(data.companyPhone ?? '')
         setCompanyAddress((data.address || data.location || '').trim())
-        setProductIds(resolvedProductIds)
+        setProductIds(savedProductIds)
 
         const industryName = matched?.name ?? rawIndustry
         setCompanyIndustry(industryName)
@@ -252,9 +222,9 @@ const SettingsProfile = () => {
         data.address,
         data.location,
         data.selectedProductIds,
+        data.companyProducts,
         industries,
         industriesInitialized,
-        authUser.industryProducts,
     ])
 
     const industryOptions: SelectOption[] = useMemo(
@@ -275,21 +245,23 @@ const SettingsProfile = () => {
         }))
     }, [industries, selectedIndustryId])
 
-    const isPreviewingIndustryProducts =
-        isCompanyOwner && companyIndustry !== savedIndustryRef.current
+    const savedProductOptions = useMemo(
+        () => profileProductsToOptions(data.companyProducts),
+        [data.companyProducts],
+    )
 
-    const productChipsForDisplay: SelectOption[] = useMemo(() => {
-        if (isPreviewingIndustryProducts) return productOptions
-        return productOptions.filter((opt) => productIds.includes(opt.value))
-    }, [isPreviewingIndustryProducts, productOptions, productIds])
+    const selectedProductOptions = useMemo(
+        () =>
+            mergeProductOptions(
+                productOptions.filter((opt) => productIds.includes(opt.value)),
+                savedProductOptions.filter((opt) => productIds.includes(opt.value)),
+            ),
+        [productIds, productOptions, savedProductOptions],
+    )
 
     const readOnlyProductChips: SelectOption[] = useMemo(
-        () =>
-            (data.companyProducts ?? []).map((product) => ({
-                value: product.product_id,
-                label: formatDisplayLabel(product.name),
-            })),
-        [data.companyProducts],
+        () => savedProductOptions,
+        [savedProductOptions],
     )
 
     const handleSave = async () => {
@@ -312,6 +284,7 @@ const SettingsProfile = () => {
                 phone_number: companyPhone.trim(),
                 ...(location ? { location } : {}),
                 email: (data.companyEmail || data.email || '').trim(),
+                product_ids: productIds.filter(Boolean),
             }
         }
 
@@ -374,7 +347,8 @@ const SettingsProfile = () => {
             (companyName.trim() !== (data.companyName ?? '').trim() ||
                 companyIndustry !== baselineCompanyIndustry ||
                 companyPhone.trim() !== (data.companyPhone ?? '').trim() ||
-                companyAddress.trim() !== baselineCompanyAddress)
+                companyAddress.trim() !== baselineCompanyAddress ||
+                productIds.join(',') !== (data.selectedProductIds ?? []).join(','))
 
         return personalDirty || companyDirty || avatarChanged
     }, [
@@ -395,6 +369,8 @@ const SettingsProfile = () => {
         baselineCompanyAddress,
         data.companyName,
         data.companyPhone,
+        productIds,
+        data.selectedProductIds,
         avatarChanged,
     ])
 
@@ -406,7 +382,15 @@ const SettingsProfile = () => {
             (isCompanyOwner &&
                 hasCompany &&
                 Boolean(salesCompanyId) &&
-                (!companyName.trim() || !companyIndustry)),
+                (companyName.trim() !== (data.companyName ?? '').trim() ||
+                    companyIndustry !== baselineCompanyIndustry ||
+                    companyPhone.trim() !== (data.companyPhone ?? '').trim() ||
+                    companyAddress.trim() !== baselineCompanyAddress ||
+                    productIds.join(',') !==
+                        (data.selectedProductIds ?? []).join(',')) &&
+                (!companyName.trim() ||
+                    !companyIndustry ||
+                    productIds.length === 0)),
     )
 
     if (profileLoading && !profileInitialized) {
@@ -569,6 +553,7 @@ const SettingsProfile = () => {
                                             setSelectedIndustryId(
                                                 industry?.industry_id || '',
                                             )
+                                            setProductIds([])
                                         }}
                                         className={selectClassName}
                                     />
@@ -631,21 +616,42 @@ const SettingsProfile = () => {
                             </FormItem>
                         </div>
 
-                        <FormItem label="Products">
+                        <FormItem
+                            label="Products"
+                            extra={
+                                isCompanyOwner ? (
+                                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                                        Products your company sells (saved on your company
+                                        profile).
+                                    </span>
+                                ) : undefined
+                            }
+                        >
                             {isCompanyOwner ? (
                                 <Select<SelectOption, true>
                                     isMulti
-                                    isDisabled
-                                    isSearchable={false}
                                     placeholder={
                                         !selectedIndustryId
-                                            ? 'Select an industry to view products'
-                                            : productChipsForDisplay.length === 0
+                                            ? 'Select an industry to browse products'
+                                            : productOptions.length === 0
                                               ? 'No products for this industry'
-                                              : undefined
+                                              : 'Select products'
                                     }
                                     options={productOptions}
-                                    value={productChipsForDisplay}
+                                    isDisabled={
+                                        industriesLoading ||
+                                        !!industriesError ||
+                                        !selectedIndustryId ||
+                                        productOptions.length === 0
+                                    }
+                                    value={selectedProductOptions}
+                                    onChange={(options) => {
+                                        setProductIds(
+                                            (options as SelectOption[]).map(
+                                                (opt) => opt.value,
+                                            ),
+                                        )
+                                    }}
                                     className={selectClassName}
                                 />
                             ) : readOnlyProductChips.length > 0 ? (
@@ -661,7 +667,7 @@ const SettingsProfile = () => {
                                 <div
                                     className="rounded-lg border border-dashed border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 px-4 py-4 text-sm text-gray-500 dark:text-gray-400 opacity-60"
                                 >
-                                    No products are linked to your company industry yet.
+                                    No products saved for your company yet.
                                 </div>
                             )}
                         </FormItem>

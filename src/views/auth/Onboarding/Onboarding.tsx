@@ -8,6 +8,7 @@ import { useAppSelector, useAppDispatch } from '@/store'
 import { setOnboardingComplete } from '@/store/slices/auth/userSlice'
 import { apiCreateSalesCompany } from '@/services/SalesCompanyService'
 import { apiGetManagerMe } from '@/services/ManagerService'
+import { apiPatchCompanyProfile } from '@/services/AuthService'
 import { useAuth } from '@/auth'
 import { HiArrowLeft } from 'react-icons/hi'
 import type { OnboardingFormSchema } from './components/OnboardingForm'
@@ -35,10 +36,15 @@ const Onboarding = () => {
                 location: data.location || 'N/A',
                 phone_number: data.phone_number || 'N/A',
                 email: data.email || 'N/A',
-                product_ids: data.industryProducts,
             })
 
             if (resp) {
+                await apiPatchCompanyProfile({
+                    sales_company_id: resp.sales_company_id,
+                    industry: data.industry,
+                    product_ids: data.industryProducts,
+                })
+
                 // Fetch the updated user data to get the linked company_id
                 const authResp = await apiGetManagerMe()
 

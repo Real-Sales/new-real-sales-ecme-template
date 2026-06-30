@@ -1,80 +1,33 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import Avatar from '@/components/ui/Avatar'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
+import Select from '@/components/ui/Select'
 import ScrollBar from '@/components/ui/ScrollBar'
 import Spinner from '@/components/ui/Spinner'
 import Notification from '@/components/ui/Notification'
 import Dialog from '@/components/ui/Dialog'
+import { Form, FormItem } from '@/components/ui/Form'
 import toast from '@/components/ui/toast'
-import wildCardSearch from '@/utils/wildCardSearch'
 import classNames from '@/utils/classNames'
-import { TbSearch } from 'react-icons/tb'
+import { TbSearch, TbFilter } from 'react-icons/tb'
 import debounce from 'lodash/debounce'
+import type { MultiValue } from 'react-select'
 import { apiManagerCreateSession } from '@/services/SessionService'
-import { apiAssignScenario, apiGetScenarioAssignmentStatus } from '@/services/ScenarioLibraryService'
-import { apiGetCompanyTeams } from '@/services/TeamsService'
+import { getApiErrorMessage } from '@/utils/getApiErrorMessage'
+import { apiAssignScenario } from '@/services/ScenarioLibraryService'
 import type { Scenario } from '../types'
 import type { ChangeEvent } from 'react'
-import { useAppSelector } from '@/store'
-import { canManageScenarioLibrary } from '@/utils/inviteAccess'
+import {
+    useAppSelector,
+    useAppDispatch,
+    fetchScenarioAssignmentStatus,
+    markScenarioMemberAssigned,
+    isAssignScenarioCacheFresh,
+} from '../store'
+import Tag from '@/components/ui/Tag'
 
-type Member = {
-    id: string
-    name: string
-    email: string
-    img?: string
-}
-
-function memberFromTeamRow(
-    m: {
-        user_id: string
-        user: { first_name: string; last_name: string; email: string }
-    },
-    authUser: {
-        userId?: string
-        email?: string
-        firstName?: string
-        lastName?: string
-        userName?: string
-    },
-): Member {
-    const isSelf = m.user_id === authUser.userId
-    const name = `${m.user.first_name} ${m.user.last_name}`.trim()
-    const selfName =
-        [authUser.firstName, authUser.lastName].filter(Boolean).join(' ').trim() ||
-        authUser.userName ||
-        'You'
-
-    return {
-        id: m.user_id,
-        name: isSelf && !name ? selfName : name,
-        email: m.user.email || (isSelf ? authUser.email || '' : ''),
-        img: `/img/avatars/thumb-${Math.floor(Math.random() * 5) + 1}.jpg`,
-    }
-}
-
-function selfMemberFromAuth(authUser: {
-    userId?: string
-    email?: string
-    firstName?: string
-    lastName?: string
-    userName?: string
-}): Member | null {
-    if (!authUser.userId) return null
-
-    const name =
-        [authUser.firstName, authUser.lastName].filter(Boolean).join(' ').trim() ||
-        authUser.userName ||
-        'You'
-
-    return {
-        id: authUser.userId,
-        name,
-        email: authUser.email || '',
-        img: `/img/avatars/thumb-${Math.floor(Math.random() * 5) + 1}.jpg`,
-    }
-}
+type ProductOption = { value: string; label: string }
 
 type ShareScenarioDialogProps = {
     isOpen: boolean
@@ -82,241 +35,377 @@ type ShareScenarioDialogProps = {
     scenario: Scenario | null
 }
 
+const selectClassName =
+    '[&>div]:!bg-gray-50 [&>div]:dark:!bg-gray-800/50 [&>div]:border [&>div]:border-gray-200 [&>div]:dark:border-gray-700 [&>div]:shadow-md'
+
+const FILTER_FORM_ID = 'assign-scenario-product-filter'
+
 const ShareScenarioDialog = ({
     isOpen,
     onClose,
     scenario,
 }: ShareScenarioDialogProps) => {
-    const inputRef = useRef(null)
-    const authUser = useAppSelector((state) => state.auth.user)
-    const companyId = authUser.companyId
+    const inputRef = useRef<HTMLInputElement>(null)
+    const dispatch = useAppDispatch()
+    const scenarioId = scenario?.scenario_id
+    const {
+        assignScenarioById,
+        assignScenarioLoadingScenarioId,
+        assignScenarioError,
+    } = useAppSelector(
+        (state) =>
+            state.scenarioLibrary?.data ?? {
+                assignScenarioById: {},
+                assignScenarioLoadingScenarioId: null,
+                assignScenarioError: null,
+            },
+    )
 
-    const [allCompanyMembers, setAllCompanyMembers] = useState<Member[]>([])
-    const [memberList, setMemberList] = useState<Member[]>([])
-    const [isLoading, setIsLoading] = useState(false)
-    const [isAssigning, setIsAssigning] = useState<string | null>(null)
+    const cacheEntry = scenarioId ? assignScenarioById[scenarioId] : undefined
+    const hasCachedMembers = isAssignScenarioCacheFresh(cacheEntry)
+    const members = hasCachedMembers ? cacheEntry!.members : []
+    const isLoading =
+        Boolean(scenarioId) &&
+        !hasCachedMembers &&
+        assignScenarioLoadingScenarioId === scenarioId
+    const loadError = assignScenarioError
+
     const [searchQuery, setSearchQuery] = useState('')
-    const [assignmentMap, setAssignmentMap] = useState<Record<string, boolean>>({})
+    const [productFilterIds, setProductFilterIds] = useState<string[]>([])
+    const [draftProductFilterIds, setDraftProductFilterIds] = useState<string[]>([])
+    const [filterOpen, setFilterOpen] = useState(false)
+    const [isAssigning, setIsAssigning] = useState<string | null>(null)
 
-    const fetchData = async () => {
-        if (!companyId || !isOpen || !scenario) return
-        setIsLoading(true)
-        try {
-            const teams = await apiGetCompanyTeams(companyId)
-            const memberMap = new Map<string, Member>()
-
-            // Assign list = unique users across all company teams (team.members only).
-            teams?.forEach((team) => {
-                team.members.forEach((m) => {
-                    if (!memberMap.has(m.user_id)) {
-                        memberMap.set(m.user_id, memberFromTeamRow(m, authUser))
-                    }
-                })
-            })
-
-            const isOnAnyTeam =
-                teams?.some(
-                    (team) =>
-                        team.manager_id === authUser.userId ||
-                        team.members.some((m) => m.user_id === authUser.userId),
-                ) ?? false
-
-            // Managers are often team.manager_id but not in team.members — include self when
-            // they manage or belong to a team, or when they can manage the library (self-assign).
-            if (
-                authUser.userId &&
-                !memberMap.has(authUser.userId) &&
-                (canManageScenarioLibrary(authUser.role) || isOnAnyTeam)
-            ) {
-                const self = selfMemberFromAuth(authUser)
-                if (self) {
-                    memberMap.set(authUser.userId, self)
-                }
-            }
-
-            const members = Array.from(memberMap.values())
-            setAllCompanyMembers(members)
-            setMemberList(members)
-
-            if (teams && teams.length > 0) {
-                const statusResponses = await Promise.all(
-                    teams.map(t => apiGetScenarioAssignmentStatus(scenario.scenario_id, t.company_team_id))
-                )
-                
-                // Merge all members from all teams into one status map
-                const mergedMap: Record<string, boolean> = {}
-                statusResponses.forEach(response => {
-                    response.members.forEach(member => {
-                        if (member.is_assigned) {
-                            mergedMap[member.user_id] = true
-                        }
-                    })
-                })
-                setAssignmentMap(mergedMap)
-            }
-        } catch (error) {
-            console.error('Failed to fetch data for share scenario:', error)
-        } finally {
-            setIsLoading(false)
+    const resetDialogUiState = useCallback(() => {
+        setSearchQuery('')
+        setProductFilterIds([])
+        setDraftProductFilterIds([])
+        setFilterOpen(false)
+        setIsAssigning(null)
+        if (inputRef.current) {
+            inputRef.current.value = ''
         }
-    }
+    }, [])
 
     useEffect(() => {
-        if (isOpen) {
-            fetchData()
-        } else {
-            // Reset state when dialog is closed
-            setAssignmentMap({})
-            setMemberList(allCompanyMembers)
-            setSearchQuery('')
+        if (!isOpen) {
+            resetDialogUiState()
+            return
         }
-    }, [companyId, isOpen, scenario?.scenario_id])
 
-    const handleDebounceFn = (query: string) => {
-        setSearchQuery(query)
-        const data = wildCardSearch(allCompanyMembers, query, ['name', 'email'])
-        setMemberList(data as Member[])
-    }
+        if (!scenarioId) return
 
-    const debounceFn = debounce(handleDebounceFn, 500)
+        dispatch(fetchScenarioAssignmentStatus(scenarioId))
+    }, [dispatch, isOpen, resetDialogUiState, scenarioId])
+
+    const productFilterOptions: ProductOption[] = useMemo(() => {
+        const seen = new Map<string, string>()
+        for (const member of members) {
+            for (const product of member.products) {
+                if (!seen.has(product.id)) {
+                    seen.set(product.id, product.name)
+                }
+            }
+        }
+        return Array.from(seen.entries()).map(([value, label]) => ({
+            value,
+            label,
+        }))
+    }, [members])
+
+    const memberList = useMemo(() => {
+        let list = members
+
+        if (productFilterIds.length > 0) {
+            list = list.filter((member) =>
+                member.products.some((product) =>
+                    productFilterIds.includes(product.id),
+                ),
+            )
+        }
+
+        if (searchQuery.trim()) {
+            const q = searchQuery.toLowerCase()
+            list = list.filter(
+                (member) =>
+                    member.name.toLowerCase().includes(q) ||
+                    member.salesDivision.toLowerCase().includes(q) ||
+                    member.products.some((product) =>
+                        product.name.toLowerCase().includes(q),
+                    ),
+            )
+        }
+
+        return list
+    }, [members, productFilterIds, searchQuery])
+
+    const debouncedSearch = useMemo(
+        () =>
+            debounce((query: string) => {
+                setSearchQuery(query)
+            }, 500),
+        [],
+    )
+
+    useEffect(() => () => debouncedSearch.cancel(), [debouncedSearch])
 
     const onSearch = (e: ChangeEvent<HTMLInputElement>) => {
-        debounceFn(e.target.value)
+        debouncedSearch(e.target.value)
     }
 
-    const onAssignScenario = async (member: Member) => {
+    const toggleFilter = () => {
+        setFilterOpen((prev) => {
+            if (!prev) {
+                setDraftProductFilterIds(productFilterIds)
+            }
+            return !prev
+        })
+    }
+
+    const applyProductFilter = () => {
+        setProductFilterIds(draftProductFilterIds)
+        setFilterOpen(false)
+    }
+
+    const resetProductFilter = () => {
+        setDraftProductFilterIds([])
+        setProductFilterIds([])
+        setFilterOpen(false)
+    }
+
+    const onAssignScenario = async (userId: string, memberName: string) => {
         if (!scenario) return
-        
-        setIsAssigning(member.id)
+
+        setIsAssigning(userId)
         try {
             const resp = await apiManagerCreateSession({
-                user_id: member.id,
+                user_id: userId,
                 persona_id: scenario.persona.persona_id,
                 mode_id: scenario.mode.mode_id,
                 scenario_id: scenario.scenario_id,
                 scenario_text: scenario.scenario_text,
-                document_content: scenario.document_content
+                document_content: scenario.document_content,
             })
 
-            if (resp && resp.session_id) {
+            if (resp?.session_id) {
                 await apiAssignScenario(scenario.scenario_id, resp.session_id)
-                // Update local assignment map
-                setAssignmentMap(prev => ({
-                    ...prev,
-                    [member.id]: true
-                }))
+                dispatch(
+                    markScenarioMemberAssigned({
+                        scenarioId: scenario.scenario_id,
+                        userId,
+                        sessionId: resp.session_id,
+                    }),
+                )
             }
-            
+
             toast.push(
                 <Notification title="Success" type="success">
-                    Scenario assigned to {member.name} successfully
-                </Notification>
+                    Scenario assigned to {memberName} successfully
+                </Notification>,
             )
         } catch (error) {
             console.error('Failed to assign scenario:', error)
             toast.push(
                 <Notification title="Error" type="danger">
-                    Failed to assign scenario
-                </Notification>
+                    {getApiErrorMessage(error, 'Failed to assign scenario')}
+                </Notification>,
             )
         } finally {
             setIsAssigning(null)
         }
     }
 
-    const getInitials = (name: string) => {
-        return name
+    const getInitials = (name: string) =>
+        name
             .split(' ')
-            .map(word => word[0])
+            .map((word) => word[0])
             .join('')
             .toUpperCase()
             .slice(0, 2)
-    }
+
+    const activeFilterCount = productFilterIds.length
 
     return (
         <Dialog
             isOpen={isOpen}
             onClose={onClose}
             onRequestClose={onClose}
-            contentClassName="mt-[10vh]"
+            contentClassName="mt-[8vh] max-w-lg"
         >
             <div className="text-center mb-6">
-                <h4 className="mb-1 text-2xl font-bold">Share Scenario</h4>
-                <p className="text-gray-500">Pick a team member to assign &quot;{scenario?.title}&quot;</p>
-            </div>
-            <Input
-                ref={inputRef}
-                prefix={<TbSearch className="text-xl text-gray-400" />}
-                placeholder="Search team member..."
-                onChange={onSearch}
-                className="bg-gray-50 dark:bg-gray-800"
-            />
-            <div className="mt-6">
-                <p className="font-bold uppercase text-xs text-gray-500 mb-4 tracking-wider">
-                    {memberList.length} MEMBERS AVAILABLE
+                <h4 className="mb-1 text-2xl font-bold">Assign Scenario</h4>
+                <p className="text-gray-500 dark:text-gray-400 text-sm">
+                    Pick a team member to assign &quot;{scenario?.title}&quot;
                 </p>
-                <div className="mb-6">
-                    {isLoading ? (
-                        <div className="flex justify-center py-20">
-                            <Spinner size={40} />
+            </div>
+
+            {isLoading ? (
+                <div className="flex justify-center py-16">
+                    <Spinner size={40} />
+                </div>
+            ) : loadError ? (
+                <p className="text-sm text-red-500 dark:text-red-400 text-center py-8">
+                    {loadError}
+                </p>
+            ) : (
+                <>
+                    <div className="flex gap-2 mb-4">
+                        <Input
+                            ref={inputRef}
+                            className="flex-1 bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700"
+                            prefix={<TbSearch className="text-xl text-gray-400" />}
+                            placeholder="Search team members..."
+                            onChange={onSearch}
+                        />
+                        <Button
+                            size="sm"
+                            icon={<TbFilter />}
+                            className={classNames(
+                                'rounded-md shrink-0 !bg-gray-50 dark:!bg-gray-800/50 !border !border-gray-200 dark:!border-gray-700 shadow-md',
+                                (activeFilterCount > 0 || filterOpen) &&
+                                    '!border-primary dark:!border-primary',
+                            )}
+                            onClick={toggleFilter}
+                        >
+                            Filter
+                            {activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
+                        </Button>
+                    </div>
+
+                    {filterOpen && (
+                        <div className="mb-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 p-4">
+                            <Form id={FILTER_FORM_ID} onSubmit={(e) => e.preventDefault()}>
+                                <FormItem label="Products">
+                                    <Select<ProductOption, true>
+                                        isMulti
+                                        placeholder={
+                                            productFilterOptions.length === 0
+                                                ? 'No products on team members'
+                                                : 'Select products'
+                                        }
+                                        options={productFilterOptions}
+                                        isDisabled={productFilterOptions.length === 0}
+                                        value={productFilterOptions.filter((opt) =>
+                                            draftProductFilterIds.includes(opt.value),
+                                        )}
+                                        onChange={(options: MultiValue<ProductOption>) => {
+                                            setDraftProductFilterIds(
+                                                options.map((opt) => opt.value),
+                                            )
+                                        }}
+                                        className={selectClassName}
+                                    />
+                                </FormItem>
+                            </Form>
+                            <div className="flex gap-2 mt-2">
+                                <Button
+                                    size="sm"
+                                    variant="default"
+                                    type="button"
+                                    className="flex-1 dark:!bg-gray-800 dark:!border-gray-600 dark:!text-gray-200"
+                                    onClick={resetProductFilter}
+                                >
+                                    Reset
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    variant="solid"
+                                    type="button"
+                                    className="flex-1 bg-primary hover:bg-primary-deep text-neutral border-none"
+                                    onClick={applyProductFilter}
+                                >
+                                    Apply
+                                </Button>
+                            </div>
                         </div>
-                    ) : (
-                        <ScrollBar className={classNames('overflow-y-auto h-80 px-2')}>
+                    )}
+
+                    <p className="font-bold uppercase text-xs text-gray-500 dark:text-gray-400 mb-4 tracking-wider">
+                        {memberList.length} member
+                        {memberList.length === 1 ? '' : 's'} available
+                    </p>
+
+                    <div className="mb-6">
+                        <ScrollBar className={classNames('overflow-y-auto h-80 px-1')}>
                             {memberList.map((member) => (
                                 <div
-                                    key={member.id}
+                                    key={member.userId}
                                     className="py-3 px-4 mb-2 rounded-xl flex items-center justify-between hover:bg-gray-100 dark:hover:bg-gray-800/60 transition-colors"
                                 >
-                                    <div className="flex items-center gap-3">
-                                        {member.img ? (
-                                            <Avatar size={45} shape="circle" src={member.img} />
-                                        ) : (
-                                            <Avatar size={45} shape="circle" className="bg-primary/10 text-primary">
-                                                {getInitials(member.name)}
-                                            </Avatar>
-                                        )}
-                                        <div>
-                                            <p className="font-bold text-gray-900 dark:text-white">
+                                    <div className="flex items-center gap-3 min-w-0">
+                                        <Avatar
+                                            size={45}
+                                            shape="circle"
+                                            className="bg-primary/10 text-primary shrink-0"
+                                        >
+                                            {getInitials(member.name)}
+                                        </Avatar>
+                                        <div className="min-w-0">
+                                            <p className="font-bold text-gray-900 dark:text-white truncate">
                                                 {member.name}
                                             </p>
-                                            <p className="text-sm text-gray-500">
-                                                {member.email}
+                                            {member.products.length > 0 ? (
+                                                <div className="mt-1 flex flex-wrap gap-1">
+                                                    {member.products.map((product) => (
+                                                        <Tag
+                                                            key={product.id}
+                                                            className="rounded-full border-0 bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary dark:bg-primary/20 dark:text-primary-mild"
+                                                        >
+                                                            {product.name}
+                                                        </Tag>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <p className="text-sm text-gray-500 dark:text-gray-400">
+                                                    —
+                                                </p>
+                                            )}
+                                            <p className="text-xs text-gray-400 dark:text-gray-500 truncate mt-1">
+                                                {member.salesDivision}
                                             </p>
                                         </div>
                                     </div>
                                     <Button
                                         size="sm"
                                         variant="solid"
-                                        loading={isAssigning === member.id}
-                                        disabled={assignmentMap[member.id] || (isAssigning !== null && isAssigning !== member.id)}
+                                        loading={isAssigning === member.userId}
+                                        disabled={
+                                            !member.canAssign ||
+                                            (isAssigning !== null &&
+                                                isAssigning !== member.userId)
+                                        }
                                         className={classNames(
-                                            "font-semibold",
-                                            assignmentMap[member.id] ? "bg-gray-100 dark:bg-gray-700 text-gray-500" : "bg-primary hover:bg-primary-deep text-white"
+                                            'font-semibold shrink-0 ml-2',
+                                            member.canAssign
+                                                ? 'bg-primary hover:bg-primary-deep text-white'
+                                                : 'bg-gray-100 dark:bg-gray-700 text-gray-500',
                                         )}
-                                        onClick={() => onAssignScenario(member)}
+                                        onClick={() =>
+                                            onAssignScenario(
+                                                member.userId,
+                                                member.name,
+                                            )
+                                        }
                                     >
-                                        {assignmentMap[member.id] ? 'Assigned' : 'Assign'}
+                                        {member.canAssign ? 'Assign' : 'Assigned'}
                                     </Button>
                                 </div>
                             ))}
-                            {memberList.length === 0 && !isLoading && (
-                                <div className="text-center py-10 text-gray-500">
-                                    {searchQuery
-                                        ? 'No members found matching your search.'
+                            {memberList.length === 0 && (
+                                <div className="text-center py-10 text-gray-500 dark:text-gray-400 text-sm">
+                                    {searchQuery || productFilterIds.length > 0
+                                        ? 'No members match your search or filters.'
                                         : 'No team members found. Add people to a team first.'}
                                 </div>
                             )}
                         </ScrollBar>
-                    )}
-                </div>
-                <Button 
-                    block 
-                    variant="plain" 
-                    onClick={onClose}
-                >
-                    Close
-                </Button>
-            </div>
+                    </div>
+                </>
+            )}
+
+            <Button block variant="plain" onClick={onClose}>
+                Close
+            </Button>
         </Dialog>
     )
 }

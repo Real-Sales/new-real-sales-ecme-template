@@ -16,6 +16,7 @@ import { fetchIndustries } from '@/store/slices/industriesCatalogSlice'
 import { fetchUserProfile } from '@/views/profile/Settings/store/settingsSlice'
 import type { AIPersona } from '@/components/shared/SessionSetupPanel'
 import { apiCreateSession } from '@/services/SessionService'
+import { getApiErrorMessage } from '@/utils/getApiErrorMessage'
 import type { AiPersonaListItem, InteractionModeListItem } from '@/views/sales/ScenarioList/types'
 import scenarioLibraryReducer, {
     useAppSelector as useScenarioSelector,
@@ -100,49 +101,6 @@ const industryToPersonaIndustries: Record<string, string[]> = {
     other: ['Manufacturing', 'Technology', 'Industrial', 'Finance', 'Software', 'Retail', 'Marketing'],
 }
 
-// Map product types to persona industries (for category filtering)
-const productToPersonaIndustries: Record<string, string[]> = {
-    saas: ['Technology', 'Software'],
-    cloud: ['Technology', 'Software'],
-    ai_ml: ['Technology', 'Software'],
-    cybersecurity: ['Technology', 'Software'],
-    devtools: ['Technology', 'Software'],
-    data_analytics: ['Technology', 'Software', 'Finance'],
-    ehr: ['Technology', 'Software'],
-    telehealth: ['Technology', 'Software'],
-    medical_devices: ['Manufacturing', 'Technology'],
-    pharma: ['Manufacturing', 'Finance'],
-    health_analytics: ['Technology', 'Software'],
-    fintech: ['Finance', 'Technology'],
-    payments: ['Finance', 'Technology'],
-    lending: ['Finance'],
-    wealth_mgmt: ['Finance'],
-    regtech: ['Finance', 'Technology'],
-    ecommerce: ['Retail', 'Technology'],
-    pos: ['Retail', 'Technology'],
-    inventory: ['Manufacturing', 'Retail'],
-    crm: ['Technology', 'Software'],
-    crm_general: ['Technology', 'Software'],
-    loyalty: ['Retail', 'Marketing'],
-    erp: ['Manufacturing', 'Technology'],
-    supply_chain: ['Manufacturing', 'Industrial'],
-    quality: ['Manufacturing', 'Industrial'],
-    iot: ['Technology', 'Industrial'],
-    proptech: ['Technology', 'Finance'],
-    property_mgmt: ['Technology', 'Finance'],
-    crm_re: ['Technology', 'Software'],
-    listings: ['Technology', 'Retail'],
-    lms: ['Technology', 'Software'],
-    edtech: ['Technology', 'Software'],
-    assessment: ['Technology', 'Software'],
-    tutoring: ['Technology', 'Marketing'],
-    marketing: ['Marketing'],
-    project_mgmt: ['Technology', 'Manufacturing'],
-    communication: ['Technology'],
-    hr_tools: ['Technology', 'Marketing'],
-    accounting: ['Finance', 'Technology'],
-}
-
 function mapPersona(p: AiPersonaListItem): AIPersona {
     return {
         id: p.persona_id,
@@ -202,12 +160,6 @@ const PersonaSelection = () => {
         settingsProfile?.industryLabel ||
         settingsProfile?.industry ||
         ''
-    const userProducts: string[] = (
-        settingsProfile?.products?.map((p) => p.value) ??
-        authUser?.industryProducts ??
-        []
-    ).filter(Boolean)
-
     const sessionData = location.state as {
         mode: string
         scenarios?: string[]
@@ -289,35 +241,8 @@ const PersonaSelection = () => {
             return personaMatchesUserIndustry(persona.industry, userIndustry)
         })
 
-        if (userProducts.length === 0) {
-            return industryFiltered.length > 0 ? industryFiltered : aiPersonas
-        }
-
-        const productIndustries = new Set<string>()
-        userProducts.forEach((productKey) => {
-            const normalizedKey = normalizeIndustryKey(productKey)
-            const industries =
-                productToPersonaIndustries[productKey] ||
-                productToPersonaIndustries[normalizedKey]
-            if (industries) {
-                industries.forEach((i) => productIndustries.add(i.toLowerCase()))
-            }
-        })
-
-        if (productIndustries.size === 0) {
-            return industryFiltered.length > 0 ? industryFiltered : aiPersonas
-        }
-
-        const combinedIds = new Set(industryFiltered.map((p) => p.id))
-        aiPersonas.forEach((persona) => {
-            if (productIndustries.has(persona.industry.toLowerCase())) {
-                combinedIds.add(persona.id)
-            }
-        })
-
-        const combined = aiPersonas.filter((p) => combinedIds.has(p.id))
-        return combined.length > 0 ? combined : aiPersonas
-    }, [userIndustry, userProducts, aiPersonas, storePersonas, industriesCatalog])
+        return industryFiltered.length > 0 ? industryFiltered : aiPersonas
+    }, [userIndustry, aiPersonas, storePersonas, industriesCatalog])
 
     const profilePersonaIndustry = useMemo(() => {
         if (!userIndustry || !aiPersonas.length) return ''
@@ -453,23 +378,9 @@ const PersonaSelection = () => {
             })
         } catch (err: unknown) {
             console.error('Failed to create session:', err)
-            const detail =
-                err &&
-                typeof err === 'object' &&
-                'response' in err &&
-                err.response &&
-                typeof err.response === 'object' &&
-                'data' in err.response &&
-                err.response.data &&
-                typeof err.response.data === 'object' &&
-                'detail' in err.response.data
-                    ? String(
-                          (err.response.data as { detail?: string }).detail,
-                      )
-                    : null
             toast.push(
                 <Notification title="Error" type="danger">
-                    {detail || 'Failed to create session. Please try again.'}
+                    {getApiErrorMessage(err, 'Failed to create session. Please try again.')}
                 </Notification>,
             )
         } finally {

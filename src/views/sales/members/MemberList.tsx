@@ -139,6 +139,7 @@ const MemberList = () => {
                 enableSorting: true,
                 cell: (props) => {
                     const row = props.row.original
+                    const isMe = row.user_id === userId
                     return (
                         <div className="flex items-center gap-3">
                             <Avatar
@@ -149,9 +150,16 @@ const MemberList = () => {
                                 {getInitials(row.first_name, row.last_name)}
                             </Avatar>
                             <div>
-                                <p className="font-semibold text-gray-900 dark:text-white">
-                                    {row.first_name} {row.last_name}
-                                </p>
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                    <p className="font-semibold text-gray-900 dark:text-white">
+                                        {row.first_name} {row.last_name}
+                                    </p>
+                                    {isMe && (
+                                        <span className="text-[9px] font-bold uppercase tracking-wide text-primary bg-primary/10 rounded-full px-1.5 py-0.5 shrink-0">
+                                            You
+                                        </span>
+                                    )}
+                                </div>
                                 <p className="text-xs text-gray-500 dark:text-gray-400">
                                     {row.email}
                                 </p>
@@ -240,7 +248,7 @@ const MemberList = () => {
                 },
             },
         ],
-        [],
+        [userId],
     )
 
     const loading = membersLoading

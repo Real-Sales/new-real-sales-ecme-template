@@ -22,7 +22,10 @@ import salesDivisionsReducer, {
     resetNotification,
 } from '@/store/slices/salesDivisions'
 import teamsReducer, { fetchTeams } from '@/store/slices/teams'
+import { fetchUserProfile } from '@/views/profile/Settings/store/settingsSlice'
 import type { SalesDivision } from '@/services/SalesDivisionsService'
+import { formatDisplayLabel } from '@/utils/formatDisplayLabel'
+import Tag from '@/components/ui/Tag'
 import dayjs from 'dayjs'
 
 // Inject reducer when component mounts (lazy-loaded)
@@ -65,6 +68,7 @@ type CompanyCardProps = {
     id: string
     name: string
     category: string
+    products: { id: string; name: string }[]
     createdDate: string
     teams: number
     status: 'Active' | 'Inactive'
@@ -76,6 +80,7 @@ type CompanyCardProps = {
 const CompanyCard = ({
     name,
     category,
+    products,
     createdDate,
     teams,
     status,
@@ -152,6 +157,22 @@ const CompanyCard = ({
                     <p className="text-sm text-gray-600 dark:text-gray-400">
                         {category}
                     </p>
+                    {products.length > 0 ? (
+                        <div className="mt-2 flex flex-wrap justify-center gap-1.5">
+                            {products.map((product) => (
+                                <Tag
+                                    key={product.id || product.name}
+                                    className="rounded-full border-0 bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary dark:bg-primary/20 dark:text-primary-mild"
+                                >
+                                    {product.name}
+                                </Tag>
+                            ))}
+                        </div>
+                    ) : (
+                        <p className="mt-2 text-xs text-gray-400 dark:text-gray-500">
+                            No products assigned
+                        </p>
+                    )}
                 </div>
 
                 {/* Details */}
@@ -208,6 +229,9 @@ const CompanyList = () => {
     }, [])
 
     const companyIdRaw = useAppSelector((state) => state.auth.user.companyId)
+    const profileInitialized = useAppSelector(
+        (state) => state.settings.profileInitialized,
+    )
     const companyId =
         typeof companyIdRaw === 'string' ? companyIdRaw.trim() : companyIdRaw
 
@@ -234,6 +258,12 @@ const CompanyList = () => {
         teamsData: state.teams?.data?.teamsData ?? [],
         teamsInitialized: state.teams?.data?.initialized ?? false,
     }))
+
+    useEffect(() => {
+        if (!profileInitialized) {
+            dispatch(fetchUserProfile())
+        }
+    }, [dispatch, profileInitialized])
 
     useEffect(() => {
         if (!companyId || initialized || divisionsLoading) {
@@ -316,7 +346,8 @@ const CompanyList = () => {
                     name: values.companyName,
                     division_category: values.category,
                     sales_company_id: companyId,
-                    is_active: true
+                    is_active: true,
+                    product_ids: values.productIds,
                 }))
             } else if (drawerMode === 'edit' && selectedDivision) {
                 await dispatch(updateDivision({
@@ -325,7 +356,8 @@ const CompanyList = () => {
                         name: values.companyName,
                         division_category: values.category,
                         sales_company_id: companyId,
-                        is_active: selectedDivision.is_active
+                        is_active: selectedDivision.is_active,
+                        product_ids: values.productIds,
                     }
                 }))
             }
@@ -401,6 +433,10 @@ const CompanyList = () => {
         id: d.sales_division_id,
         name: d.name,
         category: d.division_category,
+        products: (d.products ?? []).map((p) => ({
+            id: p.product_id,
+            name: formatDisplayLabel(p.name),
+        })),
         createdDate: dayjs(d.created_at).format('MMM DD, YYYY'),
         teams: teamCountByDivision[d.sales_division_id] ?? 0,
         status: (d.is_active ? 'Active' : 'Inactive') as 'Active' | 'Inactive',
@@ -476,6 +512,7 @@ const CompanyList = () => {
                             `create-${drawerMode}`
                         }
                         ref={formRef}
+                        salesCompanyId={companyId ?? ''}
                         onSubmit={onCompanySubmit}
                         onCancel={onDrawerClose}
                         defaultValues={
@@ -484,6 +521,9 @@ const CompanyList = () => {
                                       companyName: selectedDivision.name,
                                       category:
                                           selectedDivision.division_category,
+                                      productIds: (selectedDivision.products ?? [])
+                                          .map((p) => p.product_id)
+                                          .filter(Boolean),
                                   }
                                 : undefined
                         }

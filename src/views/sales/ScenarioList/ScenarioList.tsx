@@ -26,11 +26,14 @@ import scenarioLibraryReducer, {
 } from './store'
 import toast from '@/components/ui/toast'
 import Notification from '@/components/ui/Notification'
+import Tabs from '@/components/ui/Tabs'
 import type { Scenario } from './types'
+import { getAssignedScenarioTab, type AssignedScenarioTab } from './types'
 import { canManageScenarioLibrary, canLoadAllPersonas } from '@/utils/inviteAccess'
 import { fetchUserProfile } from '@/views/profile/Settings/store/settingsSlice'
 import { scenarioToAudioVizState } from '@/utils/audioVizSessionState'
 import type { FetchPersonasParams } from './store'
+import { TbClock, TbCircleCheck, TbAlertTriangle } from 'react-icons/tb'
 
 type FilterValues = {
     status: string
@@ -60,6 +63,7 @@ const ScenarioList = () => {
         personasData,
         modesData,
         modesLoading,
+        modesInitialized,
         salesRepScenarios,
         salesRepTotalPending,
         salesRepLoading,
@@ -74,10 +78,14 @@ const ScenarioList = () => {
                 personasData: [],
                 modesData: [],
                 modesLoading: false,
+                modesInitialized: false,
                 salesRepScenarios: [],
                 salesRepTotalPending: 0,
                 salesRepLoading: false,
                 salesRepInitialized: false,
+                assignScenarioById: {},
+                assignScenarioLoadingScenarioId: null,
+                assignScenarioError: null,
                 error: null,
                 notification: null,
             }
@@ -102,6 +110,7 @@ const ScenarioList = () => {
         pageSize: 10,
     })
     const [sortConfig, setSortConfig] = useState<{ key: string; order: 'asc' | 'desc' | '' }>({ key: '', order: '' })
+    const [assignedTab, setAssignedTab] = useState<AssignedScenarioTab>('pending')
 
     useEffect(() => {
         if (isAssignedView) return
@@ -132,10 +141,10 @@ const ScenarioList = () => {
 
     useEffect(() => {
         if (!canManageLibrary || isAssignedView) return
-        if (modesData.length === 0 && !modesLoading) {
+        if (!modesInitialized && !modesLoading) {
             dispatch(fetchModes())
         }
-    }, [dispatch, canManageLibrary, isAssignedView, modesData.length, modesLoading])
+    }, [dispatch, canManageLibrary, isAssignedView, modesInitialized, modesLoading])
 
     useEffect(() => {
         if (!isDrawerOpen || !canManageLibrary || isAssignedView) return
@@ -168,6 +177,30 @@ const ScenarioList = () => {
     const rawScenarios = isAssignedView ? salesRepScenarios : scenariosData
     const listLoading = isAssignedView ? salesRepLoading : scenarioLibraryLoading
 
+    const assignedTabCounts = useMemo(() => {
+        const counts: Record<AssignedScenarioTab, number> = {
+            pending: 0,
+            completed: 0,
+            expired: 0,
+        }
+        for (const scenario of salesRepScenarios) {
+            counts[getAssignedScenarioTab(scenario)]++
+        }
+        return counts
+    }, [salesRepScenarios])
+
+    const tabFilteredScenarios = useMemo(() => {
+        if (!isAssignedView) return rawScenarios
+        return rawScenarios.filter(
+            (scenario) => getAssignedScenarioTab(scenario) === assignedTab,
+        )
+    }, [rawScenarios, isAssignedView, assignedTab])
+
+    const handleAssignedTabChange = (tab: string) => {
+        setAssignedTab(tab as AssignedScenarioTab)
+        setTableData((prev) => ({ ...prev, pageIndex: 1 }))
+    }
+
     const handleSalesRepOpenSession = (scenario: Scenario) => {
         if (!scenario.session_id) return
         navigate(`/audio-visualizer/${scenario.session_id}`, {
@@ -182,7 +215,8 @@ const ScenarioList = () => {
 
     // Filter scenarios based on search and filters
     const filteredScenarios = useMemo(() => {
-        return rawScenarios.filter((scenario) => {
+        const source = isAssignedView ? tabFilteredScenarios : rawScenarios
+        return source.filter((scenario) => {
             const q = searchQuery.toLowerCase()
             const matchesSearch =
                 searchQuery === '' ||
@@ -204,7 +238,7 @@ const ScenarioList = () => {
 
             return matchesSearch && matchesStatus && matchesMode && matchesPersona
         })
-    }, [rawScenarios, searchQuery, filters])
+    }, [isAssignedView, tabFilteredScenarios, rawScenarios, searchQuery, filters])
 
     // Sort filtered scenarios
     const sortedScenarios = useMemo(() => {
@@ -438,8 +472,44 @@ const ScenarioList = () => {
                                 showAddButton={canManageLibrary && !isAssignedView}
                             />
                         </div>
+                        {isAssignedView && (
+                            <Tabs
+                                value={assignedTab}
+                                onChange={handleAssignedTabChange}
+                            >
+                                <Tabs.TabList>
+                                    <Tabs.TabNav value="pending">
+                                        <span className="flex items-center gap-1.5">
+                                            <TbClock className="text-sm" />
+                                            Pending
+                                            <span className="text-[10px] font-bold bg-primary/10 text-primary rounded-full px-1.5 py-0.5">
+                                                {assignedTabCounts.pending}
+                                            </span>
+                                        </span>
+                                    </Tabs.TabNav>
+                                    <Tabs.TabNav value="completed">
+                                        <span className="flex items-center gap-1.5">
+                                            <TbCircleCheck className="text-sm" />
+                                            Completed
+                                            <span className="text-[10px] font-bold bg-primary/10 text-primary rounded-full px-1.5 py-0.5">
+                                                {assignedTabCounts.completed}
+                                            </span>
+                                        </span>
+                                    </Tabs.TabNav>
+                                    <Tabs.TabNav value="expired">
+                                        <span className="flex items-center gap-1.5">
+                                            <TbAlertTriangle className="text-sm" />
+                                            Expired
+                                            <span className="text-[10px] font-bold bg-primary/10 text-primary rounded-full px-1.5 py-0.5">
+                                                {assignedTabCounts.expired}
+                                            </span>
+                                        </span>
+                                    </Tabs.TabNav>
+                                </Tabs.TabList>
+                            </Tabs>
+                        )}
                         <ScenarioListTableTools
-                            scenarios={rawScenarios}
+                            scenarios={isAssignedView ? tabFilteredScenarios : rawScenarios}
                             onSearch={handleSearch}
                             onFilterChange={handleFilterChange}
                             filterValues={filters}
