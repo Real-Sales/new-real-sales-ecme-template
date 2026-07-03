@@ -5,17 +5,29 @@ import Container from '@/components/shared/Container'
 import Loading from '@/components/shared/Loading'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
-import { TbArrowLeft, TbDownload, TbRefresh } from 'react-icons/tb'
+import { TbArrowLeft, TbArrowRight, TbDownload, TbRefresh } from 'react-icons/tb'
 import toast from '@/components/ui/toast'
 import Notification from '@/components/ui/Notification'
+import { injectReducer, useAppDispatch } from '@/store'
 import {
     apiEnsurePerformanceReport,
+    apiGetSessionById,
+    apiRegenerateSessionMemory,
     downloadPerformanceReportPdf,
     getPerformanceReportPdfErrorMessage,
     type CoachingSummary,
     type PerformanceReportPayload,
     type ReportCategory,
+    type SessionResponse,
 } from '@/services/SessionService'
+import { getApiErrorMessage } from '@/utils/getApiErrorMessage'
+import { MODE_PIPELINE_ORDER, MODE_PIPELINE_NAMES, formatModeName } from '@/utils/modePipeline'
+import scenarioLibraryReducer, {
+    useAppSelector as useScenarioSelector,
+    fetchModes,
+} from '@/views/sales/ScenarioList/store'
+
+injectReducer('scenarioLibrary', scenarioLibraryReducer)
 
 type ReportState =
     | { status: 'loading' }
@@ -129,8 +141,33 @@ function mapReportError(err: unknown): { message: string; canRetry?: boolean } {
 const SessionReport = () => {
     const { sessionId } = useParams<{ sessionId: string }>()
     const navigate = useNavigate()
+    const dispatch = useAppDispatch()
     const [state, setState] = useState<ReportState>({ status: 'loading' })
     const [downloading, setDownloading] = useState(false)
+    const [session, setSession] = useState<SessionResponse | null>(null)
+    const [regeneratingMemory, setRegeneratingMemory] = useState(false)
+
+    const modesData = useScenarioSelector(
+        (s) => s.scenarioLibrary?.data?.modesData,
+    )
+    const modesLoading = useScenarioSelector(
+        (s) => s.scenarioLibrary?.data?.modesLoading,
+    )
+
+    useEffect(() => {
+        if (!modesData?.length && !modesLoading) {
+            dispatch(fetchModes())
+        }
+    }, [dispatch, modesData?.length, modesLoading])
+
+    const loadSession = useCallback(() => {
+        if (!sessionId) return
+        apiGetSessionById(sessionId)
+            .then((s) => setSession(s))
+            .catch((err: unknown) => {
+                console.error('Failed to load session for journey CTA:', err)
+            })
+    }, [sessionId])
 
     const runLoad = useCallback(() => {
         if (!sessionId) {
@@ -163,6 +200,65 @@ const SessionReport = () => {
             cancelled = true
         }
     }, [sessionId])
+
+    useEffect(() => {
+        loadSession()
+    }, [loadSession])
+
+    const currentModeName = useMemo(() => {
+        if (!session || !modesData?.length) return null
+        const mode = modesData.find((m) => m.mode_id === session.mode_id)
+        return mode?.name?.toLowerCase() ?? null
+    }, [session, modesData])
+
+    const nextModeName = useMemo(() => {
+        if (!currentModeName) return null
+        const order = MODE_PIPELINE_ORDER[currentModeName]
+        if (order === undefined || order >= MODE_PIPELINE_NAMES.length - 1) {
+            return null // closing mode (or unknown) — end of pipeline
+        }
+        return MODE_PIPELINE_NAMES[order + 1]
+    }, [currentModeName])
+
+    const nextMode = useMemo(() => {
+        if (!nextModeName || !modesData?.length) return null
+        return modesData.find((m) => m.name?.toLowerCase() === nextModeName) ?? null
+    }, [nextModeName, modesData])
+
+    const handleContinueToNextMode = () => {
+        if (!session || !nextMode || !nextModeName || !sessionId) return
+        navigate('/persona-selection', {
+            state: {
+                mode: formatModeName(nextModeName),
+                scenarios: [],
+                files: [],
+                continueFromSessionId: sessionId,
+                prefillPersonaId: session.persona_id,
+            },
+        })
+    }
+
+    const handleRegenerateMemory = async () => {
+        if (!sessionId || regeneratingMemory) return
+        try {
+            setRegeneratingMemory(true)
+            await apiRegenerateSessionMemory(sessionId)
+            loadSession()
+            toast.push(
+                <Notification title="Success" type="success">
+                    Session memory regenerated. You can now continue to the next mode.
+                </Notification>,
+            )
+        } catch (err: unknown) {
+            toast.push(
+                <Notification title="Error" type="danger">
+                    {getApiErrorMessage(err, 'Failed to regenerate session memory.')}
+                </Notification>,
+            )
+        } finally {
+            setRegeneratingMemory(false)
+        }
+    }
 
     const handleDownloadPdf = async () => {
         if (!sessionId || downloading) return
@@ -411,6 +507,50 @@ const SessionReport = () => {
                                 </p>
                             </Card>
                         ) : null}
+
+                        {session?.status === 'completed' && nextModeName && (
+                            <Card bodyClass="!p-6">
+                                <div className="flex items-center justify-between flex-wrap gap-4">
+                                    <div>
+                                        <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-1">
+                                            Continue your journey
+                                        </h2>
+                                        {session.session_memory ? (
+                                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                                                Ready to move on? Your persona will remember this
+                                                conversation in the next session.
+                                            </p>
+                                        ) : (
+                                            <p className="text-sm text-amber-600 dark:text-amber-400">
+                                                Session memory couldn't be generated yet, so continuing
+                                                would lose this conversation's context. Retry below.
+                                            </p>
+                                        )}
+                                    </div>
+                                    {session.session_memory ? (
+                                        <Button
+                                            size="sm"
+                                            variant="solid"
+                                            icon={<TbArrowRight />}
+                                            iconAlignment="end"
+                                            onClick={handleContinueToNextMode}
+                                        >
+                                            Continue to {formatModeName(nextModeName)}
+                                        </Button>
+                                    ) : (
+                                        <Button
+                                            size="sm"
+                                            variant="solid"
+                                            icon={<TbRefresh />}
+                                            loading={regeneratingMemory}
+                                            onClick={handleRegenerateMemory}
+                                        >
+                                            Retry memory generation
+                                        </Button>
+                                    )}
+                                </div>
+                            </Card>
+                        )}
                     </div>
                 )}
             </Container>

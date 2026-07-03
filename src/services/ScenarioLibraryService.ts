@@ -1,6 +1,7 @@
 import ApiService from './ApiService'
 import endpointConfig from '@/configs/endpoint.config'
 import type { ProfileProduct } from '@/@types/auth'
+import type { SessionResponse } from './SessionService'
 import type {
     ScenarioLibraryResponse,
     DocumentUploadResponse,
@@ -87,6 +88,20 @@ export async function apiGetAiPersonas(params?: FetchAiPersonasParams) {
 export async function apiAssignScenario(scenarioId: string, sessionId: string) {
     return ApiService.fetchDataWithAxios<unknown>({
         url: endpointConfig.assignScenario(scenarioId, sessionId),
+        method: 'post',
+    })
+}
+
+/**
+ * Advance a rep's completed session to the next mode configured for this
+ * scenario (e.g. prospecting -> discovering, when the manager selected
+ * both). `sessionId` is the just-completed session for that rep. Returns
+ * the newly created session, continuing the same journey with memory
+ * carried forward.
+ */
+export async function apiAdvanceScenario(scenarioId: string, sessionId: string) {
+    return ApiService.fetchDataWithAxios<SessionResponse>({
+        url: endpointConfig.scenarioAdvance(scenarioId, sessionId),
         method: 'post',
     })
 }

@@ -7,6 +7,7 @@ import ScenarioUsersDrawer from './ScenarioUsersDrawer'
 import classNames from '@/utils/classNames'
 import { TbUsers, TbListDetails, TbChecks, TbClock, TbPercentage } from 'react-icons/tb'
 import { apiGetTeamScenariosDashboard, apiUnassignScenario, peekTeamScenariosDashboard, type TeamScenariosDashboardResponse } from '@/services/TeamService'
+import { apiAdvanceScenario } from '@/services/ScenarioLibraryService'
 import type { ColumnDef } from '@/components/shared/DataTable'
 import { NumericFormat } from 'react-number-format'
 import dayjs from 'dayjs'
@@ -222,6 +223,25 @@ const TeamScenariosSection = ({ teamId, teamMembers }: TeamScenariosSectionProps
             toast.push(
                 <Notification title="Error" type="danger">
                     Failed to unassign scenario
+                </Notification>
+            )
+        }
+    }
+
+    const handleAdvance = async (scenarioId: string, sessionId: string) => {
+        try {
+            await apiAdvanceScenario(scenarioId, sessionId)
+            toast.push(
+                <Notification title="Success" type="success">
+                    Advanced to the next mode
+                </Notification>
+            )
+            fetchData(true)
+        } catch (error: any) {
+            console.error('Failed to advance scenario:', error)
+            toast.push(
+                <Notification title="Error" type="danger">
+                    {error?.response?.data?.detail || 'Failed to advance to the next mode'}
                 </Notification>
             )
         }
@@ -607,6 +627,7 @@ const TeamScenariosSection = ({ teamId, teamMembers }: TeamScenariosSectionProps
             user={selectedUser}
             scenarios={selectedUserScenarios}
             onUnassignScenario={handleUnassign}
+            onAdvanceScenario={handleAdvance}
         />
 
         {/* Scenario Users Drawer */}

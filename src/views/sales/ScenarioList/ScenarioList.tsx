@@ -308,7 +308,7 @@ const ScenarioList = () => {
     const onScenarioSubmit = async (values: ScenarioFormSchema) => {
         const payload = {
             persona_id: values.persona || null,
-            mode_id: values.mode || null,
+            mode_ids: values.modeIds?.length ? values.modeIds : null,
             title: values.title || null,
             scenario_text: values.scenario || null,
             document_content: values.document_content || null,
@@ -559,7 +559,11 @@ const ScenarioList = () => {
                         formRef={formRef}
                         initialValues={editingScenario ? {
                             title: editingScenario.title || '',
-                            mode: editingScenario.mode?.mode_id ?? '',
+                            modeIds: editingScenario.modes?.length
+                                ? editingScenario.modes.map((m) => m.mode_id)
+                                : editingScenario.mode?.mode_id
+                                  ? [editingScenario.mode.mode_id]
+                                  : [],
                             persona: editingScenario.persona?.persona_id ?? '',
                             deadline: editingScenario.time_limit_days,
                             scenario: editingScenario.scenario_text || '',

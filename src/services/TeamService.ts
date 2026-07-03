@@ -161,6 +161,8 @@ export type TeamScenariosDashboardResponse = {
             name: string
             [key: string]: any
         }
+        /** Scenario's configured modes, in pipeline order (e.g. ["prospecting", "discovering"]). */
+        mode_sequence_names?: string[]
         persona: {
             name: string
             [key: string]: any

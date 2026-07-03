@@ -27,6 +27,10 @@ const endpointConfig = {
     performanceReportPdf: (sessionId: string) => `performance-reports/${sessionId}/pdf`,
     sessionsByUser: (userId: string) => `sessions/by-user/${userId}`,
     createSession: 'sessions/',
+    sessionById: (sessionId: string) => `sessions/${sessionId}`,
+    sessionJourney: (sessionId: string) => `sessions/${sessionId}/journey`,
+    regenerateSessionMemory: (sessionId: string) =>
+        `performance-reports/${sessionId}/regenerate-memory`,
     storeSessionMessage: (sessionId: string) => `sessions/${sessionId}/messages`,
     storeSessionMessagesBatch: (sessionId: string) =>
         `sessions/${sessionId}/messages/batch`,
@@ -63,6 +67,8 @@ const endpointConfig = {
     assignScenario: (scenarioId: string, sessionId: string) => `scenarios/${scenarioId}/assign/${sessionId}`,
     scenarioAssignmentStatus: (scenarioId: string) =>
         `scenarios/${scenarioId}/assignment-status`,
+    scenarioAdvance: (scenarioId: string, sessionId: string) =>
+        `scenarios/${scenarioId}/advance/${sessionId}`,
     authMe: 'auth/me',
     authProfile: 'auth/profile',
     authProfilePersonal: 'auth/profile/personal',

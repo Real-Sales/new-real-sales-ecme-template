@@ -12,13 +12,14 @@ import { TbInfoCircle } from 'react-icons/tb'
 import { apiUploadDocument } from '@/services/ScenarioLibraryService'
 import { PersonaCard } from './ScenarioDetail'
 import type { AiPersonaListItem, ScenarioLibraryPersona } from '../types'
+import { MODE_PIPELINE_ORDER } from '@/utils/modePipeline'
 
 export type ScenarioFormOption = { label: string; value: string }
 export type PersonaFormOption = ScenarioFormOption & { role?: string }
 
 type ScenarioFormSchema = {
     title: string
-    mode: string
+    modeIds: string[]
     persona: string
     deadline: number
     scenario: string
@@ -29,7 +30,7 @@ type ScenarioFormSchema = {
 
 const validationSchema = z.object({
     title: z.string().min(1, { message: 'Title is required' }).max(255, 'Title too long!'),
-    mode: z.string().min(1, { message: 'Mode is required' }),
+    modeIds: z.array(z.string()).min(1, { message: 'Select at least one mode' }),
     persona: z.string().min(1, { message: 'Persona is required' }),
     deadline: z.union([z.string(), z.number()]).pipe(
         z.coerce.number().min(1, { message: 'Deadline must be at least 1 day' }).max(365, 'Deadline too long!')
@@ -102,7 +103,7 @@ const ScenarioForm = ({
     } = useForm<ScenarioFormSchema>({
         defaultValues: initialValues || {
             title: '',
-            mode: '',
+            modeIds: [],
             persona: '',
             deadline: 0,
             scenario: '',
@@ -181,23 +182,78 @@ const ScenarioForm = ({
                 </FormItem>
 
                 <FormItem
-                    label="Mode"
+                    label="Mode(s)"
                     asterisk
-                    invalid={Boolean(errors.mode)}
-                    errorMessage={errors.mode?.message}
+                    invalid={Boolean(errors.modeIds)}
+                    errorMessage={errors.modeIds?.message}
                 >
                     <Controller
-                        name="mode"
+                        name="modeIds"
                         control={control}
-                        render={({ field }) => (
-                            <Select
-                                className="[&>div]:!bg-gray-50 [&>div]:dark:!bg-gray-800/50 [&>div]:border [&>div]:border-gray-200 [&>div]:dark:border-gray-700 [&>div]:shadow-md"
-                                placeholder="Select a mode"
-                                options={modeOptions}
-                                value={modeOptions.find(opt => opt.value === field.value)}
-                                onChange={(option) => field.onChange(option?.value)}
-                            />
-                        )}
+                        render={({ field }) => {
+                            const sortedModeOptions = [...modeOptions].sort(
+                                (a, b) =>
+                                    (MODE_PIPELINE_ORDER[a.label.toLowerCase()] ?? 0) -
+                                    (MODE_PIPELINE_ORDER[b.label.toLowerCase()] ?? 0),
+                            )
+                            const allModeIds = sortedModeOptions.map((o) => o.value)
+                            const selected = field.value ?? []
+                            const isFullPipeline =
+                                selected.length > 1 &&
+                                allModeIds.length > 0 &&
+                                allModeIds.every((id) => selected.includes(id))
+                            const plan: 'single' | 'full' = isFullPipeline ? 'full' : 'single'
+                            const singleValue = plan === 'single' ? (selected[0] ?? '') : ''
+
+                            return (
+                                <div className="space-y-3">
+                                    <div className="inline-flex rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 p-1 shadow-md">
+                                        <button
+                                            type="button"
+                                            onClick={() => field.onChange(singleValue ? [singleValue] : [])}
+                                            className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                                                plan === 'single'
+                                                    ? 'bg-primary text-white'
+                                                    : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                                            }`}
+                                        >
+                                            Single Mode
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => field.onChange(allModeIds)}
+                                            disabled={allModeIds.length === 0}
+                                            className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                                                plan === 'full'
+                                                    ? 'bg-primary text-white'
+                                                    : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                                            }`}
+                                        >
+                                            All 3 Modes
+                                        </button>
+                                    </div>
+
+                                    {plan === 'single' ? (
+                                        <Select
+                                            className="[&>div]:!bg-gray-50 [&>div]:dark:!bg-gray-800/50 [&>div]:border [&>div]:border-gray-200 [&>div]:dark:border-gray-700 [&>div]:shadow-md"
+                                            placeholder="Select a mode"
+                                            options={sortedModeOptions}
+                                            value={sortedModeOptions.find((opt) => opt.value === singleValue)}
+                                            onChange={(option) => field.onChange(option?.value ? [option.value] : [])}
+                                        />
+                                    ) : (
+                                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                                            The rep completes{' '}
+                                            <span className="font-semibold">
+                                                {sortedModeOptions.map((o) => o.label).join(' → ')}
+                                            </span>{' '}
+                                            in order — they're automatically advanced to the next
+                                            mode as soon as they finish the current one.
+                                        </p>
+                                    )}
+                                </div>
+                            )
+                        }}
                     />
                 </FormItem>
 

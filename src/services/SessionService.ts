@@ -41,6 +41,12 @@ export type SessionResponse = {
     status: string
     performance_report: SessionPerformanceReport
     created_at: string
+    /** Groups sessions across prospecting -> discovering -> closing. */
+    journey_id?: string | null
+    /** Persona-continuity summary; only set once the session has completed. */
+    session_memory?: Record<string, unknown> | null
+    /** Mode names whose memory was injected into this session's prompt. */
+    prior_modes_injected?: string[] | null
 }
 
 export type CreateSessionManagerRequest = {
@@ -50,6 +56,25 @@ export type CreateSessionManagerRequest = {
     scenario_id?: string
     scenario_text?: string
     document_content?: string
+    /** Prior mode's session_id, to continue the same journey with inherited memory. */
+    continue_from_session_id?: string
+}
+
+/** One entry in a cross-mode journey (GET /sessions/{session_id}/journey). */
+export type SessionJourneyEntry = {
+    session_id: string
+    mode_name: string
+    mode_order: number | null
+    status: string
+    has_session_memory: boolean
+    start_time: string | null
+    end_time: string | null
+    created_at: string
+}
+
+export type SessionJourneyResponse = {
+    journey_id: string
+    sessions: SessionJourneyEntry[]
 }
 
 export type PersonaDetails = {
@@ -75,6 +100,8 @@ export type CreateSessionPayload = {
     persona_id: string
     mode_id: string
     scenario_id?: string
+    /** Prior mode's session_id, to continue the same journey with inherited memory. */
+    continue_from_session_id?: string
 }
 
 export async function apiCreateSession(payload: CreateSessionPayload) {
@@ -82,6 +109,34 @@ export async function apiCreateSession(payload: CreateSessionPayload) {
         url: endpointConfig.createSession,
         method: 'post',
         data: payload,
+    })
+}
+
+export async function apiGetSessionById(sessionId: string) {
+    return ApiService.fetchDataWithAxios<SessionResponse>({
+        url: endpointConfig.sessionById(sessionId),
+        method: 'get',
+    })
+}
+
+/** GET /sessions/{session_id}/journey — all sessions sharing this session's journey_id. */
+export async function apiGetSessionJourney(sessionId: string) {
+    return ApiService.fetchDataWithAxios<SessionJourneyResponse>({
+        url: endpointConfig.sessionJourney(sessionId),
+        method: 'get',
+    })
+}
+
+/**
+ * Retry session_memory generation for a completed session whose memory
+ * generation failed at completion time (performance_report exists, but
+ * session_memory is null) — required before it can be used as
+ * continue_from_session_id.
+ */
+export async function apiRegenerateSessionMemory(sessionId: string) {
+    return ApiService.fetchDataWithAxios<Record<string, unknown>>({
+        url: endpointConfig.regenerateSessionMemory(sessionId),
+        method: 'post',
     })
 }
 

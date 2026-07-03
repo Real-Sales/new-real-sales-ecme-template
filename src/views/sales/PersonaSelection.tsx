@@ -164,7 +164,12 @@ const PersonaSelection = () => {
         mode: string
         scenarios?: string[]
         files?: File[]
+        /** Prior mode's session_id — set when arriving via "Continue to next mode" from SessionReport. */
+        continueFromSessionId?: string
+        /** Persona to auto-continue with, so the rep isn't asked to re-pick who they were talking to. */
+        prefillPersonaId?: string
     }
+    const autoContinueTriggeredRef = useRef(false)
 
     const [creatingPersonaId, setCreatingPersonaId] = useState<string | null>(
         null,
@@ -369,6 +374,7 @@ const PersonaSelection = () => {
                 persona_id: persona.id,
                 mode_id: matchedMode.mode_id,
                 scenario_id: sessionData?.scenarios?.[0],
+                continue_from_session_id: sessionData?.continueFromSessionId,
             })
             navigate(`/audio-visualizer/${session.session_id}`, {
                 state: {
@@ -387,6 +393,27 @@ const PersonaSelection = () => {
             setCreatingPersonaId(null)
         }
     }
+
+    // Arriving from SessionReport's "Continue to next mode" CTA: skip the
+    // persona-picker click and immediately resume with the same persona.
+    useEffect(() => {
+        if (
+            autoContinueTriggeredRef.current ||
+            !sessionData?.continueFromSessionId ||
+            !sessionData?.prefillPersonaId ||
+            !aiPersonas.length ||
+            !interactionModes.length
+        ) {
+            return
+        }
+        const prefillPersona = aiPersonas.find(
+            (p) => p.id === sessionData.prefillPersonaId,
+        )
+        if (!prefillPersona) return
+        autoContinueTriggeredRef.current = true
+        void handleStartSession(prefillPersona)
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [aiPersonas, interactionModes, sessionData?.continueFromSessionId, sessionData?.prefillPersonaId])
 
     const handleBack = () => {
         navigate(-1)

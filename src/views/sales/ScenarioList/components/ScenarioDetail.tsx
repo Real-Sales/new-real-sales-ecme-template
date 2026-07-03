@@ -8,6 +8,7 @@ import { FcImageFile } from 'react-icons/fc'
 import { TbInfoCircle } from 'react-icons/tb'
 import type { Scenario, ScenarioSession, ScenarioLibraryPersona } from '../types'
 import MarkdownContent from '@/components/shared/MarkdownContent'
+import ScenarioModeStepper from './ScenarioModeStepper'
 
 type ScenarioDetailProps = {
     scenario: Scenario | ScenarioSession
@@ -180,10 +181,24 @@ const ScenarioDetail = ({ scenario }: ScenarioDetailProps) => {
         : (scenario as ScenarioSession).document_name
     const documentContent = isLibraryScenario(scenario) ? scenario.document_content : undefined
 
+    const modeSequenceNames = isLibraryScenario(scenario) ? scenario.mode_sequence_names : undefined
+    const isCompleted = isLibraryScenario(scenario)
+        ? Boolean(scenario.is_completed)
+        : sessionStatusKey === 'completed'
+
     return (
         <div className="space-y-7">
             {/* Title */}
             <InfoField title="Title" value={scenario.title} />
+
+            {/* Mode pipeline progress (multi-mode scenarios only) */}
+            {modeSequenceNames && modeSequenceNames.length > 1 && (
+                <ScenarioModeStepper
+                    modeSequenceNames={modeSequenceNames}
+                    currentModeName={modeName}
+                    isCurrentCompleted={isCompleted}
+                />
+            )}
 
             {/* Status and Mode in grid */}
             <div className="grid grid-cols-2 gap-x-8 gap-y-7">

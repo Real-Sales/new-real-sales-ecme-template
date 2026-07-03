@@ -36,6 +36,12 @@ export type ScenarioLibraryItem = {
     creator_role: string
     persona: ScenarioLibraryPersona
     mode: ScenarioLibraryMode
+    /** All configured modes, in pipeline order (prospecting -> discovering -> closing). */
+    modes?: ScenarioLibraryMode[]
+    /** mode_id strings, in pipeline order — same order as `modes`. */
+    mode_sequence?: string[] | null
+    /** Configured mode names, in pipeline order — present on dashboard rows. */
+    mode_sequence_names?: string[]
     title: string
     scenario_text: string
     document_content?: string
@@ -101,6 +107,8 @@ export type ScenarioDashboardDataForSalesRep = {
     user_email: string
     creator_name: string | null
     mode: InteractionModeDashboardResponse | null
+    /** Configured mode names for this scenario, in pipeline order (e.g. ["prospecting", "discovering"]). */
+    mode_sequence_names?: string[]
     persona: PersonaDashboardResponse | null
     scenario_text: string | null
     message: string | null
@@ -200,6 +208,7 @@ export function mapSalesRepDashboardRowToScenario(
         creator_role: '',
         persona,
         mode,
+        mode_sequence_names: row.mode_sequence_names ?? [],
         title: row.title ?? '',
         scenario_text: row.scenario_text ?? '',
         message: row.message ?? '',
@@ -308,7 +317,13 @@ export type AiPersonaListItem = {
 // Create scenario (POST /scenarios/)
 export type CreateScenarioRequest = {
     persona_id?: string | null
+    /** Deprecated: use mode_ids. Kept for backward-compat single-mode callers. */
     mode_id?: string | null
+    /** Modes this scenario should progress through, in any order — the backend
+     * normalizes to pipeline order (prospecting -> discovering -> closing).
+     * The rep always starts at the first configured mode and is later
+     * advanced through the rest via POST /scenarios/{id}/advance/{session_id}. */
+    mode_ids?: string[] | null
     title?: string | null
     scenario_text?: string | null
     document_content?: string | null
