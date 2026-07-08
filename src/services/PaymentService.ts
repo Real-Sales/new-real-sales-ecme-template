@@ -189,3 +189,85 @@ export async function apiVerifyRazorpayPayment(body: VerifyPaymentBody) {
         },
     })
 }
+
+export type CreatePaymentIntentBody = {
+    plan_type: string
+    billing_cycle: 'monthly' | 'yearly'
+}
+
+export type CreatePaymentIntentResponse = {
+    client_secret: string
+    payment_intent_id: string
+    amount: number
+    currency: string
+    plan_type: string
+    billing_cycle: string
+    subscription_id: string
+    subscription_plan?: {
+        subscription_id: string
+        plan_type: string
+        billing_cycle: string
+        credits_per_month: number
+    }
+}
+
+export type ConfirmPaymentResponse = {
+    status: 'success' | 'duplicate' | string
+    payment_id?: string
+    user_id?: string
+    plan_type?: string
+    billing_cycle?: string
+}
+
+export type PaymentIntentStatusResponse = {
+    status: string
+    amount: number
+    currency: string
+    plan_type?: string
+    billing_cycle?: string
+    subscription_ready?: boolean
+}
+
+export type PaymentRecord = {
+    payment_id: string
+    user_id?: string
+    subscription_id?: string
+    amount: number | string
+    currency?: string
+    payment_status: string
+    payment_method?: string
+    provider?: string
+    plan_type?: string
+    billing_cycle?: string
+    created_at?: string
+    updated_at?: string
+}
+
+export async function apiCreatePaymentIntent(body: CreatePaymentIntentBody) {
+    return ApiService.fetchDataWithAxios<CreatePaymentIntentResponse>({
+        url: endpointConfig.paymentsCreatePaymentIntent,
+        method: 'post',
+        data: body,
+    })
+}
+
+export async function apiConfirmPayment(paymentIntentId: string) {
+    return ApiService.fetchDataWithAxios<ConfirmPaymentResponse>({
+        url: endpointConfig.paymentsConfirmPayment(paymentIntentId),
+        method: 'post',
+    })
+}
+
+export async function apiGetPaymentIntentStatus(paymentIntentId: string) {
+    return ApiService.fetchDataWithAxios<PaymentIntentStatusResponse>({
+        url: endpointConfig.paymentsPaymentIntent(paymentIntentId),
+        method: 'get',
+    })
+}
+
+export async function apiGetPaymentsByUser(userId: string) {
+    return ApiService.fetchDataWithAxios<PaymentRecord[]>({
+        url: endpointConfig.paymentsByUser(userId),
+        method: 'get',
+    })
+}

@@ -153,7 +153,7 @@ const Overview = () => {
                             iconAlignment="end"
                             onClick={() => setIsSetupOpen(true)}
                         >
-                            Get Started Now
+                            Start a session
                         </Button>
                     </div>
                 </Card>

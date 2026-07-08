@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect } from 'react'
 import axios from 'axios'
 import Card from '@/components/ui/Card'
 import Alert from '@/components/ui/Alert'
@@ -8,16 +8,19 @@ import PaymentCycleToggle from './components/PaymentCycleToggle'
 import Faq from './components/Faq'
 import PaymentDialog from './components/PaymentDialog'
 import { useAppDispatch, useAppSelector } from '@/store/hook'
+import { apiGetMySubscription } from '@/services/SubscriptionService'
+import { apiConfirmPayment } from '@/services/PaymentService'
 import {
-    apiGetMySubscription,
-    apiGetSubscriptions,
-    type ApiSubscription,
-} from '@/services/SubscriptionService'
-import { fetchMySubscription, setActiveUserSubscription } from './store/subscriptionSlice'
+    billingCycleFromPaymentCycle,
+    fetchMySubscription,
+    fetchSubscriptionPlans,
+    setActiveUserSubscription,
+} from './store/subscriptionSlice'
 
 const Subscription = () => {
     const dispatch = useAppDispatch()
     const userId = useAppSelector((state) => state.auth.user.userId?.trim() ?? '')
+    const paymentCycle = useAppSelector((state) => state.subscription.paymentCycle)
     const activeUserSubscription = useAppSelector(
         (state) => state.subscription.activeUserSubscription,
     )
@@ -28,25 +31,11 @@ const Subscription = () => {
         (state) => state.subscription.userSubscriptionInitialized,
     )
     const userSubError = useAppSelector((state) => state.subscription.userSubscriptionError)
-
-    const [subscriptions, setSubscriptions] = useState<ApiSubscription[]>([])
-    const [plansLoading, setPlansLoading] = useState(true)
-    const [plansError, setPlansError] = useState<string | null>(null)
-
-    const loadPlans = useCallback(async () => {
-        setPlansLoading(true)
-        setPlansError(null)
-
-        try {
-            const data = await apiGetSubscriptions()
-            setSubscriptions(Array.isArray(data) ? data : [])
-        } catch {
-            setPlansError('Unable to load subscription plans. Please try again.')
-            setSubscriptions([])
-        } finally {
-            setPlansLoading(false)
-        }
-    }, [])
+    const subscriptionPlans = useAppSelector(
+        (state) => state.subscription.subscriptionPlans,
+    )
+    const plansLoading = useAppSelector((state) => state.subscription.plansLoading)
+    const plansError = useAppSelector((state) => state.subscription.plansError)
 
     const loadUserSubscription = useCallback(async () => {
         if (!userId) {
@@ -69,12 +58,41 @@ const Subscription = () => {
     }, [dispatch, userId, userSubInitialized])
 
     useEffect(() => {
-        void loadPlans()
-    }, [loadPlans])
-
-    useEffect(() => {
         void loadUserSubscription()
     }, [loadUserSubscription])
+
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search)
+        const paymentIntentId = params.get('payment_intent')
+        const redirectStatus = params.get('redirect_status')
+        if (!paymentIntentId || redirectStatus !== 'succeeded') {
+            return
+        }
+
+        let cancelled = false
+        const finalizeRedirect = async () => {
+            try {
+                await apiConfirmPayment(paymentIntentId)
+                if (!cancelled) {
+                    await loadUserSubscription()
+                }
+            } finally {
+                if (!cancelled) {
+                    const cleanUrl = window.location.pathname
+                    window.history.replaceState({}, '', cleanUrl)
+                }
+            }
+        }
+
+        void finalizeRedirect()
+        return () => {
+            cancelled = true
+        }
+    }, [loadUserSubscription])
+
+    useEffect(() => {
+        dispatch(fetchSubscriptionPlans(billingCycleFromPaymentCycle(paymentCycle)))
+    }, [dispatch, paymentCycle])
 
     return (
         <>
@@ -97,11 +115,11 @@ const Subscription = () => {
                 <Plans
                     currentUserSubscription={activeUserSubscription}
                     loading={plansLoading}
-                    subscriptions={subscriptions}
+                    subscriptions={subscriptionPlans}
                 />
             </Card>
             <Faq />
-            <PaymentDialog />
+            <PaymentDialog onPaymentSuccess={loadUserSubscription} />
         </>
     )
 }

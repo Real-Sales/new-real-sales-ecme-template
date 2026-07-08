@@ -75,6 +75,20 @@ const defaultFilterValues: FilterSchema = {
 
 const FILTER_SESSIONS_FORM_ID = 'filter-sessions-form'
 
+const getModeBadgeClass = (mode: string) => {
+    const key = mode.toLowerCase()
+    if (key.includes('discovering')) {
+        return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+    }
+    if (key.includes('prospecting')) {
+        return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+    }
+    if (key.includes('closing')) {
+        return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+    }
+    return 'bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400'
+}
+
 const SessionHistorySection = () => {
     const dispatch = useAppDispatch()
     const [currentPage, setCurrentPage] = useState(1)
@@ -117,7 +131,7 @@ const SessionHistorySection = () => {
     const modeOptions: Option[] = useMemo(() => [
         { value: 'all', label: 'All Modes' },
         ...Array.from(new Set(sessions.map((s) => s.mode))).map(
-            (mode) => ({ value: mode, label: mode })
+            (mode) => ({ value: mode, label: mode }),
         ),
     ], [sessions])
 
@@ -288,9 +302,7 @@ const SessionHistorySection = () => {
                         <Badge
                             innerClass={classNames(
                                 'px-2.5 py-1 text-xs font-medium rounded-md',
-                                row.mode === 'Discovering' && 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
-                                row.mode === 'Prospecting' && 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-                                row.mode === 'Closing' && 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+                                getModeBadgeClass(row.mode),
                             )}
                             content={row.mode}
                         />

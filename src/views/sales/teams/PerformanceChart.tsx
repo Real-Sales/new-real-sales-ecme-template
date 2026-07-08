@@ -3,7 +3,7 @@ import Card from '@/components/ui/Card'
 import Select from '@/components/ui/Select'
 import Chart from '@/components/shared/Chart'
 import Spinner from '@/components/ui/Spinner'
-import { TbChartLine } from 'react-icons/tb'
+import { TbChartLine, TbChartBarOff } from 'react-icons/tb'
 import {
     useAppSelector,
     useAppDispatch,
@@ -104,28 +104,18 @@ const PerformanceChart = ({ teamId }: PerformanceChartProps) => {
         }
     }, [performanceData])
 
-    if (isLoading) {
-        return (
-            <Card className="flex items-center justify-center p-20 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
-                <Spinner size={40} />
-            </Card>
-        )
-    }
+    const hasChartData = chartData && chartData.members.length > 0
 
-    if (!chartData || chartData.members.length === 0) {
-        return (
-            <Card className="flex items-center justify-center p-10 text-gray-500 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
-                No performance data available for this skill.
-            </Card>
-        )
-    }
+    const series = hasChartData
+        ? chartData.members.map(member => ({
+            name: member.name,
+            data: member.data
+        }))
+        : []
 
-    const series = chartData.members.map(member => ({
-        name: member.name,
-        data: member.data
-    }))
-
-    const colors = chartData.members.map(member => member.color)
+    const colors = hasChartData
+        ? chartData.members.map(member => member.color)
+        : []
 
     return (
         <Card className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 shadow-md hover:shadow-xl transition-all duration-300">
@@ -155,8 +145,11 @@ const PerformanceChart = ({ teamId }: PerformanceChartProps) => {
                 </div>
             </div>
 
-            {/* Chart */}
-            {showChart && series.length > 0 && chartData.months && chartData.months.length > 0 && (
+            {isLoading ? (
+                <div className="flex items-center justify-center p-20">
+                    <Spinner size={40} />
+                </div>
+            ) : hasChartData && showChart && series.length > 0 && chartData.months && chartData.months.length > 0 ? (
                 <div>
                     <Chart
                         key={`${selectedSkill}-${sideNavCollapse}`}
@@ -219,9 +212,20 @@ const PerformanceChart = ({ teamId }: PerformanceChartProps) => {
                         }}
                     />
                 </div>
+            ) : (
+                <div className="h-[350px] flex flex-col items-center justify-center gap-2 text-center px-4">
+                    <TbChartBarOff className="text-4xl text-gray-300 dark:text-gray-600" />
+                    <span className="text-sm text-gray-500 dark:text-gray-400">
+                        No performance data available for this mode.
+                    </span>
+                    <span className="text-xs text-gray-400 dark:text-gray-500">
+                        Try selecting a different mode above.
+                    </span>
+                </div>
             )}
 
             {/* Threshold Legend */}
+            {hasChartData && (
             <div className="flex justify-center gap-8 mt-6 pb-4 border-b border-gray-200 dark:border-gray-700">
                 <div className="flex items-center gap-2">
                     <svg width="32" height="2" className="overflow-visible">
@@ -252,8 +256,10 @@ const PerformanceChart = ({ teamId }: PerformanceChartProps) => {
                     <span className="text-xs text-gray-600 dark:text-gray-400">Proficiency</span>
                 </div>
             </div>
+            )}
 
             {/* Team Members Legend */}
+            {hasChartData && (
             <div className="flex flex-wrap justify-center gap-6 mt-4">
                 {chartData.members.map((member) => (
                     <div
@@ -270,6 +276,7 @@ const PerformanceChart = ({ teamId }: PerformanceChartProps) => {
                     </div>
                 ))}
             </div>
+            )}
         </Card>
     )
 }

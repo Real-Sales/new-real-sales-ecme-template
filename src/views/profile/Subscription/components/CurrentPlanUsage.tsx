@@ -104,37 +104,14 @@ const CurrentPlanUsage = ({
             : parseAmount(sub.monthly_price)
 
     const creditsUsed = Number(activeUserSubscription.credits_used ?? 0)
-    const creditsRem =
-        activeUserSubscription.credits_remaining != null
-            ? Number(activeUserSubscription.credits_remaining)
-            : null
-
-    let usageNumerator: number
-    let usageDenominator: number
-    let usagePercent: number
-    let usagePercentRaw: number
-
-    if (creditsRem != null) {
-        usageNumerator = creditsUsed
-        usageDenominator = creditsUsed + creditsRem
-        usagePercentRaw =
-            usageDenominator > 0
-                ? Math.round((usageNumerator / usageDenominator) * 100)
-                : 0
-        usagePercent = Math.min(100, usagePercentRaw)
-    } else {
-        const allocated = activeUserSubscription.credits_allocated
-        const completed = Number(
-            activeUserSubscription.sessions_completed ?? creditsUsed,
-        )
-        usageNumerator = completed
-        usageDenominator = allocated
-        usagePercentRaw =
-            allocated > 0
-                ? Math.round((completed / allocated) * 100)
-                : 0
-        usagePercent = Math.min(100, usagePercentRaw)
-    }
+    const creditsAllocated = Number(activeUserSubscription.credits_allocated ?? 0)
+    const usageNumerator = creditsUsed
+    const usageDenominator = creditsAllocated
+    const usagePercentRaw =
+        usageDenominator > 0
+            ? Math.round((usageNumerator / usageDenominator) * 100)
+            : 0
+    const usagePercent = Math.min(100, usagePercentRaw)
 
     const renewalLabel = formatDateLabel(activeUserSubscription.end_date)
     const daysRemaining = daysUntil(activeUserSubscription.end_date)

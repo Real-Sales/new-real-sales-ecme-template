@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Card, Button, Badge, Drawer, toast, Notification } from '@/components/ui'
 import Container from '@/components/shared/Container'
+import ConfirmDialog from '@/components/shared/ConfirmDialog'
 import CompanyForm, { type CompanyFormSchema } from './CompanyForm'
 import {
     HiOfficeBuilding,
@@ -222,6 +223,9 @@ const CompanyList = () => {
     const [isDrawerOpen, setIsDrawerOpen] = useState(false)
     const [drawerMode, setDrawerMode] = useState<'create' | 'edit'>('create')
     const [selectedDivision, setSelectedDivision] = useState<SalesDivision | null>(null)
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+    const [divisionToDelete, setDivisionToDelete] = useState<SalesDivision | null>(null)
+    const [deletingDivisionId, setDeletingDivisionId] = useState<string | null>(null)
     const formRef = useRef<HTMLFormElement>(null)
 
     useEffect(() => {
@@ -367,13 +371,32 @@ const CompanyList = () => {
         }
     }
 
-    const handleDelete = async (division: SalesDivision) => {
-        if (confirm(`Are you sure you want to delete "${division.name}"?`)) {
-            try {
-                await dispatch(deleteDivision(division.sales_division_id))
-            } catch (error) {
-                console.error('Failed to delete division:', error)
+    const openDeleteDialog = (division: SalesDivision) => {
+        setDivisionToDelete(division)
+        setDeleteDialogOpen(true)
+    }
+
+    const closeDeleteDialog = () => {
+        if (deletingDivisionId) return
+        setDeleteDialogOpen(false)
+        setDivisionToDelete(null)
+    }
+
+    const handleDeleteDivision = async () => {
+        if (!divisionToDelete) return
+
+        const divisionId = divisionToDelete.sales_division_id
+        setDeletingDivisionId(divisionId)
+        try {
+            const result = await dispatch(deleteDivision(divisionId))
+            if (deleteDivision.fulfilled.match(result)) {
+                setDeleteDialogOpen(false)
+                setDivisionToDelete(null)
             }
+        } catch (error) {
+            console.error('Failed to delete division:', error)
+        } finally {
+            setDeletingDivisionId(null)
         }
     }
 
@@ -487,7 +510,7 @@ const CompanyList = () => {
                             }}
                             onDelete={(e) => {
                                 e.stopPropagation()
-                                handleDelete(company.original)
+                                openDeleteDialog(company.original)
                             }}
                         />
                     ))}
@@ -530,6 +553,43 @@ const CompanyList = () => {
                     />
                 </div>
             </Drawer>
+
+            <ConfirmDialog
+                isOpen={deleteDialogOpen}
+                type="danger"
+                title="Delete sales division"
+                confirmText="Delete"
+                cancelText="Cancel"
+                onClose={closeDeleteDialog}
+                onRequestClose={closeDeleteDialog}
+                onCancel={closeDeleteDialog}
+                onConfirm={handleDeleteDivision}
+                confirmButtonProps={{ loading: !!deletingDivisionId }}
+            >
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Are you sure you want to delete{' '}
+                    <span className="font-semibold text-gray-900 dark:text-white">
+                        {divisionToDelete?.name}
+                    </span>
+                    ?
+                    {divisionToDelete &&
+                    (teamCountByDivision[divisionToDelete.sales_division_id] ?? 0) >
+                        0 ? (
+                        <>
+                            {' '}
+                            This will also remove the{' '}
+                            {teamCountByDivision[divisionToDelete.sales_division_id]}{' '}
+                            team
+                            {teamCountByDivision[
+                                divisionToDelete.sales_division_id
+                            ] === 1
+                                ? ''
+                                : 's'}{' '}
+                            under this division.
+                        </>
+                    ) : null}
+                </p>
+            </ConfirmDialog>
         </div>
     )
 }

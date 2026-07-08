@@ -76,11 +76,20 @@ const endpointConfig = {
     industries: 'industries',
     geminiEphemeralToken: 'gemini/ephemeral-token',
     subscriptions: 'subscriptions/',
+    subscriptionPlans: (billingCycle: 'monthly' | 'yearly') =>
+        `subscriptions/plans?billing_cycle=${billingCycle}`,
     userSubscriptionsByUser: (userId: string) =>
         `user-subscriptions/by-user/${userId}`,
     userSubscriptions: 'user-subscriptions/',
     userSubscriptionsMy: 'user-subscriptions/my-subscription',
+    userSubscriptionsCreditsRemaining: 'user-subscriptions/credits/remaining',
     paymentsCreatePayment: 'payments/create-payment',
+    paymentsCreatePaymentIntent: 'payments/create-payment-intent',
+    paymentsConfirmPayment: (paymentIntentId: string) =>
+        `payments/confirm-payment?payment_intent_id=${paymentIntentId}`,
+    paymentsPaymentIntent: (paymentIntentId: string) =>
+        `payments/payment-intent/${paymentIntentId}`,
+    paymentsByUser: (userId: string) => `payments/by-user/${userId}`,
     paymentsUpdate: (paymentId: string) => `payments/${paymentId}`,
     paymentsCreateOrder: 'create-order',
     paymentsVerifyPayment: 'verify-payment',

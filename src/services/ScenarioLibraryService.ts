@@ -92,6 +92,13 @@ export async function apiAssignScenario(scenarioId: string, sessionId: string) {
     })
 }
 
+export async function apiUnassignScenario(sessionId: string) {
+    return ApiService.fetchDataWithAxios<unknown>({
+        url: endpointConfig.unassignScenario(sessionId),
+        method: 'post',
+    })
+}
+
 /**
  * Advance a rep's completed session to the next mode configured for this
  * scenario (e.g. prospecting -> discovering, when the manager selected

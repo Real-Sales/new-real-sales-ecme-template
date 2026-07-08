@@ -1,259 +1,221 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Button from '@/components/ui/Button'
 import Tag from '@/components/ui/Tag'
 import Avatar from '@/components/ui/Avatar'
-import Notification from '@/components/ui/Notification'
-import toast from '@/components/ui/toast'
-import CreditCardDialog from '@/components/view/CreditCardDialog'
+import Spinner from '@/components/ui/Spinner'
+import Alert from '@/components/ui/Alert'
 import BillingHistory from './BillingHistory'
-import { useAppSelector } from '@/store/hook'
-import classNames from '@/utils/classNames'
-import isLastChild from '@/utils/isLastChild'
-import sleep from '@/utils/sleep'
-import { TbPlus } from 'react-icons/tb'
+import { useAppSelector, useAppDispatch } from '@/store/hook'
 import dayjs from 'dayjs'
 import { useNavigate } from 'react-router-dom'
 import { PiLightningFill } from 'react-icons/pi'
 import { NumericFormat } from 'react-number-format'
+import { fetchMySubscription } from '@/views/profile/Subscription/store/subscriptionSlice'
+import { apiGetPaymentsByUser, type PaymentRecord } from '@/services/PaymentService'
+import { planDisplayTitle } from '@/views/profile/Subscription/planFeatures'
 
-import type {
-    CreditCard,
-    CreditCardInfo,
-} from '../types'
+function parseAmount(value: number | string | undefined) {
+    const n = typeof value === 'string' ? parseFloat(value) : Number(value)
+    return Number.isFinite(n) ? n : 0
+}
 
-const months = [
-    'Jan',
-    'Feb',
-    'Mar',
-    'Apr',
-    'May',
-    'Jun',
-    'Jul',
-    'Aug',
-    'Sep',
-    'Oct',
-    'Nov',
-    'Dec',
-]
+function mapPaymentToBill(payment: PaymentRecord) {
+    const planLabel = payment.plan_type
+        ? `${payment.plan_type}${payment.billing_cycle ? ` (${payment.billing_cycle})` : ''}`
+        : 'Subscription payment'
+
+    return {
+        id: payment.payment_id,
+        item: planLabel,
+        status: payment.payment_status?.toLowerCase() ?? 'pending',
+        amount: parseAmount(payment.amount),
+        date: payment.created_at
+            ? dayjs(payment.created_at).unix()
+            : dayjs().unix(),
+    }
+}
 
 const SettingsBilling = () => {
     const navigate = useNavigate()
-    const data = useAppSelector((state) => state.settings.billing)
+    const dispatch = useAppDispatch()
+    const userId = useAppSelector((state) => state.auth.user.userId?.trim() ?? '')
+    const activeUserSubscription = useAppSelector(
+        (state) => state.subscription.activeUserSubscription,
+    )
+    const userSubLoading = useAppSelector(
+        (state) => state.subscription.userSubscriptionLoading,
+    )
+    const userSubInitialized = useAppSelector(
+        (state) => state.subscription.userSubscriptionInitialized,
+    )
+    const userSubError = useAppSelector(
+        (state) => state.subscription.userSubscriptionError,
+    )
 
-    const [selectedCard, setSelectedCard] = useState<{
-        type: 'NEW' | 'EDIT' | ''
-        dialogOpen: boolean
-        cardInfo: Partial<CreditCardInfo>
-    }>({
-        type: '',
-        dialogOpen: false,
-        cardInfo: {},
-    })
+    const [paymentsLoading, setPaymentsLoading] = useState(false)
+    const [paymentsError, setPaymentsError] = useState<string | null>(null)
+    const [payments, setPayments] = useState<PaymentRecord[]>([])
 
-    const handleEditCreditCard = (card: Partial<CreditCard>) => {
-        setSelectedCard({
-            type: 'EDIT',
-            dialogOpen: true,
-            cardInfo: card,
-        })
-    }
+    useEffect(() => {
+        if (!userId) {
+            return
+        }
+        if (!userSubInitialized && !userSubLoading) {
+            dispatch(fetchMySubscription())
+        }
+    }, [dispatch, userId, userSubInitialized, userSubLoading])
 
-    const handleCreditCardDialogClose = () => {
-        setSelectedCard({
-            type: '',
-            dialogOpen: false,
-            cardInfo: {},
-        })
-    }
+    useEffect(() => {
+        if (!userId) {
+            return
+        }
 
-    const handleEditCreditCardSubmit = async () => {
-        await sleep(500)
-        handleCreditCardDialogClose()
-        toast.push(
-            <Notification type="success">Credit card updated!</Notification>,
-            { placement: 'top-center' },
-        )
-    }
+        let cancelled = false
+        const loadPayments = async () => {
+            setPaymentsLoading(true)
+            setPaymentsError(null)
+            try {
+                const data = await apiGetPaymentsByUser(userId)
+                if (!cancelled) {
+                    setPayments(Array.isArray(data) ? data : [])
+                }
+            } catch {
+                if (!cancelled) {
+                    setPaymentsError('Unable to load payment history.')
+                    setPayments([])
+                }
+            } finally {
+                if (!cancelled) {
+                    setPaymentsLoading(false)
+                }
+            }
+        }
 
-    const handleAddCreditCardSubmit = async (values: CreditCard) => {
-        console.log('Submitted values', values)
-        await sleep(500)
-        handleCreditCardDialogClose()
-        toast.push(
-            <Notification type="success">Credit card added!</Notification>,
-            { placement: 'top-center' },
-        )
-    }
+        void loadPayments()
+        return () => {
+            cancelled = true
+        }
+    }, [userId])
+
+    const transactionHistory = useMemo(
+        () => payments.map(mapPaymentToBill),
+        [payments],
+    )
 
     const handleChangePlan = () => {
         navigate('/subscription')
     }
 
+    const subscription = activeUserSubscription?.subscription
+    const billingCycle = subscription?.billing_cycle === 'yearly' ? 'yearly' : 'monthly'
+    const amount =
+        subscription?.billing_cycle === 'yearly'
+            ? parseAmount(subscription?.yearly_price ?? '0')
+            : parseAmount(subscription?.monthly_price ?? '0')
+    const nextBillingDate = activeUserSubscription?.end_date
+        ? dayjs(activeUserSubscription.end_date).format('MM/DD/YYYY')
+        : '—'
+
     return (
         <div>
             <h4 className="mb-4">Billing</h4>
-            <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
-                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                        <div>
+
+            {!userId ? (
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Sign in to view billing details.
+                </p>
+            ) : userSubLoading && !userSubInitialized ? (
+                <div className="flex justify-center py-10">
+                    <Spinner size={28} />
+                </div>
+            ) : userSubError ? (
+                <Alert showIcon type="danger" className="mb-6">
+                    {userSubError}
+                </Alert>
+            ) : !activeUserSubscription || !subscription ? (
+                <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-6 border border-gray-200 dark:border-gray-700 mb-8">
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                        No active subscription is linked to your account.
+                    </p>
+                    <Button size="sm" variant="solid" onClick={handleChangePlan}>
+                        Choose a plan
+                    </Button>
+                </div>
+            ) : (
+                <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                        <div className="flex items-center gap-3">
                             <Avatar
                                 className="bg-emerald-500"
                                 shape="circle"
                                 icon={<PiLightningFill />}
                             />
-                        </div>
-                        <div>
-                            <div className="flex items-center gap-2">
-                                <h6 className="font-bold">
-                                    {data.currentPlan.plan}
-                                </h6>
-                                <Tag className="bg-success-subtle text-success rounded-md border-0">
-                                    <span className="capitalize">
-                                        {data.currentPlan.status}
-                                    </span>
-                                </Tag>
-                            </div>
-                            <div className="font-semibold">
-                                <span>
-                                    Billing {data.currentPlan.billingCycle}
-                                </span>
-                                <span> | </span>
-                                <span>
-                                    Next payment on{' '}
-                                    {dayjs
-                                        .unix(
-                                            (data.currentPlan
-                                                .nextPaymentDate as number) ||
-                                                0,
-                                        )
-                                        .format('MM/DD/YYYY')}
-                                </span>
-                                <span>
-                                    <span className="mx-1">for</span>
-                                    <NumericFormat
-                                        className="font-bold heading-text"
-                                        displayType="text"
-                                        value={(
-                                            Math.round(
-                                                (data.currentPlan.amount || 0) *
-                                                    100,
-                                            ) / 100
-                                        ).toFixed(2)}
-                                        prefix={'$'}
-                                        thousandSeparator={true}
-                                    />
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="flex">
-                        <Button
-                            size="sm"
-                            variant="solid"
-                            className="rounded-md"
-                            onClick={handleChangePlan}
-                        >
-                            Change plan
-                        </Button>
-                    </div>
-                </div>
-            </div>
-            <div className="mt-8">
-                <h5>Payment method</h5>
-                <div>
-                    {data.paymentMethods?.map((card, index) => (
-                        <div
-                            key={card.cardId}
-                            className={classNames(
-                                'flex items-center justify-between p-4',
-                                !isLastChild(data.paymentMethods, index) &&
-                                    'border-b border-gray-200 dark:border-gray-600',
-                            )}
-                        >
-                            <div className="flex items-center">
-                                {card.cardType === 'VISA' && (
-                                    <img
-                                        src="/img/others/img-8.png"
-                                        alt="visa"
-                                    />
-                                )}
-                                {card.cardType === 'MASTER' && (
-                                    <img
-                                        src="/img/others/img-9.png"
-                                        alt="master"
-                                    />
-                                )}
-                                <div className="ml-3 rtl:mr-3">
-                                    <div className="flex items-center">
-                                        <div className="text-gray-900 dark:text-gray-100 font-semibold">
-                                            {card.cardHolderName} ••••{' '}
-                                            {card.last4Number}
-                                        </div>
-                                        {card.primary && (
-                                            <Tag className="bg-primary-subtle text-primary rounded-md border-0 mx-2">
-                                                <span className="capitalize">
-                                                    {' '}
-                                                    Primary{' '}
-                                                </span>
-                                            </Tag>
-                                        )}
-                                    </div>
+                            <div>
+                                <div className="flex items-center gap-2">
+                                    <h6 className="font-bold">
+                                        {planDisplayTitle(subscription)}
+                                    </h6>
+                                    <Tag className="bg-success-subtle text-success rounded-md border-0">
+                                        <span className="capitalize">
+                                            {activeUserSubscription.status_active
+                                                ? 'active'
+                                                : 'inactive'}
+                                        </span>
+                                    </Tag>
+                                </div>
+                                <div className="font-semibold text-sm text-gray-600 dark:text-gray-400">
+                                    <span>Billing {billingCycle}</span>
+                                    <span> | </span>
+                                    <span>Next payment on {nextBillingDate}</span>
                                     <span>
-                                        Expired{' '}
-                                        {months[parseInt(card.expMonth) - 1]} 20
-                                        {card.expYear}
+                                        <span className="mx-1">for</span>
+                                        <NumericFormat
+                                            className="font-bold heading-text"
+                                            displayType="text"
+                                            value={amount.toFixed(2)}
+                                            prefix="$"
+                                            thousandSeparator
+                                        />
                                     </span>
                                 </div>
-                            </div>
-                            <div className="flex">
-                                <Button
-                                    size="sm"
-                                    type="button"
-                                    onClick={() => handleEditCreditCard(card)}
-                                >
-                                    Edit
-                                </Button>
+                                <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                                    {activeUserSubscription.credits_used} /{' '}
+                                    {activeUserSubscription.credits_allocated} sessions used
+                                </p>
                             </div>
                         </div>
-                    ))}
-                    <Button
-                        variant="plain"
-                        icon={<TbPlus />}
-                        onClick={() => {
-                            setSelectedCard({
-                                type: 'NEW',
-                                dialogOpen: true,
-                                cardInfo: {},
-                            })
-                        }}
-                    >
-                        Add payment method
-                    </Button>
+                        <div className="flex">
+                            <Button
+                                size="sm"
+                                variant="solid"
+                                className="rounded-md"
+                                onClick={handleChangePlan}
+                            >
+                                Change plan
+                            </Button>
+                        </div>
+                    </div>
                 </div>
-            </div>
+            )}
+
             <div className="mt-8">
                 <h5>Transaction history</h5>
-                <BillingHistory
-                    className="mt-4"
-                    data={data.transactionHistory}
-                />
+                {paymentsLoading ? (
+                    <div className="flex justify-center py-10">
+                        <Spinner size={24} />
+                    </div>
+                ) : paymentsError ? (
+                    <Alert showIcon type="danger" className="mt-4">
+                        {paymentsError}
+                    </Alert>
+                ) : transactionHistory.length === 0 ? (
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-4">
+                        No transactions yet.
+                    </p>
+                ) : (
+                    <BillingHistory className="mt-4" data={transactionHistory} />
+                )}
             </div>
-            <CreditCardDialog
-                title={
-                    selectedCard.type === 'NEW'
-                        ? 'Add credit card'
-                        : 'Edit credit card'
-                }
-                defaultValues={selectedCard.cardInfo as CreditCard}
-                dialogOpen={selectedCard.dialogOpen}
-                onDialogClose={handleCreditCardDialogClose}
-                onSubmit={
-                    selectedCard.type === 'NEW'
-                        ? (values) =>
-                              handleAddCreditCardSubmit(values as CreditCard)
-                        : handleEditCreditCardSubmit
-                }
-            />
         </div>
     )
 }

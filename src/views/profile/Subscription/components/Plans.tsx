@@ -98,7 +98,7 @@ const Plans = ({
                 const isEnterprise =
                     plan.plan_type.toLowerCase() === 'enterprise' || plan.is_custom
                 const monthlyAmount = parsePrice(plan.monthly_price)
-                const yearlyAmount = parsePrice(plan.yearly_price)
+                const yearlyAmount = parsePrice(plan.yearly_price ?? '0')
                 const isFree = monthlyAmount === 0 && yearlyAmount === 0 && !isEnterprise
 
                 const subtitle = isEnterprise
@@ -110,7 +110,8 @@ const Plans = ({
                 const userSub = currentUserSubscription
                 const isCurrentPlan = Boolean(
                     userSub &&
-                        plan.subscription_id === userSub.subscription_id &&
+                        plan.plan_type.toLowerCase() ===
+                            userSub.subscription.plan_type.toLowerCase() &&
                         plan.billing_cycle === userSub.subscription.billing_cycle,
                 )
 

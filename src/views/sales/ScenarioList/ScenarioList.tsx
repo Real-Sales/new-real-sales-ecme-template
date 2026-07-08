@@ -11,6 +11,7 @@ import ScenarioListTableTools from './components/ScenarioListTableTools'
 import ScenarioListSelected from './components/ScenarioListSelected'
 import ScenarioForm, { type ScenarioFormSchema, type ScenarioFormOption } from './components/ScenarioForm'
 import ScenarioDetail from './components/ScenarioDetail'
+import ScenarioAssignedUsers from './components/ScenarioAssignedUsers'
 import ShareScenarioDialog from './components/ShareScenarioDialog'
 import scenarioLibraryReducer, {
     useAppSelector,
@@ -23,6 +24,7 @@ import scenarioLibraryReducer, {
     updateScenario,
     deleteScenario,
     resetNotification,
+    fetchScenarioAssignmentStatus,
 } from './store'
 import toast from '@/components/ui/toast'
 import Notification from '@/components/ui/Notification'
@@ -374,6 +376,9 @@ const ScenarioList = () => {
     const handleRowClick = (scenario: Scenario) => {
         setSelectedScenario(scenario)
         setIsViewDrawerOpen(true)
+        if (canManageLibrary && !isAssignedView) {
+            dispatch(fetchScenarioAssignmentStatus(scenario.scenario_id))
+        }
     }
 
     const onViewDrawerClose = () => {
@@ -592,7 +597,17 @@ const ScenarioList = () => {
                 onRequestClose={onViewDrawerClose}
             >
                 {selectedScenario && (
-                    <ScenarioDetail scenario={selectedScenario} />
+                    <div className="space-y-8">
+                        <ScenarioDetail scenario={selectedScenario} />
+                        {canManageLibrary && !isAssignedView && (
+                            <>
+                                <div className="border-t border-gray-200 dark:border-gray-700" />
+                                <ScenarioAssignedUsers
+                                    scenarioId={selectedScenario.scenario_id}
+                                />
+                            </>
+                        )}
+                    </div>
                 )}
             </Drawer>
 

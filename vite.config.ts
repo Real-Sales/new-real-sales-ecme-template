@@ -8,10 +8,17 @@ export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, process.cwd(), '')
     const razorpayKeyId =
         env.RAZORPAY_KEY_ID?.trim() || env.VITE_RAZORPAY_KEY_ID?.trim() || ''
+    const stripePublishableKey =
+        env.STRIPE_PUBLISHABLE_KEY?.trim() ||
+        env.VITE_STRIPE_PUBLISHABLE_KEY?.trim() ||
+        ''
 
     return {
         define: {
             'import.meta.env.RAZORPAY_KEY_ID': JSON.stringify(razorpayKeyId),
+            'import.meta.env.STRIPE_PUBLISHABLE_KEY': JSON.stringify(
+                stripePublishableKey,
+            ),
         },
         plugins: [react(), dynamicImport()],
         assetsInclude: ['**/*.md'],

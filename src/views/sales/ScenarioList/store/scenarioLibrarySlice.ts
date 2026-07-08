@@ -352,6 +352,23 @@ const scenarioLibrarySlice = createSlice({
                 member.sessionStatus = 'pending'
             }
         },
+        markScenarioMemberUnassigned: (
+            state,
+            action: PayloadAction<{
+                scenarioId: string
+                sessionId: string
+            }>,
+        ) => {
+            const entry = state.assignScenarioById[action.payload.scenarioId]
+            const member = entry?.members.find(
+                (row) => row.sessionId === action.payload.sessionId,
+            )
+            if (member) {
+                member.canAssign = true
+                member.sessionId = null
+                member.sessionStatus = null
+            }
+        },
         invalidateSalesRepDashboard: (state) => {
             state.salesRepInitialized = false
         },
@@ -498,6 +515,7 @@ export const {
     resetScenarioLibraryData,
     invalidateAssignScenarioCache,
     markScenarioMemberAssigned,
+    markScenarioMemberUnassigned,
     invalidateSalesRepDashboard,
 } = scenarioLibrarySlice.actions
 

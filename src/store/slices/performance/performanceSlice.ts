@@ -11,6 +11,7 @@ import {
     apiGetAiPersona,
 } from '@/services/SessionService'
 import type { SessionHistory } from '@/views/sales/Performance/performanceData'
+import { formatDisplayLabel } from '@/utils/formatDisplayLabel'
 
 export const SLICE_NAME = 'performance'
 
@@ -135,7 +136,7 @@ export const fetchSessionHistory = createAsyncThunk(
                 ...uniqueModeIds.map(async (id) => {
                     try {
                         const details = await apiGetInteractionMode(id)
-                        modeMap[id] = details.name
+                        modeMap[id] = formatDisplayLabel(details.name)
                     } catch {
                         modeMap[id] = 'Unknown Mode'
                     }
