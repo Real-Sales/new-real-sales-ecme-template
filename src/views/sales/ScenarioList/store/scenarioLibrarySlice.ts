@@ -27,6 +27,7 @@ export const SLICE_NAME = 'scenarioLibrary'
 
 export type FetchPersonasParams = {
     industryId?: string
+    customerSegmentId?: string
     includePersonaId?: string
 }
 
@@ -42,6 +43,8 @@ export type AssignScenarioMemberRow = {
 }
 
 export type AssignScenarioCacheEntry = {
+    salesDivisionId?: string | null
+    salesDivisionName?: string | null
     members: AssignScenarioMemberRow[]
     fetchedAt: number
 }
@@ -188,6 +191,8 @@ export const fetchScenarioAssignmentStatus = createAsyncThunk(
             const data = await apiGetScenarioAssignmentStatus(scenarioId)
             return {
                 scenarioId: data.scenario_id,
+                salesDivisionId: data.sales_division_id,
+                salesDivisionName: data.sales_division_name,
                 members: (data.members ?? []).map(mapAssignmentStatusMember),
             }
         } catch (error: unknown) {
@@ -445,6 +450,8 @@ const scenarioLibrarySlice = createSlice({
             .addCase(fetchScenarioAssignmentStatus.fulfilled, (state, action) => {
                 state.assignScenarioLoadingScenarioId = null
                 state.assignScenarioById[action.payload.scenarioId] = {
+                    salesDivisionId: action.payload.salesDivisionId,
+                    salesDivisionName: action.payload.salesDivisionName,
                     members: action.payload.members,
                     fetchedAt: Date.now(),
                 }

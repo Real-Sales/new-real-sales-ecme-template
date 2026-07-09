@@ -74,6 +74,8 @@ const endpointConfig = {
     authProfilePersonal: 'auth/profile/personal',
     authProfileCompany: 'auth/profile/company',
     industries: 'industries',
+    customerSegments: 'customer-segments',
+    customerSegmentById: (customerSegmentId: string) => `customer-segments/${customerSegmentId}`,
     geminiEphemeralToken: 'gemini/ephemeral-token',
     subscriptions: 'subscriptions/',
     subscriptionPlans: (billingCycle: 'monthly' | 'yearly') =>

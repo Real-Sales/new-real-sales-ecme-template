@@ -12,18 +12,21 @@ import {
     capDivisionProductIds,
     profileProductsToOptions,
 } from '@/utils/companyProducts'
+import { CUSTOMER_SEGMENT_SEED_OPTIONS } from '@/services/CustomerSegmentService'
 
 type ProductOption = { value: string; label: string }
 
 type CompanyFormSchema = {
     companyName: string
     category: string
+    customerSegmentId: string
     productIds: string[]
 }
 
 const validationSchema = z.object({
     companyName: z.string().min(1, { message: 'Sales division name is required' }).max(100, 'Too Long!'),
     category: z.string().min(1, { message: 'Category is required' }),
+    customerSegmentId: z.string().min(1, { message: 'Customer segment is required' }),
     productIds: z
         .array(z.string())
         .min(1, { message: 'Select at least one product' })
@@ -32,7 +35,17 @@ const validationSchema = z.object({
         }),
 })
 
-const EMPTY_FORM: CompanyFormSchema = { companyName: '', category: '', productIds: [] }
+const EMPTY_FORM: CompanyFormSchema = {
+    companyName: '',
+    category: '',
+    customerSegmentId: '',
+    productIds: [],
+}
+
+const customerSegmentOptions = CUSTOMER_SEGMENT_SEED_OPTIONS.map((segment) => ({
+    value: segment.customer_segment_id,
+    label: segment.name,
+}))
 
 const inputClassName =
     'bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-200 shadow-md'
@@ -60,11 +73,13 @@ const CompanyForm = forwardRef<HTMLFormElement, CompanyFormProps>(
             return {
                 companyName: defaultValues.companyName ?? '',
                 category: defaultValues.category ?? '',
+                customerSegmentId: defaultValues.customerSegmentId ?? '',
                 productIds: capDivisionProductIds(defaultValues.productIds ?? []),
             }
         }, [
             defaultValues?.companyName,
             defaultValues?.category,
+            defaultValues?.customerSegmentId,
             defaultValues?.productIds?.join(','),
         ])
 
@@ -127,6 +142,32 @@ const CompanyForm = forwardRef<HTMLFormElement, CompanyFormProps>(
                                     placeholder="e.g., Technology, Healthcare"
                                     className={inputClassName}
                                     {...field}
+                                />
+                            )}
+                        />
+                    </FormItem>
+
+                    <FormItem
+                        label="Customer Segment"
+                        asterisk
+                        invalid={Boolean(errors.customerSegmentId)}
+                        errorMessage={errors.customerSegmentId?.message}
+                        extra="Who this division's team sells to"
+                    >
+                        <Controller
+                            name="customerSegmentId"
+                            control={control}
+                            render={({ field }) => (
+                                <Select
+                                    placeholder="Select a customer segment"
+                                    options={customerSegmentOptions}
+                                    value={customerSegmentOptions.find(
+                                        (opt) => opt.value === field.value,
+                                    )}
+                                    onChange={(option) =>
+                                        field.onChange((option?.value as string) || '')
+                                    }
+                                    className={selectClassName}
                                 />
                             )}
                         />

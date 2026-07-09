@@ -69,6 +69,7 @@ type CompanyCardProps = {
     id: string
     name: string
     category: string
+    customerSegmentName?: string
     products: { id: string; name: string }[]
     createdDate: string
     teams: number
@@ -81,6 +82,7 @@ type CompanyCardProps = {
 const CompanyCard = ({
     name,
     category,
+    customerSegmentName,
     products,
     createdDate,
     teams,
@@ -158,6 +160,11 @@ const CompanyCard = ({
                     <p className="text-sm text-gray-600 dark:text-gray-400">
                         {category}
                     </p>
+                    {customerSegmentName && (
+                        <Tag className="mt-1.5 rounded-full border-0 bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300">
+                            {customerSegmentName}
+                        </Tag>
+                    )}
                     {products.length > 0 ? (
                         <div className="mt-2 flex flex-wrap justify-center gap-1.5">
                             {products.map((product) => (
@@ -352,6 +359,7 @@ const CompanyList = () => {
                     sales_company_id: companyId,
                     is_active: true,
                     product_ids: values.productIds,
+                    customer_segment_id: values.customerSegmentId,
                 }))
             } else if (drawerMode === 'edit' && selectedDivision) {
                 await dispatch(updateDivision({
@@ -362,6 +370,7 @@ const CompanyList = () => {
                         sales_company_id: companyId,
                         is_active: selectedDivision.is_active,
                         product_ids: values.productIds,
+                        customer_segment_id: values.customerSegmentId,
                     }
                 }))
             }
@@ -456,6 +465,7 @@ const CompanyList = () => {
         id: d.sales_division_id,
         name: d.name,
         category: d.division_category,
+        customerSegmentName: d.customer_segment?.name,
         products: (d.products ?? []).map((p) => ({
             id: p.product_id,
             name: formatDisplayLabel(p.name),
@@ -544,6 +554,8 @@ const CompanyList = () => {
                                       companyName: selectedDivision.name,
                                       category:
                                           selectedDivision.division_category,
+                                      customerSegmentId:
+                                          selectedDivision.customer_segment_id ?? '',
                                       productIds: (selectedDivision.products ?? [])
                                           .map((p) => p.product_id)
                                           .filter(Boolean),

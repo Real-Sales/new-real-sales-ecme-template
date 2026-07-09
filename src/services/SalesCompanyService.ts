@@ -1,6 +1,7 @@
 import ApiService from './ApiService'
 import endpointConfig from '@/configs/endpoint.config'
 import type { ProfileProduct } from '@/@types/auth'
+import type { CustomerSegmentSlim } from './CustomerSegmentService'
 
 export type CreateSalesCompanyRequest = {
     name: string
@@ -39,6 +40,8 @@ export type SalesDivisionResponse = {
     sales_division_id: string
     created_at: string
     products?: ProfileProduct[]
+    customer_segment_id?: string
+    customer_segment?: CustomerSegmentSlim
 }
 
 export type CreateSalesDivisionRequest = {
@@ -47,6 +50,8 @@ export type CreateSalesDivisionRequest = {
     sales_company_id: string
     is_active: boolean
     product_ids?: string[]
+    /** Required on create — who this division's team sells to. */
+    customer_segment_id: string
 }
 
 export async function apiCreateSalesCompany(data: CreateSalesCompanyRequest) {
@@ -170,6 +175,8 @@ export type SalesDivisionInfoResponse = {
     created_at: string
     users: DivisionUser[]
     products?: ProfileProduct[]
+    customer_segment_id?: string
+    customer_segment?: CustomerSegmentSlim
 }
 
 export async function apiGetSalesDivisionInfo(divisionId: string) {

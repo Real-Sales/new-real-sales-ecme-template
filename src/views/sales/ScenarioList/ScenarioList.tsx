@@ -1,6 +1,9 @@
-import { useState, useMemo, useRef, useEffect } from 'react'
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { injectReducer } from '@/store'
+import salesDivisionsReducer, {
+    fetchSalesDivisions,
+} from '@/store/slices/salesDivisions'
 import Container from '@/components/shared/Container'
 import AdaptiveCard from '@/components/shared/AdaptiveCard'
 import Drawer from '@/components/ui/Drawer'
@@ -31,8 +34,7 @@ import Notification from '@/components/ui/Notification'
 import Tabs from '@/components/ui/Tabs'
 import type { Scenario } from './types'
 import { getAssignedScenarioTab, type AssignedScenarioTab } from './types'
-import { canManageScenarioLibrary, canLoadAllPersonas } from '@/utils/inviteAccess'
-import { fetchUserProfile } from '@/views/profile/Settings/store/settingsSlice'
+import { canManageScenarioLibrary } from '@/utils/inviteAccess'
 import { scenarioToAudioVizState } from '@/utils/audioVizSessionState'
 import type { FetchPersonasParams } from './store'
 import { TbClock, TbCircleCheck, TbAlertTriangle } from 'react-icons/tb'
@@ -45,16 +47,14 @@ type FilterValues = {
 
 // Inject reducer when component mounts (lazy-loaded)
 injectReducer('scenarioLibrary', scenarioLibraryReducer)
+injectReducer('salesDivisions', salesDivisionsReducer)
 
 const ScenarioList = () => {
     const navigate = useNavigate()
     const { pathname } = useLocation()
     const dispatch = useAppDispatch()
     const userRole = useAppSelector((state) => state.auth.user.role)
-    const companyIndustryId = useAppSelector(
-        (state) => state.auth.user.industryId || state.settings.profile?.companyIndustryId,
-    )
-    const profileInitialized = useAppSelector((state) => state.settings.profileInitialized)
+    const companyId = useAppSelector((state) => state.auth.user.companyId)
     const canManageLibrary = canManageScenarioLibrary(userRole)
     const isAssignedView = pathname === '/assigned-scenarios'
 
@@ -63,6 +63,7 @@ const ScenarioList = () => {
         scenarioLibraryLoading,
         initialized,
         personasData,
+        personasLoading,
         modesData,
         modesLoading,
         modesInitialized,
@@ -78,6 +79,7 @@ const ScenarioList = () => {
                 scenarioLibraryLoading: false,
                 initialized: false,
                 personasData: [],
+                personasLoading: false,
                 modesData: [],
                 modesLoading: false,
                 modesInitialized: false,
@@ -91,6 +93,19 @@ const ScenarioList = () => {
                 error: null,
                 notification: null,
             }
+    )
+
+    const {
+        divisionsData,
+        divisionsLoading,
+        initialized: divisionsInitialized,
+    } = useAppSelector(
+        (state) =>
+            state.salesDivisions?.data ?? {
+                divisionsData: [],
+                divisionsLoading: false,
+                initialized: false,
+            },
     )
 
     const [searchQuery, setSearchQuery] = useState('')
@@ -113,6 +128,11 @@ const ScenarioList = () => {
     })
     const [sortConfig, setSortConfig] = useState<{ key: string; order: 'asc' | 'desc' | '' }>({ key: '', order: '' })
     const [assignedTab, setAssignedTab] = useState<AssignedScenarioTab>('pending')
+    const [formCustomerSegmentId, setFormCustomerSegmentId] = useState<string | null>(null)
+
+    const handleSalesDivisionChange = useCallback((customerSegmentId: string | null) => {
+        setFormCustomerSegmentId(customerSegmentId)
+    }, [])
 
     useEffect(() => {
         if (isAssignedView) return
@@ -149,16 +169,18 @@ const ScenarioList = () => {
     }, [dispatch, canManageLibrary, isAssignedView, modesInitialized, modesLoading])
 
     useEffect(() => {
-        if (!isDrawerOpen || !canManageLibrary || isAssignedView) return
-
-        if (!companyIndustryId && !canLoadAllPersonas(userRole) && !profileInitialized) {
-            dispatch(fetchUserProfile())
-            return
+        if (!canManageLibrary || isAssignedView || !companyId) return
+        if (!divisionsInitialized && !divisionsLoading) {
+            dispatch(fetchSalesDivisions(companyId))
         }
+    }, [dispatch, canManageLibrary, isAssignedView, companyId, divisionsInitialized, divisionsLoading])
 
-        const params: FetchPersonasParams = {}
-        if (!canLoadAllPersonas(userRole) && companyIndustryId) {
-            params.industryId = companyIndustryId
+    useEffect(() => {
+        if (!isDrawerOpen || !canManageLibrary || isAssignedView) return
+        if (!formCustomerSegmentId) return
+
+        const params: FetchPersonasParams = {
+            customerSegmentId: formCustomerSegmentId,
         }
         if (isEditMode && editingScenario?.persona?.persona_id) {
             params.includePersonaId = editingScenario.persona.persona_id
@@ -169,9 +191,7 @@ const ScenarioList = () => {
         isDrawerOpen,
         canManageLibrary,
         isAssignedView,
-        userRole,
-        companyIndustryId,
-        profileInitialized,
+        formCustomerSegmentId,
         isEditMode,
         editingScenario?.persona?.persona_id,
     ])
@@ -297,6 +317,7 @@ const ScenarioList = () => {
         setIsDrawerOpen(false)
         setIsEditMode(false)
         setEditingScenario(null)
+        setFormCustomerSegmentId(null)
     }
 
     const handleSubmitClick = () => {
@@ -308,7 +329,8 @@ const ScenarioList = () => {
     }
 
     const onScenarioSubmit = async (values: ScenarioFormSchema) => {
-        const payload = {
+        const basePayload = {
+            sales_division_id: values.salesDivisionId,
             persona_id: values.persona || null,
             mode_ids: values.modeIds?.length ? values.modeIds : null,
             title: values.title || null,
@@ -320,13 +342,13 @@ const ScenarioList = () => {
         }
         if (isEditMode && editingScenario) {
             const result = await dispatch(
-                updateScenario({ scenarioId: editingScenario.scenario_id, payload })
+                updateScenario({ scenarioId: editingScenario.scenario_id, payload: basePayload })
             )
             if (updateScenario.fulfilled.match(result)) {
                 onDrawerClose()
             }
         } else {
-            const result = await dispatch(createScenario(payload))
+            const result = await dispatch(createScenario(basePayload))
             if (createScenario.fulfilled.match(result)) {
                 onDrawerClose()
             }
@@ -414,10 +436,21 @@ const ScenarioList = () => {
 
     const personaOptions: (ScenarioFormOption & { role?: string })[] = useMemo(() => {
         return personasData
-            .filter((p) => p.persona_id && p.name)
+            .filter((p) => {
+                if (!p.persona_id || !p.name) return false
+                if (!formCustomerSegmentId) return true
+                return p.customer_segment?.customer_segment_id === formCustomerSegmentId
+            })
             .map((p) => ({ label: p.name, value: p.persona_id, role: p.ai_role?.name }))
             .sort((a, b) => a.label.localeCompare(b.label))
-    }, [personasData])
+    }, [personasData, formCustomerSegmentId])
+
+    const divisionOptions: ScenarioFormOption[] = useMemo(() => {
+        return divisionsData
+            .filter((d) => d.sales_division_id && d.name)
+            .map((d) => ({ label: d.name, value: d.sales_division_id }))
+            .sort((a, b) => a.label.localeCompare(b.label))
+    }, [divisionsData])
 
     const DrawerFooter = (
         <div className="flex justify-between items-center w-full gap-3 px-2">
@@ -564,6 +597,7 @@ const ScenarioList = () => {
                         formRef={formRef}
                         initialValues={editingScenario ? {
                             title: editingScenario.title || '',
+                            salesDivisionId: editingScenario.sales_division_id ?? '',
                             modeIds: editingScenario.modes?.length
                                 ? editingScenario.modes.map((m) => m.mode_id)
                                 : editingScenario.mode?.mode_id
@@ -579,6 +613,11 @@ const ScenarioList = () => {
                         isEditMode={isEditMode}
                         modeOptions={modeOptions}
                         personaOptions={personaOptions}
+                        divisionOptions={divisionOptions}
+                        divisionsData={divisionsData}
+                        divisionsLoading={divisionsLoading}
+                        personasLoading={personasLoading}
+                        onSalesDivisionChange={handleSalesDivisionChange}
                         personasData={personasData}
                         onSubmit={onScenarioSubmit}
                         onCancel={onDrawerClose}

@@ -9,6 +9,7 @@ import { TbInfoCircle } from 'react-icons/tb'
 import type { Scenario, ScenarioSession, ScenarioLibraryPersona } from '../types'
 import MarkdownContent from '@/components/shared/MarkdownContent'
 import ScenarioModeStepper from './ScenarioModeStepper'
+import { useAppSelector } from '@/store'
 
 type ScenarioDetailProps = {
     scenario: Scenario | ScenarioSession
@@ -147,8 +148,8 @@ export const PersonaCard = ({ persona }: { persona: ScenarioLibraryPersona }) =>
         <PersonaAttrRow
             leftLabel="Plant size"
             leftValue={persona.plant_size_impact?.name ?? 'Not applicable'}
-            rightLabel="Manufacturing model"
-            rightValue={persona.manufacturing_model?.name ?? 'Not applicable'}
+            rightLabel="Customer segment"
+            rightValue={persona.customer_segment?.name ?? 'Not applicable'}
         />
         <PersonaAttrRow
             leftLabel="Company size"
@@ -162,6 +163,9 @@ export const PersonaCard = ({ persona }: { persona: ScenarioLibraryPersona }) =>
 
 const ScenarioDetail = ({ scenario }: ScenarioDetailProps) => {
     const [personaPopupOpen, setPersonaPopupOpen] = useState(false)
+    const divisionsData = useAppSelector(
+        (state) => state.salesDivisions?.data?.divisionsData ?? [],
+    )
     const derivedStatus = isLibraryScenario(scenario)
         ? (scenario.persona?.status_active && scenario.mode?.status_active ? 'active' : 'inactive')
         : (scenario as ScenarioSession).session_status
@@ -186,10 +190,18 @@ const ScenarioDetail = ({ scenario }: ScenarioDetailProps) => {
         ? Boolean(scenario.is_completed)
         : sessionStatusKey === 'completed'
 
+    const salesDivisionName = isLibraryScenario(scenario) && scenario.sales_division_id
+        ? divisionsData.find((d) => d.sales_division_id === scenario.sales_division_id)?.name
+        : null
+
     return (
         <div className="space-y-7">
             {/* Title */}
             <InfoField title="Title" value={scenario.title} />
+
+            {salesDivisionName ? (
+                <InfoField title="Sales division" value={salesDivisionName} />
+            ) : null}
 
             {/* Mode pipeline progress (multi-mode scenarios only) */}
             {modeSequenceNames && modeSequenceNames.length > 1 && (

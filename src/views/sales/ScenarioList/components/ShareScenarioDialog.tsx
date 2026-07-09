@@ -64,6 +64,7 @@ const ShareScenarioDialog = ({
     const cacheEntry = scenarioId ? assignScenarioById[scenarioId] : undefined
     const hasCachedMembers = isAssignScenarioCacheFresh(cacheEntry)
     const members = hasCachedMembers ? cacheEntry!.members : []
+    const assignDivisionName = cacheEntry?.salesDivisionName?.trim() || null
     const isLoading =
         Boolean(scenarioId) &&
         !hasCachedMembers &&
@@ -236,6 +237,14 @@ const ShareScenarioDialog = ({
                 <h4 className="mb-1 text-2xl font-bold">Assign Scenario</h4>
                 <p className="text-gray-500 dark:text-gray-400 text-sm">
                     Pick a team member to assign &quot;{scenario?.title}&quot;
+                    {assignDivisionName ? (
+                        <>
+                            <br />
+                            <span className="text-xs">
+                                Showing members in <span className="font-semibold">{assignDivisionName}</span>
+                            </span>
+                        </>
+                    ) : null}
                 </p>
             </div>
 

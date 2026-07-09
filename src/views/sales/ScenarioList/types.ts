@@ -13,7 +13,7 @@ export type ScenarioLibraryPersona = {
     }
     geography: string
     plant_size_impact?: { name: string; plant_size_impact_id: string }
-    manufacturing_model?: { name: string; manufacturing_model_id: string }
+    customer_segment?: { name: string; customer_segment_id: string }
     company_size_new?: { name: string; company_size_id: string }
     status_active: boolean
     profile_pic?: string
@@ -32,6 +32,7 @@ export type ScenarioLibraryMode = {
 
 export type ScenarioLibraryItem = {
     scenario_id: string
+    sales_division_id?: string | null
     created_by: string
     creator_role: string
     persona: ScenarioLibraryPersona
@@ -82,7 +83,7 @@ export type PersonaDashboardResponse = {
     ai_role: { ai_role_id: string; name: string }
     geography: string | null
     plant_size_impact: { plant_size_impact_id: string; name: string }
-    manufacturing_model: { manufacturing_model_id: string; name: string }
+    customer_segment: { customer_segment_id: string; name: string }
     company_size_new: { company_size_id: string; name: string }
     status_active: boolean
     profile_pic: string | null
@@ -168,7 +169,7 @@ function personaDashboardToLibrary(p: PersonaDashboardResponse): ScenarioLibrary
         ai_role: p.ai_role,
         geography: p.geography ?? '',
         plant_size_impact: p.plant_size_impact,
-        manufacturing_model: p.manufacturing_model,
+        customer_segment: p.customer_segment,
         company_size_new: p.company_size_new,
         status_active: p.status_active,
         profile_pic: p.profile_pic ?? undefined,
@@ -305,7 +306,7 @@ export type AiPersonaListItem = {
     ai_role?: { name: string; ai_role_id: string }
     geography?: string
     plant_size_impact?: { name: string; plant_size_impact_id: string }
-    manufacturing_model?: { name: string; manufacturing_model_id: string }
+    customer_segment?: { name: string; customer_segment_id: string }
     company_size_new?: { name: string; company_size_id: string }
     behavioral_detail?: string
     status_active: boolean
@@ -316,6 +317,7 @@ export type AiPersonaListItem = {
 
 // Create scenario (POST /scenarios/)
 export type CreateScenarioRequest = {
+    sales_division_id: string
     persona_id?: string | null
     /** Deprecated: use mode_ids. Kept for backward-compat single-mode callers. */
     mode_id?: string | null
@@ -333,4 +335,16 @@ export type CreateScenarioRequest = {
 }
 
 // Update scenario (PUT /api/v1/scenarios/{scenario_id})
-export type UpdateScenarioRequest = CreateScenarioRequest
+export type UpdateScenarioRequest = {
+    sales_division_id?: string | null
+    persona_id?: string | null
+    mode_ids?: string[] | null
+    mode_id?: string | null
+    title?: string | null
+    scenario_text?: string | null
+    document_content?: string | null
+    document_filename?: string | null
+    time_limit_days?: number
+    message?: string | null
+    session_id?: string | null
+}

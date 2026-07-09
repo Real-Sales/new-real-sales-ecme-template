@@ -1,4 +1,4 @@
-import { useState, useRef, type RefObject } from 'react'
+import { useState, useRef, useEffect, type RefObject } from 'react'
 import Input from '@/components/ui/Input'
 import Select, { Option as SelectOption } from '@/components/ui/Select'
 import Upload from '@/components/ui/Upload'
@@ -12,6 +12,7 @@ import { TbInfoCircle } from 'react-icons/tb'
 import { apiUploadDocument } from '@/services/ScenarioLibraryService'
 import { PersonaCard } from './ScenarioDetail'
 import type { AiPersonaListItem, ScenarioLibraryPersona } from '../types'
+import type { SalesDivision } from '@/services/SalesDivisionsService'
 import { MODE_PIPELINE_ORDER } from '@/utils/modePipeline'
 
 export type ScenarioFormOption = { label: string; value: string }
@@ -19,6 +20,7 @@ export type PersonaFormOption = ScenarioFormOption & { role?: string }
 
 type ScenarioFormSchema = {
     title: string
+    salesDivisionId: string
     modeIds: string[]
     persona: string
     deadline: number
@@ -30,6 +32,7 @@ type ScenarioFormSchema = {
 
 const validationSchema = z.object({
     title: z.string().min(1, { message: 'Title is required' }).max(255, 'Title too long!'),
+    salesDivisionId: z.string().min(1, { message: 'Division is required' }),
     modeIds: z.array(z.string()).min(1, { message: 'Select at least one mode' }),
     persona: z.string().min(1, { message: 'Persona is required' }),
     deadline: z.union([z.string(), z.number()]).pipe(
@@ -65,6 +68,11 @@ type ScenarioFormProps = {
     isEditMode?: boolean
     modeOptions?: ScenarioFormOption[]
     personaOptions?: PersonaFormOption[]
+    divisionOptions?: ScenarioFormOption[]
+    divisionsData?: SalesDivision[]
+    divisionsLoading?: boolean
+    personasLoading?: boolean
+    onSalesDivisionChange?: (customerSegmentId: string | null) => void
     personasData?: AiPersonaListItem[]
     formRef?: RefObject<HTMLFormElement | null>
     onSubmit: (values: ScenarioFormSchema) => void
@@ -76,6 +84,11 @@ const ScenarioForm = ({
     isEditMode,
     modeOptions: modeOptionsProp,
     personaOptions: personaOptionsProp,
+    divisionOptions = [],
+    divisionsData = [],
+    divisionsLoading = false,
+    personasLoading = false,
+    onSalesDivisionChange,
     personasData,
     formRef,
     onSubmit,
@@ -103,6 +116,7 @@ const ScenarioForm = ({
     } = useForm<ScenarioFormSchema>({
         defaultValues: initialValues || {
             title: '',
+            salesDivisionId: '',
             modeIds: [],
             persona: '',
             deadline: 0,
@@ -117,7 +131,21 @@ const ScenarioForm = ({
     const scenarioValue = watch('scenario')
     const documentFilename = watch('document_filename')
     const selectedPersonaId = watch('persona')
+    const salesDivisionId = watch('salesDivisionId')
     const selectedPersona = personasData?.find((p) => p.persona_id === selectedPersonaId)
+    const prevSalesDivisionIdRef = useRef(salesDivisionId)
+
+    useEffect(() => {
+        const division = divisionsData.find(
+            (d) => d.sales_division_id === salesDivisionId,
+        )
+        onSalesDivisionChange?.(division?.customer_segment_id ?? null)
+
+        if (prevSalesDivisionIdRef.current !== salesDivisionId) {
+            setValue('persona', '')
+            prevSalesDivisionIdRef.current = salesDivisionId
+        }
+    }, [salesDivisionId, divisionsData, onSalesDivisionChange, setValue])
 
     const handleCharacterCount = (value: string) => {
         setCharacterCount(value.length)
@@ -176,6 +204,28 @@ const ScenarioForm = ({
                                 placeholder="Enter scenario title..."
                                 className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-200 shadow-md"
                                 {...field}
+                            />
+                        )}
+                    />
+                </FormItem>
+
+                <FormItem
+                    label="Sales division"
+                    asterisk
+                    invalid={Boolean(errors.salesDivisionId)}
+                    errorMessage={errors.salesDivisionId?.message}
+                >
+                    <Controller
+                        name="salesDivisionId"
+                        control={control}
+                        render={({ field }) => (
+                            <Select
+                                loading={divisionsLoading}
+                                className="[&>div]:!bg-gray-50 [&>div]:dark:!bg-gray-800/50 [&>div]:border [&>div]:border-gray-200 [&>div]:dark:border-gray-700 [&>div]:shadow-md"
+                                placeholder="Select division"
+                                options={divisionOptions}
+                                value={divisionOptions.find((opt) => opt.value === field.value)}
+                                onChange={(option) => field.onChange(option?.value ?? '')}
                             />
                         )}
                     />
@@ -285,7 +335,14 @@ const ScenarioForm = ({
                             <>
                                 <Select<PersonaFormOption>
                                     className="[&>div]:!bg-gray-50 [&>div]:dark:!bg-gray-800/50 [&>div]:border [&>div]:border-gray-200 [&>div]:dark:border-gray-700 [&>div]:shadow-md"
-                                    placeholder="Select a persona"
+                                    placeholder={
+                                        salesDivisionId
+                                            ? personasLoading
+                                                ? 'Loading personas...'
+                                                : 'Select a persona'
+                                            : 'Select a division first'
+                                    }
+                                    isDisabled={!salesDivisionId || personasLoading}
                                     options={personaOptionsList}
                                     value={personaOptionsList.find((opt) => opt.value === field.value)}
                                     onChange={(option) => field.onChange(option?.value)}

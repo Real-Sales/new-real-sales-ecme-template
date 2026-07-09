@@ -67,6 +67,7 @@ export async function apiGetInteractionModes() {
 
 export type FetchAiPersonasParams = {
     industryId?: string
+    customerSegmentId?: string
     includePersonaId?: string
 }
 
@@ -74,6 +75,9 @@ export async function apiGetAiPersonas(params?: FetchAiPersonasParams) {
     const searchParams = new URLSearchParams()
     if (params?.industryId) {
         searchParams.set('industry_id', params.industryId)
+    }
+    if (params?.customerSegmentId) {
+        searchParams.set('customer_segment_id', params.customerSegmentId)
     }
     if (params?.includePersonaId) {
         searchParams.set('include_persona_id', params.includePersonaId)
@@ -128,6 +132,8 @@ export type AssignmentStatusMember = {
 
 export type AssignmentStatusResponse = {
     scenario_id: string
+    sales_division_id?: string | null
+    sales_division_name?: string | null
     members: AssignmentStatusMember[]
 }
 

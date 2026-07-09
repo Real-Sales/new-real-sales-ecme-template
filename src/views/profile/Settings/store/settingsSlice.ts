@@ -20,6 +20,7 @@ import type {
     GetSettingsIntegrationResponse,
 } from '../types'
 import { formatDisplayLabel } from '@/utils/formatDisplayLabel'
+import { normalizeIndustryName } from '@/utils/industryAlias'
 import {
     setActiveUserSubscription,
     subscriptionRowsFromProfile,
@@ -93,8 +94,12 @@ export function mapUserProfileToSettings(
         dialCode: '+1',
         birthday: '',
         phoneNumber: normalizePhone(profile.phone_number),
-        industry: company?.industry ? normalizeIndustryKey(company.industry) : '',
-        industryLabel: company?.industry ? formatIndustryLabel(company.industry) : '',
+        industry: company?.industry
+            ? normalizeIndustryKey(normalizeIndustryName(company.industry))
+            : '',
+        industryLabel: company?.industry
+            ? formatIndustryLabel(normalizeIndustryName(company.industry))
+            : '',
         products: companyProducts.map((p) => ({
             value: p.product_id || normalizeIndustryKey(p.name),
             label: formatIndustryLabel(p.name),
@@ -105,7 +110,9 @@ export function mapUserProfileToSettings(
         companyProducts,
         hasCompany: Boolean(company),
         salesCompanyId: company?.sales_company_id ?? '',
-        companyIndustry: company?.industry ?? '',
+        companyIndustry: company?.industry
+            ? normalizeIndustryName(company.industry)
+            : '',
         companyIndustryId: company?.industry_id ?? '',
         selectedProductIds: companyProducts.map((p) => p.product_id).filter(Boolean),
     }
@@ -127,7 +134,7 @@ export function mapUserProfileToAuthUser(
         role: profile.role?.name ?? '',
         companyId: profile.company_id ?? company?.sales_company_id ?? '',
         companyName: company?.name ?? '',
-        industry: company?.industry ?? '',
+        industry: company?.industry ? normalizeIndustryName(company.industry) : '',
         industryId: company?.industry_id ?? '',
         industryProducts: (company?.products ?? [])
             .map((p) => p.product_id)

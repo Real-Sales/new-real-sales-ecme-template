@@ -16,13 +16,14 @@ import { fetchIndustries } from '@/store/slices/industriesCatalogSlice'
 import { fetchUserProfile } from '@/views/profile/Settings/store/settingsSlice'
 import type { AIPersona } from '@/components/shared/SessionSetupPanel'
 import { apiCreateSession } from '@/services/SessionService'
-import { getApiErrorMessage } from '@/utils/getApiErrorMessage'
+import { getApiErrorMessage, isSegmentMismatchError } from '@/utils/getApiErrorMessage'
 import type { AiPersonaListItem, InteractionModeListItem } from '@/views/sales/ScenarioList/types'
 import scenarioLibraryReducer, {
     useAppSelector as useScenarioSelector,
     fetchPersonas,
     fetchModes,
 } from '@/views/sales/ScenarioList/store'
+import { useUserDivisionSegment } from '@/utils/hooks/useUserDivisionSegment'
 
 injectReducer('scenarioLibrary', scenarioLibraryReducer)
 
@@ -141,6 +142,13 @@ const PersonaSelection = () => {
         (state) => state.industriesCatalog.loading,
     )
 
+    const {
+        customerSegmentId,
+        customerSegmentName,
+        salesDivisionId,
+        loading: divisionSegmentLoading,
+    } = useUserDivisionSegment()
+
     const storePersonas = useScenarioSelector(
         (state) => state.scenarioLibrary?.data?.personasData,
     )
@@ -204,16 +212,26 @@ const PersonaSelection = () => {
         if (
             !storePersonas?.length &&
             !personasLoading &&
-            !personasFetchDispatchedRef.current
+            !personasFetchDispatchedRef.current &&
+            !divisionSegmentLoading &&
+            customerSegmentId
         ) {
             personasFetchDispatchedRef.current = true
-            dispatch(fetchPersonas())
+            dispatch(fetchPersonas({ customerSegmentId }))
         }
         if (!storeModes?.length && !modesLoading && !modesFetchDispatchedRef.current) {
             modesFetchDispatchedRef.current = true
             dispatch(fetchModes())
         }
-    }, [dispatch, storePersonas?.length, personasLoading, storeModes?.length, modesLoading])
+    }, [
+        dispatch,
+        storePersonas?.length,
+        personasLoading,
+        storeModes?.length,
+        modesLoading,
+        divisionSegmentLoading,
+        customerSegmentId,
+    ])
 
     const aiPersonas = useMemo(() => {
         if (!storePersonas?.length) return []
@@ -225,7 +243,12 @@ const PersonaSelection = () => {
         return storeModes.filter((m) => m.status_active)
     }, [storeModes])
 
-    const isLoading = (personasLoading ?? false) || (modesLoading ?? false)
+    const isLoading =
+        (personasLoading ?? false) || (modesLoading ?? false) || divisionSegmentLoading
+    const divisionSetupIncomplete =
+        !divisionSegmentLoading && Boolean(salesDivisionId) && !customerSegmentId
+    const noDivisionAssigned =
+        !divisionSegmentLoading && !salesDivisionId
 
     const relatedPersonas = useMemo(() => {
         if (!userIndustry) {
@@ -537,10 +560,14 @@ const PersonaSelection = () => {
                             <p className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300">
                                 {filteredPersonas.length} of {aiPersonas.length} personas
                             </p>
-                            {(userIndustry || userProducts.length > 0) &&
-                                isProfileIndustryFilter && (
+                            {userIndustry && isProfileIndustryFilter && (
                                 <span className="inline-flex items-center px-2 py-0.5 rounded border border-primary/20 dark:border-primary/30 text-[10px] sm:text-xs font-medium bg-primary/10 text-primary dark:bg-primary/15 dark:text-primary">
                                     Filtered by profile
+                                </span>
+                            )}
+                            {customerSegmentName && (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded border border-indigo-200 dark:border-indigo-800/30 text-[10px] sm:text-xs font-medium bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300">
+                                    {customerSegmentName}
                                 </span>
                             )}
                         </div>
@@ -550,7 +577,25 @@ const PersonaSelection = () => {
 
             {/* Personas Grid */}
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-                {isLoading ? (
+                {noDivisionAssigned ? (
+                    <div className="flex flex-col items-center justify-center py-32 bg-white dark:bg-gray-800 rounded-3xl border border-gray-200 dark:border-gray-700 shadow-sm">
+                        <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">
+                            Assign yourself to a sales division
+                        </h3>
+                        <p className="text-gray-500 dark:text-gray-400 max-w-md text-center text-lg">
+                            You must be assigned to a sales division before starting a session. Ask your manager to add you to a team.
+                        </p>
+                    </div>
+                ) : divisionSetupIncomplete ? (
+                    <div className="flex flex-col items-center justify-center py-32 bg-white dark:bg-gray-800 rounded-3xl border border-gray-200 dark:border-gray-700 shadow-sm">
+                        <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">
+                            Division setup incomplete
+                        </h3>
+                        <p className="text-gray-500 dark:text-gray-400 max-w-md text-center text-lg">
+                            Your division is missing a customer segment. Contact your manager.
+                        </p>
+                    </div>
+                ) : isLoading ? (
                     <div className="flex flex-col items-center justify-center py-32">
                         <Spinner size={48} className="text-primary mb-4" />
                         <p className="text-gray-500 dark:text-gray-400 font-medium animate-pulse">Loading personas...</p>
