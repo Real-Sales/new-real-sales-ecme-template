@@ -13,14 +13,33 @@ import industriesCatalog, {
 import RtkQueryService from '@/services/RtkQueryService'
 import { persistReducer } from 'redux-persist'
 import storage from 'redux-persist/lib/storage'
+import { createTransform } from 'redux-persist'
 import appConfig from '@/configs/app.config'
+import type { UserState } from './slices/auth/userSlice'
 
-// When using cookies, only persist user profile data — NOT the session (token/signedIn)
+/** Company fields live in Redux memory only — loaded from API, never localStorage. */
+const clearPersistedAuthCompanyFields = (user: UserState): UserState => ({
+    ...user,
+    companyId: '',
+    companyName: '',
+    industry: '',
+    industryId: '',
+    industryProducts: [],
+})
+
+const authUserTransform = createTransform(
+    (inboundState: UserState) => clearPersistedAuthCompanyFields(inboundState),
+    (outboundState: UserState) => clearPersistedAuthCompanyFields(outboundState),
+    { whitelist: ['user'] },
+)
+
+// When using cookies, only persist basic user identity — NOT the session (token/signedIn)
 // The JWT token lives exclusively in the auth_token cookie
 const authPersistConfig = {
     key: 'auth',
     storage,
     whitelist: appConfig.accessTokenPersistStrategy === 'cookies' ? ['user'] : ['user', 'session'],
+    transforms: [authUserTransform],
 }
 
 const persistedAuth = persistReducer(authPersistConfig, auth as Reducer)

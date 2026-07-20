@@ -8,6 +8,7 @@ import type { NavigationTree } from '@/@types/navigation'
 /** Full scenario + org nav; `sales_person` only sees Assigned scenarios (not Scenario Library). */
 const MANAGER_ROLES = ['sales_manager', 'company_owner', 'manager']
 const ASSIGNED_SCENARIOS_ROLES = ['sales_person', ...MANAGER_ROLES]
+const COMPANY_MEMBERS_ROLES = ['sales_person', ...MANAGER_ROLES]
 
 const salesNavigationConfig: NavigationTree[] = [
     {
@@ -87,7 +88,7 @@ const salesNavigationConfig: NavigationTree[] = [
                 translateKey: '',
                 icon: 'members',
                 type: NAV_ITEM_TYPE_ITEM,
-                authority: MANAGER_ROLES,
+                authority: COMPANY_MEMBERS_ROLES,
                 subMenu: [],
             },
             {
@@ -96,16 +97,6 @@ const salesNavigationConfig: NavigationTree[] = [
                 title: 'Sales Divisions',
                 translateKey: '',
                 icon: 'company',
-                type: NAV_ITEM_TYPE_ITEM,
-                authority: MANAGER_ROLES,
-                subMenu: [],
-            },
-            {
-                key: 'companyGroup.teams',
-                path: '/teams',
-                title: 'Teams',
-                translateKey: '',
-                icon: 'teams',
                 type: NAV_ITEM_TYPE_ITEM,
                 authority: MANAGER_ROLES,
                 subMenu: [],

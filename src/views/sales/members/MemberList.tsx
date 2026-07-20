@@ -17,8 +17,14 @@ import companyMembersReducer, {
 import salesDivisionsReducer, { resetSalesDivisionsData } from '@/store/slices/salesDivisions'
 import teamsReducer, { resetTeamsData } from '@/store/slices/teams'
 import EditMemberDrawer from './components/EditMemberDrawer'
-import type { CompanyMemberRow } from './types'
+import {
+    formatMemberDivisions,
+    formatMemberTeams,
+    getMemberDivisions,
+    type CompanyMemberRow,
+} from './types'
 import type { ColumnDef } from '@/components/shared/DataTable'
+import { canManageCompanyMembers } from './memberRoleAccess'
 
 injectReducer('companyMembers', companyMembersReducer)
 injectReducer('salesDivisions', salesDivisionsReducer)
@@ -66,6 +72,10 @@ const MemberList = () => {
     const [searchTerm, setSearchTerm] = useState('')
     const [currentPage, setCurrentPage] = useState(1)
     const [pageSize, setPageSize] = useState(10)
+    const [sortConfig, setSortConfig] = useState<{
+        key: string
+        order: 'asc' | 'desc' | ''
+    }>({ key: '', order: '' })
     const [editDrawerOpen, setEditDrawerOpen] = useState(false)
     const [memberToEdit, setMemberToEdit] = useState<CompanyMemberRow | null>(null)
 
@@ -115,23 +125,67 @@ const MemberList = () => {
         }
     }, [notification, dispatch])
 
+    const canManageMembers = canManageCompanyMembers(userRole)
+
     const filteredMembers = useMemo(() => {
         const q = searchTerm.trim().toLowerCase()
-        if (!q) return membersData
-        return membersData.filter((m) => {
+        const matchesSearch = (m: CompanyMemberRow) => {
+            if (!q) return true
             const fullName = `${m.first_name} ${m.last_name}`.toLowerCase()
             return (
                 fullName.includes(q) ||
                 m.email.toLowerCase().includes(q) ||
                 formatRole(m.role?.name).toLowerCase().includes(q) ||
-                (m.team_name?.toLowerCase().includes(q) ?? false) ||
-                (m.sales_division_name?.toLowerCase().includes(q) ?? false)
+                formatMemberTeams(m).toLowerCase().includes(q) ||
+                formatMemberDivisions(m).toLowerCase().includes(q) ||
+                (m.teams?.some((t) => t.team_name?.toLowerCase().includes(q)) ??
+                    false)
             )
-        })
-    }, [membersData, searchTerm])
+        }
+
+        const sortValue = (m: CompanyMemberRow): string | number => {
+            switch (sortConfig.key) {
+                case 'member_name':
+                    return `${m.first_name} ${m.last_name}`.toLowerCase()
+                case 'teams':
+                    return formatMemberTeams(m).toLowerCase()
+                case 'divisions':
+                    return formatMemberDivisions(m).toLowerCase()
+                case 'sales_division_name':
+                    return (m.sales_division_name ?? '').toLowerCase()
+                case 'credits_used':
+                    return m.credits_used
+                case 'team_name':
+                    return (m.team_name ?? '').toLowerCase()
+                default:
+                    return ''
+            }
+        }
+
+        // Always pin the logged-in "You" row to the top, even if search would hide it.
+        const me = userId
+            ? membersData.find((m) => m.user_id === userId)
+            : undefined
+        const others = membersData.filter(
+            (m) => m.user_id !== userId && matchesSearch(m),
+        )
+
+        if (sortConfig.key && sortConfig.order) {
+            others.sort((a, b) => {
+                const aVal = sortValue(a)
+                const bVal = sortValue(b)
+                if (aVal < bVal) return sortConfig.order === 'asc' ? -1 : 1
+                if (aVal > bVal) return sortConfig.order === 'asc' ? 1 : -1
+                return 0
+            })
+        }
+
+        return me ? [me, ...others] : others
+    }, [membersData, searchTerm, userId, sortConfig])
 
     const columns: ColumnDef<CompanyMemberRow>[] = useMemo(
-        () => [
+        () => {
+            const baseColumns: ColumnDef<CompanyMemberRow>[] = [
             {
                 header: 'Member',
                 id: 'member_name',
@@ -182,10 +236,31 @@ const MemberList = () => {
                 },
             },
             {
-                header: 'Team',
-                accessorKey: 'team_name',
+                header: 'Teams',
+                id: 'teams',
+                accessorFn: (row) => formatMemberTeams(row),
                 enableSorting: true,
                 cell: (props) => {
+                    const teams = props.row.original.teams
+                    if (teams?.length) {
+                        return (
+                            <div className="flex flex-wrap gap-1 max-w-[220px]">
+                                {teams.map((t) => (
+                                    <span
+                                        key={t.team_id}
+                                        className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200"
+                                        title={
+                                            t.sales_division_name
+                                                ? `${t.team_name} · ${t.sales_division_name}`
+                                                : t.team_name
+                                        }
+                                    >
+                                        {t.team_name}
+                                    </span>
+                                ))}
+                            </div>
+                        )
+                    }
                     const name = props.row.original.team_name
                     return name ? (
                         <span className="text-sm text-gray-700 dark:text-gray-300">
@@ -197,17 +272,26 @@ const MemberList = () => {
                 },
             },
             {
-                header: 'Division',
-                accessorKey: 'sales_division_name',
+                header: 'Divisions',
+                id: 'divisions',
+                accessorFn: (row) => formatMemberDivisions(row),
                 enableSorting: true,
                 cell: (props) => {
-                    const name = props.row.original.sales_division_name
-                    return name ? (
-                        <span className="text-sm text-gray-700 dark:text-gray-300">
-                            {name}
-                        </span>
-                    ) : (
-                        <span className="text-gray-400 text-sm">—</span>
+                    const divisions = getMemberDivisions(props.row.original)
+                    if (!divisions.length) {
+                        return <span className="text-gray-400 text-sm">—</span>
+                    }
+                    return (
+                        <div className="flex flex-wrap gap-1 max-w-[240px]">
+                            {divisions.map((d) => (
+                                <span
+                                    key={d.id}
+                                    className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200"
+                                >
+                                    {d.name}
+                                </span>
+                            ))}
+                        </div>
                     )
                 },
             },
@@ -230,6 +314,19 @@ const MemberList = () => {
                 },
             },
             {
+                header: 'Credits used',
+                accessorKey: 'credits_used',
+                enableSorting: true,
+                cell: (props) => (
+                    <span className="text-sm font-semibold text-gray-900 dark:text-white tabular-nums">
+                        {props.row.original.credits_used}
+                    </span>
+                ),
+            },
+            ]
+
+            if (canManageMembers) {
+                baseColumns.push({
                 header: 'Action',
                 id: 'actions',
                 enableSorting: false,
@@ -246,9 +343,12 @@ const MemberList = () => {
                         />
                     )
                 },
-            },
-        ],
-        [userId],
+                })
+            }
+
+            return baseColumns
+        },
+        [userId, canManageMembers],
     )
 
     const loading = membersLoading
@@ -280,7 +380,7 @@ const MemberList = () => {
                     </Card>
                 ) : (
                     <>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                        <div className="grid grid-cols-2 gap-4 mb-6">
                             <Card
                                 className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 shadow-md"
                                 bodyClass="!p-4"
@@ -342,6 +442,13 @@ const MemberList = () => {
                                 onPaginationChange={(page) => setCurrentPage(page)}
                                 onSelectChange={(size) => {
                                     setPageSize(size)
+                                    setCurrentPage(1)
+                                }}
+                                onSort={({ key, order }) => {
+                                    setSortConfig({
+                                        key: String(key ?? ''),
+                                        order: order || '',
+                                    })
                                     setCurrentPage(1)
                                 }}
                             />

@@ -18,6 +18,8 @@ type PlansProps = {
     subscriptions: ApiSubscription[]
     loading?: boolean
     currentUserSubscription?: UserSubscriptionRecord | null
+    /** When false, paid checkout is hidden (company members on a shared pot). */
+    canPurchase?: boolean
 }
 
 const billingCycleFromPaymentCycle = (cycle: PaymentCycle) =>
@@ -27,6 +29,7 @@ const Plans = ({
     subscriptions,
     loading,
     currentUserSubscription = null,
+    canPurchase = true,
 }: PlansProps) => {
     const dispatch = useAppDispatch()
     const paymentCycle = useAppSelector((state) => state.subscription.paymentCycle)
@@ -49,6 +52,9 @@ const Plans = ({
         if (plan.is_custom || plan.plan_type.toLowerCase() === 'enterprise') {
             window.location.href =
                 'mailto:sales@saleswana.com?subject=SalesWana%20Enterprise%20plan'
+            return
+        }
+        if (!canPurchase) {
             return
         }
         dispatch(
@@ -109,7 +115,7 @@ const Plans = ({
 
                 const userSub = currentUserSubscription
                 const isCurrentPlan = Boolean(
-                    userSub &&
+                    userSub?.subscription &&
                         plan.plan_type.toLowerCase() ===
                             userSub.subscription.plan_type.toLowerCase() &&
                         plan.billing_cycle === userSub.subscription.billing_cycle,
@@ -117,10 +123,10 @@ const Plans = ({
 
                 const ctaLabel = isCurrentPlan
                     ? 'Current plan'
-                    : isEnterprise
-                      ? 'Contact sales'
-                      : isFree
-                        ? 'Choose plan'
+                    : !canPurchase
+                      ? 'Ask owner to upgrade'
+                      : isEnterprise
+                        ? 'Contact sales'
                         : 'Choose plan'
 
                 return (
@@ -164,7 +170,7 @@ const Plans = ({
                                             className="text-3xl font-bold heading-text"
                                             decimalScale={2}
                                             displayType="text"
-                                            prefix="$"
+                                            prefix="₹"
                                             value={
                                                 paymentCycle === 'monthly'
                                                     ? monthlyAmount
@@ -213,7 +219,7 @@ const Plans = ({
                         <div className="mt-auto pt-8">
                             <Button
                                 block
-                                disabled={isCurrentPlan}
+                                disabled={isCurrentPlan || (!canPurchase && !isEnterprise)}
                                 className="h-11 border-0 bg-gray-900 font-semibold uppercase tracking-wide text-amber-400 hover:bg-gray-800 dark:bg-gray-950 dark:hover:bg-black"
                                 onClick={() => handleChoosePlan(plan)}
                             >

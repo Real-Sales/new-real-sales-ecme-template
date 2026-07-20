@@ -19,6 +19,7 @@ import {
     clearProfileSaveError,
     setProfile,
     resetProfileSaving,
+    resetProfileData,
     type SaveProfileSettingsPayload,
 } from '../store/settingsSlice'
 import { formatDisplayLabel } from '@/utils/formatDisplayLabel'
@@ -154,10 +155,27 @@ const SettingsProfile = () => {
     }, [dispatch])
 
     useEffect(() => {
+        if (!authUser.userId) return
+
+        const profileBelongsToAnotherUser =
+            Boolean(data.id) && data.id !== authUser.userId
+
+        if (profileBelongsToAnotherUser) {
+            dispatch(resetProfileData())
+            dispatch(fetchUserProfile())
+            return
+        }
+
         if (!profileInitialized && !profileLoading) {
             dispatch(fetchUserProfile())
         }
-    }, [dispatch, profileInitialized, profileLoading])
+    }, [
+        dispatch,
+        authUser.userId,
+        data.id,
+        profileInitialized,
+        profileLoading,
+    ])
 
     useEffect(() => {
         if (!profileInitialized) return

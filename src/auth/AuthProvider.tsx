@@ -1,10 +1,10 @@
-import { useRef, useImperativeHandle, useEffect } from 'react'
+import { useRef, useImperativeHandle, useEffect, useState, useMemo } from 'react'
 import AuthContext from './AuthContext'
 import appConfig from '@/configs/app.config'
 import { useAppSelector, useAppDispatch } from '@/store/hook'
 import { signInSuccess, signOutSuccess } from '@/store/slices/auth/sessionSlice'
 import { setUser } from '@/store/slices/auth/userSlice'
-import { setProfile, resetProfileData } from '@/views/profile/Settings/store/settingsSlice'
+import { setProfile, resetProfileData, fetchUserProfile } from '@/views/profile/Settings/store/settingsSlice'
 import { resetSubscriptionData } from '@/views/profile/Subscription/store/subscriptionSlice'
 import {
     apiSignIn,
@@ -23,7 +23,10 @@ import { resetScenarioLibraryData } from '@/views/sales/ScenarioList/store/scena
 import { resetCompanyMembersData } from '@/views/sales/members/store/companyMembersSlice'
 import { resetTeamsData } from '@/store/slices/teams'
 import { resetSalesDivisionsData } from '@/store/slices/salesDivisions'
-import { companyOwnerNeedsOnboarding } from '@/utils/onboarding'
+import {
+    companyOwnerNeedsOnboarding,
+    roleMayResolveCompanyViaManager,
+} from '@/utils/onboarding'
 
 const AUTH_TOKEN_COOKIE = 'auth_token'
 const useCookies = appConfig.accessTokenPersistStrategy === 'cookies'
@@ -77,13 +80,19 @@ function AuthProvider({ children }: AuthProviderProps) {
     // To update user: dispatch(setUser(userData))
     // To sign in: dispatch(signInSuccess(token))
     // To sign out: dispatch(signOutSuccess())
+    const profileInitialized = useAppSelector(
+        (state) => state.settings.profileInitialized,
+    )
+    const profileLoading = useAppSelector((state) => state.settings.profileLoading)
     // When using cookies strategy, the cookie is the source of truth for authentication.
-    // localStorage auth.user still persists profile data (name, email, avatar).
+    // Company profile fields are kept in Redux only and loaded from the API.
     const authenticated = useCookies
         ? Boolean(Cookies.get(AUTH_TOKEN_COOKIE))
         : Boolean(token && signedIn)
 
     const navigatorRef = useRef<IsolatedNavigatorRef>(null)
+    /** Tracks manager-company fallback after profile restore (companyId is not persisted). */
+    const [companyLookupDone, setCompanyLookupDone] = useState(false)
 
     // On app startup with cookies strategy, restore auth session from cookie
     useEffect(() => {
@@ -96,35 +105,102 @@ function AuthProvider({ children }: AuthProviderProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
 
-    // Ensure companyId is fetched if missing but user is authenticated.
+    // Load company/profile from API on session restore — never from localStorage.
+    useEffect(() => {
+        if (!authenticated || profileLoading || profileInitialized) return
+        dispatch(fetchUserProfile())
+    }, [authenticated, profileInitialized, profileLoading, dispatch])
+
+    // Fallback when profile lacks company_id for manager/owner onboarding flows.
     // Only managers/owners need this call — sales_person gets company_id from auth/me.
     useEffect(() => {
-        const managerRoles = ['sales_manager', 'company_owner', 'admin', 'super_admin']
-        if (authenticated && user.userId && !user.companyId && managerRoles.includes(user.role ?? '')) {
-            const fetchCompanyId = async () => {
-                try {
-                    const companyResp = await apiGetSalesCompanyByManager(user.userId as string)
-                    let companyId = ''
-                    if (Array.isArray(companyResp) && companyResp.length > 0) {
-                        companyId = companyResp[0].sales_company_id
-                    } else if (companyResp && (companyResp as any).sales_company_id) {
-                        companyId = (companyResp as any).sales_company_id
-                    }
-                    if (companyId) {
-                        dispatch(setUser({ ...user, companyId, isNewUser: false }))
-                    } else if (companyOwnerNeedsOnboarding(user.role, companyId)) {
-                        dispatch(setUser({ ...user, isNewUser: true }))
-                    }
-                } catch (error) {
-                    console.error('AuthProvider: Background fetch companyId failed:', error)
-                    if (companyOwnerNeedsOnboarding(user.role, '')) {
-                        dispatch(setUser({ ...user, isNewUser: true }))
-                    }
-                }
-            }
-            fetchCompanyId()
+        if (!authenticated) {
+            setCompanyLookupDone(false)
+            return
         }
-    }, [authenticated, user.userId, user.companyId, user.role, dispatch])
+
+        if (!profileInitialized) {
+            setCompanyLookupDone(false)
+            return
+        }
+
+        if (
+            user.companyId ||
+            !user.userId ||
+            !roleMayResolveCompanyViaManager(user.role)
+        ) {
+            setCompanyLookupDone(true)
+            return
+        }
+
+        let cancelled = false
+        setCompanyLookupDone(false)
+
+        const fetchCompanyId = async () => {
+            try {
+                const companyResp = await apiGetSalesCompanyByManager(
+                    user.userId as string,
+                )
+                let companyId = ''
+                if (Array.isArray(companyResp) && companyResp.length > 0) {
+                    companyId = companyResp[0].sales_company_id
+                } else if (
+                    companyResp &&
+                    (companyResp as { sales_company_id?: string }).sales_company_id
+                ) {
+                    companyId = (companyResp as { sales_company_id: string })
+                        .sales_company_id
+                }
+                if (cancelled) return
+                if (companyId) {
+                    dispatch(setUser({ ...user, companyId, isNewUser: false }))
+                } else if (companyOwnerNeedsOnboarding(user.role, companyId)) {
+                    dispatch(setUser({ ...user, isNewUser: true }))
+                }
+            } catch (error) {
+                console.error('AuthProvider: Background fetch companyId failed:', error)
+                if (!cancelled && companyOwnerNeedsOnboarding(user.role, '')) {
+                    dispatch(setUser({ ...user, isNewUser: true }))
+                }
+            } finally {
+                if (!cancelled) setCompanyLookupDone(true)
+            }
+        }
+
+        void fetchCompanyId()
+        return () => {
+            cancelled = true
+        }
+        // Intentionally omit full `user` to avoid re-fetch loops; companyId/role/userId matter.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [
+        authenticated,
+        profileInitialized,
+        user.userId,
+        user.companyId,
+        user.role,
+        dispatch,
+    ])
+
+    const isSessionReady = useMemo(() => {
+        if (!authenticated) return true
+        if (!profileInitialized || profileLoading) return false
+        if (
+            !user.companyId &&
+            roleMayResolveCompanyViaManager(user.role) &&
+            !companyLookupDone
+        ) {
+            return false
+        }
+        return true
+    }, [
+        authenticated,
+        profileInitialized,
+        profileLoading,
+        user.companyId,
+        user.role,
+        companyLookupDone,
+    ])
 
     const redirect = () => {
         const search = window.location.search
@@ -167,6 +243,8 @@ function AuthProvider({ children }: AuthProviderProps) {
 
         const needsOnboarding = companyOwnerNeedsOnboarding(user.role, companyId)
 
+        dispatch(resetProfileData())
+
         const userData = {
             userId: user.userId ?? '',
             avatar: user.avatar ?? '',
@@ -191,6 +269,8 @@ function AuthProvider({ children }: AuthProviderProps) {
             phoneNumber: userData.phoneNumber,
             img: userData.avatar,
         }))
+
+        dispatch(fetchUserProfile())
 
         return needsOnboarding
     }
@@ -408,6 +488,7 @@ function AuthProvider({ children }: AuthProviderProps) {
         <AuthContext.Provider
             value={{
                 authenticated,
+                isSessionReady,
                 user,
                 signIn,
                 signUp,

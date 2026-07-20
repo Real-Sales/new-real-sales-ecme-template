@@ -1,34 +1,29 @@
 import { useLandingTheme } from '../LandingThemeProvider'
 import { scrollToLandingSection } from '../smoothScroll'
-import { FiLinkedin, FiTwitter, FiYoutube } from 'react-icons/fi'
 import SalesWanaLogo from '@/components/template/SalesWanaLogo'
 
 const footerLinks = {
     Product: [
-        { label: 'Features', href: '#features' },
-        { label: 'How It Works', href: '#workflow' },
-        { label: 'Pricing', href: '#pricing' },
-        { label: 'Integrations', href: '#' },
-        { label: 'Changelog', href: '#' },
+        { label: 'Features', href: '/#features' },
+        { label: 'How It Works', href: '/#workflow' },
+        { label: 'Pricing', href: '/#pricing' },
+        { label: 'Book a Demo', href: '/book-demo' },
+        { label: 'Start Free', href: '/sign-up' },
     ],
     Resources: [
-        { label: 'FAQ', href: '#faq' },
-        { label: 'Documentation', href: '#' },
-        { label: 'Case Studies', href: '/case-study/food-beverage' },
-        { label: 'Blog', href: '#' },
-        { label: 'Status', href: '#' },
+        { label: 'FAQ', href: '/faqs' },
+        { label: 'About', href: '/about' },
+        { label: 'Food & Beverage', href: '/industries/food-and-beverages' },
+        { label: 'Product Home', href: '/' },
     ],
     Company: [
         { label: 'About', href: '/about' },
-        { label: 'Careers', href: '#' },
         { label: 'Contact', href: 'mailto:hello@saleswana.com' },
-        { label: 'Partners', href: '#' },
+        { label: 'Book a Demo', href: '/book-demo' },
     ],
     Legal: [
-        { label: 'Privacy Policy', href: '#' },
-        { label: 'Terms of Service', href: '#' },
-        { label: 'Cookie Policy', href: '#' },
-        { label: 'Security', href: '#' },
+        { label: 'Privacy', href: 'mailto:hello@saleswana.com?subject=Privacy%20Policy' },
+        { label: 'Terms', href: 'mailto:hello@saleswana.com?subject=Terms%20of%20Service' },
     ],
 }
 
@@ -37,8 +32,9 @@ const LandingFooter = () => {
     const year = new Date().getFullYear()
 
     const handleNavClick = (href: string) => {
-        if (!href.startsWith('#')) return
-        const el = document.querySelector(href) as HTMLElement | null
+        const hash = href.includes('#') ? `#${href.split('#')[1]}` : ''
+        if (!hash || hash === '#') return
+        const el = document.querySelector(hash) as HTMLElement | null
         if (!el) return
         scrollToLandingSection(el)
     }
@@ -59,30 +55,15 @@ const LandingFooter = () => {
                         <p className="text-xs leading-relaxed max-w-[180px]" style={{ color: t.textMuted }}>
                             AI-powered sales training for revenue teams that want to close more deals.
                         </p>
-                        <div className="flex items-center gap-2 mt-5">
-                            {[
-                                { href: '#', label: 'LinkedIn', icon: FiLinkedin },
-                                { href: '#', label: 'Twitter', icon: FiTwitter },
-                                { href: '#', label: 'YouTube', icon: FiYoutube },
-                            ].map((item) => {
-                                const Icon = item.icon
-                                return (
-                                    <a
-                                        key={item.label}
-                                        href={item.href}
-                                        aria-label={item.label}
-                                        className="w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2"
-                                        style={{
-                                            border: `1px solid ${t.borderStrong}`,
-                                            color: t.textSecondary,
-                                            backgroundColor: t.surface,
-                                        }}
-                                    >
-                                        <Icon size={14} />
-                                    </a>
-                                )
-                            })}
-                        </div>
+                        <p className="text-xs mt-5" style={{ color: t.textMuted }}>
+                            <a
+                                href="mailto:hello@saleswana.com"
+                                className="hover:underline underline-offset-4"
+                                style={{ color: t.textSecondary }}
+                            >
+                                hello@saleswana.com
+                            </a>
+                        </p>
                     </div>
 
                     {Object.entries(footerLinks).map(([category, links]) => (
@@ -136,16 +117,20 @@ const LandingFooter = () => {
                         &copy; {year} SalesWana. All rights reserved.
                     </p>
                     <div className="flex items-center gap-6">
-                        {['Privacy', 'Terms'].map((label) => (
-                            <a
-                                key={label}
-                                href="#"
-                                className="text-[11px] transition-colors duration-200 hover:underline underline-offset-4"
-                                style={{ color: t.textMuted }}
-                            >
-                                {label}
-                            </a>
-                        ))}
+                        <a
+                            href="/faqs"
+                            className="text-[11px] transition-colors duration-200 hover:underline underline-offset-4"
+                            style={{ color: t.textMuted }}
+                        >
+                            FAQs
+                        </a>
+                        <a
+                            href="/about"
+                            className="text-[11px] transition-colors duration-200 hover:underline underline-offset-4"
+                            style={{ color: t.textMuted }}
+                        >
+                            About
+                        </a>
                         <a
                             href="mailto:hello@saleswana.com"
                             className="text-[11px] transition-colors duration-200 hover:underline underline-offset-4"

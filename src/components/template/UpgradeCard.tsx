@@ -4,6 +4,7 @@ import { HiArrowRight } from 'react-icons/hi'
 import { NumericFormat } from 'react-number-format'
 import { Link } from 'react-router-dom'
 import { useAppDispatch, useAppSelector } from '@/store/hook'
+import { isCompanyCreditPool } from '@/services/SubscriptionService'
 import { fetchMySubscription } from '@/views/profile/Subscription/store/subscriptionSlice'
 
 type UpgradeCardProps = {
@@ -116,7 +117,9 @@ const UpgradeCard = ({ forceDark = false }: UpgradeCardProps) => {
                     percent={showDash ? 0 : usagePercent}
                     forceDark={forceDark}
                 />
-                <h5 className={titleCls}>Balance</h5>
+                <h5 className={titleCls}>
+                    {isCompanyCreditPool(activeSub) ? 'Company credits' : 'Balance'}
+                </h5>
             </div>
             <div className="space-y-1 mb-2">
                 <div className="flex items-center justify-between">

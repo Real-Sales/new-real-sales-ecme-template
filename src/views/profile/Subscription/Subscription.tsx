@@ -8,8 +8,11 @@ import PaymentCycleToggle from './components/PaymentCycleToggle'
 import Faq from './components/Faq'
 import PaymentDialog from './components/PaymentDialog'
 import { useAppDispatch, useAppSelector } from '@/store/hook'
-import { apiGetMySubscription } from '@/services/SubscriptionService'
-import { apiConfirmPayment } from '@/services/PaymentService'
+import {
+    apiGetMySubscription,
+    canPurchaseSubscription,
+    isCompanyCreditPool,
+} from '@/services/SubscriptionService'
 import {
     billingCycleFromPaymentCycle,
     fetchMySubscription,
@@ -20,6 +23,8 @@ import {
 const Subscription = () => {
     const dispatch = useAppDispatch()
     const userId = useAppSelector((state) => state.auth.user.userId?.trim() ?? '')
+    const userRole = useAppSelector((state) => state.auth.user.role)
+    const companyId = useAppSelector((state) => state.auth.user.companyId)
     const paymentCycle = useAppSelector((state) => state.subscription.paymentCycle)
     const activeUserSubscription = useAppSelector(
         (state) => state.subscription.activeUserSubscription,
@@ -36,6 +41,13 @@ const Subscription = () => {
     )
     const plansLoading = useAppSelector((state) => state.subscription.plansLoading)
     const plansError = useAppSelector((state) => state.subscription.plansError)
+
+    const canPurchase = canPurchaseSubscription({
+        role: userRole,
+        companyId,
+        pool: activeUserSubscription,
+    })
+    const isCompanyPool = isCompanyCreditPool(activeUserSubscription)
 
     const loadUserSubscription = useCallback(async () => {
         if (!userId) {
@@ -62,35 +74,6 @@ const Subscription = () => {
     }, [loadUserSubscription])
 
     useEffect(() => {
-        const params = new URLSearchParams(window.location.search)
-        const paymentIntentId = params.get('payment_intent')
-        const redirectStatus = params.get('redirect_status')
-        if (!paymentIntentId || redirectStatus !== 'succeeded') {
-            return
-        }
-
-        let cancelled = false
-        const finalizeRedirect = async () => {
-            try {
-                await apiConfirmPayment(paymentIntentId)
-                if (!cancelled) {
-                    await loadUserSubscription()
-                }
-            } finally {
-                if (!cancelled) {
-                    const cleanUrl = window.location.pathname
-                    window.history.replaceState({}, '', cleanUrl)
-                }
-            }
-        }
-
-        void finalizeRedirect()
-        return () => {
-            cancelled = true
-        }
-    }, [loadUserSubscription])
-
-    useEffect(() => {
         dispatch(fetchSubscriptionPlans(billingCycleFromPaymentCycle(paymentCycle)))
     }, [dispatch, paymentCycle])
 
@@ -105,21 +88,28 @@ const Subscription = () => {
             <Card className="mb-4 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-8">
                     <h3>Subscription Plans</h3>
-                    <PaymentCycleToggle />
+                    {canPurchase && <PaymentCycleToggle />}
                 </div>
+                {!canPurchase && isCompanyPool && (
+                    <Alert showIcon className="mb-6" type="info">
+                        Shared company credits. Ask your company owner to upgrade the
+                        plan for everyone.
+                    </Alert>
+                )}
                 {plansError && (
                     <Alert showIcon className="mb-6" type="danger">
                         {plansError}
                     </Alert>
                 )}
                 <Plans
+                    canPurchase={canPurchase}
                     currentUserSubscription={activeUserSubscription}
                     loading={plansLoading}
                     subscriptions={subscriptionPlans}
                 />
             </Card>
             <Faq />
-            <PaymentDialog onPaymentSuccess={loadUserSubscription} />
+            {canPurchase && <PaymentDialog onPaymentSuccess={loadUserSubscription} />}
         </>
     )
 }

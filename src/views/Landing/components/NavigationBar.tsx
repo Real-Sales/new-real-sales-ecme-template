@@ -55,7 +55,8 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
     const isDark = mode === MODE_DARK
     const navigate = useNavigate()
     const location = useLocation()
-    const isOnLanding = location.pathname === '/landing'
+    const isOnLanding =
+        location.pathname === '/' || location.pathname === '/landing'
     const handleModeChange = () => toggleMode?.()
 
     useEffect(() => {
@@ -119,7 +120,10 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
     const handleNavClick = (href: string) => {
         setMenuOpen(false)
         if (!isOnLanding) {
-            navigate(`/landing${href}`)
+            navigate({
+                pathname: '/',
+                hash: href.replace(/^#/, ''),
+            })
             return
         }
         const el = document.querySelector(href) as HTMLElement | null
@@ -138,7 +142,7 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
             }
             return
         }
-        navigate('/landing')
+        navigate('/')
     }
 
     const navItemHoverHandlers = {
@@ -193,7 +197,7 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
                     }}
                 >
                     <Link
-                        to="/landing"
+                        to="/"
                         className="flex shrink-0 items-center justify-start"
                     >
                         <SalesWanaLogo
@@ -421,7 +425,7 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
                         }}
                     >
                         <div className="flex items-center justify-between px-6 pt-6 pb-4">
-                            <Link to="/landing" onClick={() => setMenuOpen(false)}>
+                            <Link to="/" onClick={() => setMenuOpen(false)}>
                                 <SalesWanaLogo
                                     mode={t.isLight ? 'light' : 'dark'}
                                     type="full"

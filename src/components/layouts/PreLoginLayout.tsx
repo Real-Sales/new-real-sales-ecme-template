@@ -10,6 +10,7 @@ const PreLoginLayout = ({ children }: CommonProps) => {
 
     const isAuthPath = authRoute.some((route) => route.path === pathname)
     const isMarketingPage =
+        pathname === '/' ||
         pathname === '/landing' ||
         pathname === '/about' ||
         pathname === '/faqs' ||

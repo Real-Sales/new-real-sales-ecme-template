@@ -193,6 +193,9 @@ const salesDivisionsSlice = createSlice({
                 if (index > -1) {
                     state.divisionsData[index] = action.payload
                 }
+                // Invalidate cached division info so persona picker / segment
+                // consumers refetch and don't keep a stale customer_segment.
+                delete state.divisionInfo[action.payload.sales_division_id]
                 state.divisionsLoading = false
                 state.notification = { 
                     type: 'success', 
@@ -212,6 +215,7 @@ const salesDivisionsSlice = createSlice({
                 state.divisionsData = state.divisionsData.filter(
                     (d) => d.sales_division_id !== action.payload
                 )
+                delete state.divisionInfo[action.payload]
                 state.divisionsLoading = false
                 state.notification = { 
                     type: 'success', 

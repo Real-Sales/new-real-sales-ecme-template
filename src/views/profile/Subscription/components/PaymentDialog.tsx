@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import Button from '@/components/ui/Button'
 import Dialog from '@/components/ui/Dialog'
 import Alert from '@/components/ui/Alert'
@@ -9,156 +9,51 @@ import { TbCheck } from 'react-icons/tb'
 import { NumericFormat } from 'react-number-format'
 import { useNavigate } from 'react-router-dom'
 import type { PaymentCycle } from '../types'
-import { loadStripeScript } from '@/utils/loadStripeScript'
+import { loadRazorpayScript } from '@/utils/loadRazorpayScript'
 import {
-    apiConfirmPayment,
-    apiCreatePaymentIntent,
+    RAZORPAY_PROVIDER,
+    apiCreatePayment,
+    apiCreateRazorpayOrder,
+    apiVerifyRazorpayPayment,
+    inrPaiseToMajorUnits,
+    toRazorpayAmountPaise,
 } from '@/services/PaymentService'
+import { apiCreateUserSubscription } from '@/services/SubscriptionService'
 import { getApiErrorMessage } from '@/utils/getApiErrorMessage'
 
 type PaymentDialogProps = {
     onPaymentSuccess?: () => void | Promise<void>
 }
 
-function normalizeStripeKey(raw: string) {
-    return raw.trim().replace(/^["']+|["']+$/g, '')
-}
-
 const PaymentDialog = ({ onPaymentSuccess }: PaymentDialogProps) => {
     const [loading, setLoading] = useState(false)
-    const [initializing, setInitializing] = useState(false)
     const [paymentSuccessful, setPaymentSuccessful] = useState(false)
     const [payError, setPayError] = useState<string | null>(null)
-    const [clientSecret, setClientSecret] = useState<string | null>(null)
-    const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null)
-
-    const paymentElementRef = useRef<HTMLDivElement>(null)
-    const stripeElementsRef = useRef<StripeElements | null>(null)
-    const stripeInstanceRef = useRef<StripeInstance | null>(null)
-    const mountedPaymentElementRef = useRef<StripePaymentElement | null>(null)
 
     const navigate = useNavigate()
     const dispatch = useAppDispatch()
 
     const paymentDialog = useAppSelector((state) => state.subscription.paymentDialog)
     const selectedPlan = useAppSelector((state) => state.subscription.selectedPlan)
-
-    const cleanupStripe = useCallback(() => {
-        mountedPaymentElementRef.current?.destroy()
-        mountedPaymentElementRef.current = null
-        stripeElementsRef.current = null
-        stripeInstanceRef.current = null
-        setClientSecret(null)
-        setPaymentIntentId(null)
-    }, [])
+    const userId = useAppSelector((state) => state.auth.user.userId?.trim() ?? '')
+    const userEmail = useAppSelector((state) => state.auth.user.email ?? '')
+    const userName = useAppSelector((state) => {
+        const first = state.auth.user.firstName ?? ''
+        const last = state.auth.user.lastName ?? ''
+        return `${first} ${last}`.trim()
+    })
 
     const handleDialogClose = async () => {
         dispatch(setPaymentDialog(false))
-        cleanupStripe()
         await sleep(200)
         dispatch(setSelectedPlan({}))
         setPaymentSuccessful(false)
         setPayError(null)
         setLoading(false)
-        setInitializing(false)
     }
 
     const selectedAmount =
         selectedPlan.price?.[selectedPlan.paymentCycle as PaymentCycle] ?? 0
-
-    useEffect(() => {
-        if (!paymentDialog || paymentSuccessful) {
-            return
-        }
-
-        const planType = selectedPlan.planType?.trim().toLowerCase()
-        if (!planType) {
-            return
-        }
-
-        const billing_cycle: 'monthly' | 'yearly' =
-            selectedPlan.paymentCycle === 'annually' ? 'yearly' : 'monthly'
-
-        if (selectedAmount <= 0) {
-            return
-        }
-
-        const stripeKey = normalizeStripeKey(
-            String(import.meta.env.STRIPE_PUBLISHABLE_KEY ?? ''),
-        )
-        if (!stripeKey) {
-            setPayError(
-                'Stripe is not configured. Add STRIPE_PUBLISHABLE_KEY to your .env.',
-            )
-            return
-        }
-
-        let cancelled = false
-
-        const initPayment = async () => {
-            setInitializing(true)
-            setPayError(null)
-            cleanupStripe()
-
-            try {
-                const intent = await apiCreatePaymentIntent({
-                    plan_type: planType,
-                    billing_cycle,
-                })
-                if (cancelled) {
-                    return
-                }
-
-                setClientSecret(intent.client_secret)
-                setPaymentIntentId(intent.payment_intent_id)
-
-                await loadStripeScript()
-                if (cancelled || !paymentElementRef.current) {
-                    return
-                }
-
-                const stripeFactory = window.Stripe
-                if (!stripeFactory) {
-                    throw new Error('Stripe.js failed to load')
-                }
-
-                const stripe = stripeFactory(stripeKey)
-                const elements = stripe.elements({
-                    clientSecret: intent.client_secret,
-                })
-                const paymentElement = elements.create('payment')
-                paymentElement.mount(paymentElementRef.current)
-
-                stripeInstanceRef.current = stripe
-                stripeElementsRef.current = elements
-                mountedPaymentElementRef.current = paymentElement
-            } catch (error) {
-                if (!cancelled) {
-                    setPayError(
-                        getApiErrorMessage(error, 'Could not start payment. Please try again.'),
-                    )
-                }
-            } finally {
-                if (!cancelled) {
-                    setInitializing(false)
-                }
-            }
-        }
-
-        void initPayment()
-
-        return () => {
-            cancelled = true
-            cleanupStripe()
-        }
-    }, [
-        cleanupStripe,
-        paymentDialog,
-        paymentSuccessful,
-        selectedAmount,
-        selectedPlan.paymentCycle,
-        selectedPlan.planType,
-    ])
 
     const handlePay = async () => {
         setPayError(null)
@@ -168,36 +63,118 @@ const PaymentDialog = ({ onPaymentSuccess }: PaymentDialogProps) => {
             return
         }
 
-        if (!stripeInstanceRef.current || !stripeElementsRef.current || !paymentIntentId) {
-            setPayError('Payment form is not ready yet. Please wait a moment.')
+        const subscriptionId = selectedPlan.subscriptionId?.trim()
+        if (!subscriptionId) {
+            setPayError('Missing plan id. Please choose a plan again.')
+            return
+        }
+        if (!userId) {
+            setPayError('You must be signed in to complete payment.')
+            return
+        }
+
+        const amountPaise = toRazorpayAmountPaise(selectedAmount)
+        if (amountPaise < 100) {
+            setPayError('Payment amount is too small for Razorpay (minimum ₹1).')
             return
         }
 
         setLoading(true)
         try {
-            const { error } = await stripeInstanceRef.current.confirmPayment({
-                elements: stripeElementsRef.current,
-                confirmParams: {
-                    return_url: window.location.href,
-                },
-                redirect: 'if_required',
+            await loadRazorpayScript()
+            const RazorpayCtor = window.Razorpay
+            if (!RazorpayCtor) {
+                throw new Error('Razorpay checkout failed to load.')
+            }
+
+            const order = await apiCreateRazorpayOrder({
+                amount: amountPaise,
+                currency: 'INR',
+                receipt: `sub_${subscriptionId.slice(0, 8)}_${Date.now()}`.slice(0, 40),
             })
 
-            if (error) {
-                setPayError(error.message ?? 'Payment could not be completed.')
+            const keyId =
+                order.key_id ||
+                order.keyId ||
+                String(import.meta.env.RAZORPAY_KEY_ID ?? '').trim()
+            if (!keyId) {
+                setPayError(
+                    'Razorpay is not configured. Add RAZORPAY_KEY_ID or ensure create-order returns key_id.',
+                )
                 return
             }
 
-            const confirm = await apiConfirmPayment(paymentIntentId)
-            if (confirm.status !== 'success' && confirm.status !== 'duplicate') {
-                setPayError('Payment confirmation failed. Please contact support.')
-                return
-            }
+            await new Promise<void>((resolve, reject) => {
+                const rzp = new RazorpayCtor({
+                    key: keyId,
+                    amount: order.amount,
+                    currency: order.currency || 'INR',
+                    order_id: order.order_id,
+                    name: 'SalesWana',
+                    description: `${selectedPlan.planName ?? 'Subscription'} plan`,
+                    prefill: {
+                        name: userName || undefined,
+                        email: userEmail || undefined,
+                    },
+                    theme: { color: '#16a34a' },
+                    handler: (response) => {
+                        void (async () => {
+                            try {
+                                const verified = await apiVerifyRazorpayPayment({
+                                    razorpay_payment_id: response.razorpay_payment_id,
+                                    razorpay_order_id: response.razorpay_order_id,
+                                    razorpay_signature: response.razorpay_signature,
+                                })
+                                if (!verified?.success) {
+                                    throw new Error('Payment verification failed.')
+                                }
 
-            await onPaymentSuccess?.()
-            setPaymentSuccessful(true)
+                                await apiCreatePayment({
+                                    subscription_id: subscriptionId,
+                                    user_id: userId,
+                                    amount: inrPaiseToMajorUnits(order.amount),
+                                    currency: order.currency || 'INR',
+                                    payment_method: 'razorpay',
+                                    provider: RAZORPAY_PROVIDER,
+                                    payment_status: 'paid',
+                                    external_payment_id: response.razorpay_payment_id,
+                                })
+
+                                await apiCreateUserSubscription({
+                                    user_id: userId,
+                                    subscription_id: subscriptionId,
+                                })
+
+                                await onPaymentSuccess?.()
+                                setPaymentSuccessful(true)
+                                resolve()
+                            } catch (error) {
+                                reject(error)
+                            }
+                        })()
+                    },
+                    modal: {
+                        ondismiss: () => {
+                            reject(new Error('Payment cancelled.'))
+                        },
+                    },
+                })
+
+                rzp.on('payment.failed', (res) => {
+                    reject(
+                        new Error(
+                            res.error?.description || 'Payment failed. Please try again.',
+                        ),
+                    )
+                })
+
+                rzp.open()
+            })
         } catch (error) {
-            setPayError(getApiErrorMessage(error, 'Payment could not be completed.'))
+            const message = getApiErrorMessage(error, 'Payment could not be completed.')
+            if (message !== 'Payment cancelled.') {
+                setPayError(message)
+            }
         } finally {
             setLoading(false)
         }
@@ -249,10 +226,9 @@ const PaymentDialog = ({ onPaymentSuccess }: PaymentDialogProps) => {
                             This plan is free and does not require payment.
                         </Alert>
                     ) : (
-                        <div
-                            ref={paymentElementRef}
-                            className="mt-6 min-h-[120px] rounded-lg border border-gray-200 dark:border-gray-700 p-4"
-                        />
+                        <Alert showIcon className="mt-4" type="info">
+                            You will complete payment securely with Razorpay Checkout.
+                        </Alert>
                     )}
 
                     {payError && (
@@ -268,7 +244,7 @@ const PaymentDialog = ({ onPaymentSuccess }: PaymentDialogProps) => {
                                 <NumericFormat
                                     thousandSeparator
                                     displayType="text"
-                                    prefix="$"
+                                    prefix="₹"
                                     fixedDecimalScale
                                     decimalScale={2}
                                     value={selectedAmount}
@@ -277,7 +253,7 @@ const PaymentDialog = ({ onPaymentSuccess }: PaymentDialogProps) => {
                         </h4>
                         <div className="max-w-[350px] ltr:text-right rtl:text-left leading-none mt-2 opacity-80">
                             <small>
-                                Complete payment securely with Stripe. By paying, you
+                                Complete payment securely with Razorpay. By paying, you
                                 agree to the plan billing terms.
                             </small>
                         </div>
@@ -287,11 +263,11 @@ const PaymentDialog = ({ onPaymentSuccess }: PaymentDialogProps) => {
                         <Button
                             block
                             variant="solid"
-                            loading={loading || initializing}
-                            disabled={selectedAmount <= 0 || initializing || !clientSecret}
-                            onClick={handlePay}
+                            loading={loading}
+                            disabled={selectedAmount <= 0 || !selectedPlan.subscriptionId}
+                            onClick={() => void handlePay()}
                         >
-                            {initializing ? 'Preparing checkout...' : 'Pay with Stripe'}
+                            Pay with Razorpay
                         </Button>
                     </div>
                 </>

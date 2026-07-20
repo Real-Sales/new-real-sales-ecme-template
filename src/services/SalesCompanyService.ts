@@ -143,6 +143,14 @@ export async function apiDeleteSalesDivision(divisionId: string) {
     })
 }
 
+/** One team membership on a company member (multi-team roster). */
+export type CompanyMemberTeam = {
+    team_id: string
+    team_name: string
+    sales_division_id?: string | null
+    sales_division_name?: string | null
+}
+
 export type DivisionUser = {
     user_id: string
     first_name: string
@@ -154,6 +162,8 @@ export type DivisionUser = {
     is_verified: boolean
     team_id: string
     team_name: string
+    /** Present when division info returns multi-team memberships */
+    teams?: CompanyMemberTeam[]
     role: {
         name: string
         role_id: string
@@ -196,10 +206,16 @@ export type CompanyMemberResponse = {
     status_active: boolean
     is_verified?: boolean
     role?: { role_id?: string; name?: string; description?: string; status_active?: boolean }
+    /** First team (compat); prefer `teams` for multi UI */
     team_id?: string | null
     team_name?: string | null
+    /** Primary division used for sessions / product context */
     sales_division_id?: string | null
     sales_division_name?: string | null
+    /** All team memberships */
+    teams?: CompanyMemberTeam[]
+    /** Credits this member consumed from the shared company pot */
+    credits_used?: number
     products?: ProfileProduct[]
     product?: ProfileProduct
 }
@@ -207,6 +223,10 @@ export type CompanyMemberResponse = {
 export type CompanyMembersListResponse = {
     total_members: number
     active_members: number
+    /** Shared company credit pot (root-level) */
+    credits_allocated?: number
+    credits_used?: number
+    credits_remaining?: number
     members: CompanyMemberResponse[]
 }
 
@@ -219,7 +239,11 @@ export async function apiGetCompanyMembers(salesCompanyId: string) {
 
 export type CompanyMemberAssignmentUpdate = {
     role?: 'sales_person' | 'sales_manager'
+    /** Primary division for sessions; does not remove team memberships */
     sales_division_id?: string | null
+    /** Preferred: set exact teams (replace). Empty array clears all. */
+    company_team_ids?: string[]
+    /** Legacy single-team assign (still accepted by API) */
     company_team_id?: string | null
     status_active?: boolean
 }

@@ -145,7 +145,11 @@ const TeamDetail = () => {
     const paginatedMembers = sortedMembers.slice(startIndex, endIndex)
 
     const handleBack = () => {
-        navigate('/teams')
+        navigate(
+            data?.sales_division_id
+                ? `/sales-division/${data.sales_division_id}`
+                : '/sales-division',
+        )
     }
 
     const openDialog = () => {
@@ -204,7 +208,7 @@ const TeamDetail = () => {
                         onClick={handleBack}
                         className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
                     >
-                        Back to Teams
+                        Back to Division
                     </Button>
                 </div>
 

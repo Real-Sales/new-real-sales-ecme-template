@@ -233,6 +233,7 @@ const CompanyList = () => {
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
     const [divisionToDelete, setDivisionToDelete] = useState<SalesDivision | null>(null)
     const [deletingDivisionId, setDeletingDivisionId] = useState<string | null>(null)
+    const [submitting, setSubmitting] = useState(false)
     const formRef = useRef<HTMLFormElement>(null)
 
     useEffect(() => {
@@ -322,6 +323,12 @@ const CompanyList = () => {
     }
 
     const onDrawerClose = () => {
+        if (submitting) return
+        setIsDrawerOpen(false)
+        setSelectedDivision(null)
+    }
+
+    const closeDrawerAfterSubmit = () => {
         setIsDrawerOpen(false)
         setSelectedDivision(null)
     }
@@ -334,14 +341,13 @@ const CompanyList = () => {
     }
 
     const handleSubmitClick = () => {
-        console.log('handleSubmitClick called, formRef.current:', formRef.current)
+        if (submitting) return
         if (formRef.current) {
             formRef.current.requestSubmit()
         }
     }
 
     const onCompanySubmit = async (values: CompanyFormSchema) => {
-        console.log('Company form submitted:', values)
         if (!companyId) {
             toast.push(
                 <Notification title="Error" type="danger">
@@ -351,9 +357,10 @@ const CompanyList = () => {
             return
         }
 
+        setSubmitting(true)
         try {
             if (drawerMode === 'create') {
-                await dispatch(createDivision({
+                const result = await dispatch(createDivision({
                     name: values.companyName,
                     division_category: values.category,
                     sales_company_id: companyId,
@@ -361,8 +368,11 @@ const CompanyList = () => {
                     product_ids: values.productIds,
                     customer_segment_id: values.customerSegmentId,
                 }))
+                if (createDivision.fulfilled.match(result)) {
+                    closeDrawerAfterSubmit()
+                }
             } else if (drawerMode === 'edit' && selectedDivision) {
-                await dispatch(updateDivision({
+                const result = await dispatch(updateDivision({
                     divisionId: selectedDivision.sales_division_id,
                     payload: {
                         name: values.companyName,
@@ -373,10 +383,14 @@ const CompanyList = () => {
                         customer_segment_id: values.customerSegmentId,
                     }
                 }))
+                if (updateDivision.fulfilled.match(result)) {
+                    closeDrawerAfterSubmit()
+                }
             }
-            onDrawerClose()
         } catch (error) {
             console.error('Failed to save division:', error)
+        } finally {
+            setSubmitting(false)
         }
     }
 
@@ -415,6 +429,7 @@ const CompanyList = () => {
                 size="sm"
                 variant="default"
                 className="flex-1 dark:!bg-gray-800 dark:!border-gray-600 dark:!text-gray-200 dark:hover:!bg-gray-700 dark:hover:!border-gray-500"
+                disabled={submitting}
                 onClick={onDrawerClose}
             >
                 Cancel
@@ -423,6 +438,8 @@ const CompanyList = () => {
                 size="sm"
                 variant="solid"
                 className="flex-1 bg-primary hover:bg-primary-deep text-neutral border-none"
+                loading={submitting}
+                disabled={submitting}
                 onClick={handleSubmitClick}
             >
                 {drawerMode === 'create' ? 'Create' : 'Save'}

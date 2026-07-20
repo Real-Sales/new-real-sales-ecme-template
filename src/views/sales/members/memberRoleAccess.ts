@@ -53,3 +53,9 @@ export function formatMemberRoleLabel(role?: string) {
         normalized.replace(/_/g, ' ')
     )
 }
+
+/** Edit member assignments (division, team, role). Sales reps are view-only. */
+export function canManageCompanyMembers(role?: string | null): boolean {
+    const normalized = normalizeRoleName(role)
+    return normalized === 'company_owner' || normalized === 'sales_manager'
+}

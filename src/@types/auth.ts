@@ -27,7 +27,16 @@ export type SignUpResponse = SignInResponse
 export type SignUpResponseNoToken = {
     message: string
     user: { email: string; user_id?: string; first_name?: string; last_name?: string }
-    subscription?: unknown
+    /** Invite signup returns company pool summary (no personal free plan). */
+    subscription?: {
+        pool_type?: 'user' | 'company'
+        company_subscription_id?: string | null
+        credits_allocated?: number
+        credits_used?: number
+        credits_remaining?: number
+        plan_type?: string
+        billing_cycle?: string
+    }
 }
 
 export type VerifyOtpCredential = {

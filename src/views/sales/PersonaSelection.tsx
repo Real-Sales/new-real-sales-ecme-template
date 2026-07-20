@@ -16,14 +16,22 @@ import { fetchIndustries } from '@/store/slices/industriesCatalogSlice'
 import { fetchUserProfile } from '@/views/profile/Settings/store/settingsSlice'
 import type { AIPersona } from '@/components/shared/SessionSetupPanel'
 import { apiCreateSession } from '@/services/SessionService'
+import {
+    apiGetCreditsRemaining,
+    apiGetMySubscription,
+    isCompanyCreditPool,
+} from '@/services/SubscriptionService'
+import { setActiveUserSubscription } from '@/views/profile/Subscription/store/subscriptionSlice'
 import { getApiErrorMessage, isSegmentMismatchError } from '@/utils/getApiErrorMessage'
 import type { AiPersonaListItem, InteractionModeListItem } from '@/views/sales/ScenarioList/types'
 import scenarioLibraryReducer, {
     useAppSelector as useScenarioSelector,
     fetchPersonas,
     fetchModes,
+    type FetchPersonasParams,
 } from '@/views/sales/ScenarioList/store'
 import { useUserDivisionSegment } from '@/utils/hooks/useUserDivisionSegment'
+import { canLoadAllPersonas } from '@/utils/inviteAccess'
 
 injectReducer('scenarioLibrary', scenarioLibraryReducer)
 
@@ -115,13 +123,6 @@ function mapPersona(p: AiPersonaListItem): AIPersona {
     }
 }
 
-const difficultyOptions = [
-    { value: '', label: 'All Levels' },
-    { value: 'Easy', label: 'Easy' },
-    { value: 'Medium', label: 'Medium' },
-    { value: 'Hard', label: 'Hard' },
-]
-
 const PersonaSelection = () => {
     const navigate = useNavigate()
     const location = useLocation()
@@ -144,10 +145,19 @@ const PersonaSelection = () => {
 
     const {
         customerSegmentId,
-        customerSegmentName,
+        customerSegments,
         salesDivisionId,
         loading: divisionSegmentLoading,
     } = useUserDivisionSegment()
+
+    const customerSegmentIds = useMemo(
+        () => customerSegments.map((s) => s.id),
+        [customerSegments],
+    )
+    const customerSegmentNames = useMemo(
+        () => customerSegments.map((s) => s.name),
+        [customerSegments],
+    )
 
     const storePersonas = useScenarioSelector(
         (state) => state.scenarioLibrary?.data?.personasData,
@@ -161,6 +171,13 @@ const PersonaSelection = () => {
     const modesLoading = useScenarioSelector(
         (state) => state.scenarioLibrary?.data?.modesLoading,
     )
+    const companyIndustryId = useAppSelector(
+        (state) =>
+            state.auth.user.industryId || state.settings.profile?.companyIndustryId,
+    )
+    const activeUserSubscription = useAppSelector(
+        (state) => state.subscription.activeUserSubscription,
+    )
 
     const userIndustry =
         settingsProfile?.companyIndustry ||
@@ -168,6 +185,17 @@ const PersonaSelection = () => {
         settingsProfile?.industryLabel ||
         settingsProfile?.industry ||
         ''
+
+    const resolvedIndustryId = useMemo(() => {
+        if (companyIndustryId) return companyIndustryId
+        if (!userIndustry || !industriesCatalog.length) return ''
+        const match = industriesCatalog.find(
+            (item) =>
+                item.name === userIndustry ||
+                normalizeIndustryKey(item.name) === normalizeIndustryKey(userIndustry),
+        )
+        return match?.industry_id ?? ''
+    }, [companyIndustryId, userIndustry, industriesCatalog])
     const sessionData = location.state as {
         mode: string
         scenarios?: string[]
@@ -185,11 +213,8 @@ const PersonaSelection = () => {
     const [searchQuery, setSearchQuery] = useState('')
     const [selectedRole, setSelectedRole] = useState('')
     const [selectedIndustry, setSelectedIndustry] = useState('')
-    const [selectedDifficulty, setSelectedDifficulty] = useState('')
-    const [industryFilterUserOverride, setIndustryFilterUserOverride] = useState(false)
 
-    /** After a failed fetch, loading is false and data stays empty — avoid re-dispatching forever. */
-    const personasFetchDispatchedRef = useRef(false)
+    const lastPersonasFetchKeyRef = useRef<string | null>(null)
     const modesFetchDispatchedRef = useRef(false)
 
     useEffect(() => {
@@ -209,29 +234,45 @@ const PersonaSelection = () => {
     }, [dispatch, userIndustry, industriesInitialized, industriesLoading])
 
     useEffect(() => {
+        if (divisionSegmentLoading || customerSegmentIds.length === 0) return
+
         if (
-            !storePersonas?.length &&
-            !personasLoading &&
-            !personasFetchDispatchedRef.current &&
-            !divisionSegmentLoading &&
-            customerSegmentId
+            !resolvedIndustryId &&
+            !canLoadAllPersonas(authUser.role) &&
+            !profileInitialized
         ) {
-            personasFetchDispatchedRef.current = true
-            dispatch(fetchPersonas({ customerSegmentId }))
+            dispatch(fetchUserProfile())
+            return
         }
+
+        const segmentKey = [...customerSegmentIds].sort().join(',')
+        const fetchKey = `${segmentKey}|${resolvedIndustryId || 'all'}`
+        if (lastPersonasFetchKeyRef.current === fetchKey) return
+
+        const params: FetchPersonasParams = {
+            customerSegmentIds,
+        }
+        if (!canLoadAllPersonas(authUser.role) && resolvedIndustryId) {
+            params.industryId = resolvedIndustryId
+        }
+
+        lastPersonasFetchKeyRef.current = fetchKey
+        dispatch(fetchPersonas(params))
+    }, [
+        dispatch,
+        divisionSegmentLoading,
+        customerSegmentIds,
+        resolvedIndustryId,
+        profileInitialized,
+        authUser.role,
+    ])
+
+    useEffect(() => {
         if (!storeModes?.length && !modesLoading && !modesFetchDispatchedRef.current) {
             modesFetchDispatchedRef.current = true
             dispatch(fetchModes())
         }
-    }, [
-        dispatch,
-        storePersonas?.length,
-        personasLoading,
-        storeModes?.length,
-        modesLoading,
-        divisionSegmentLoading,
-        customerSegmentId,
-    ])
+    }, [dispatch, storeModes?.length, modesLoading])
 
     const aiPersonas = useMemo(() => {
         if (!storePersonas?.length) return []
@@ -246,20 +287,30 @@ const PersonaSelection = () => {
     const isLoading =
         (personasLoading ?? false) || (modesLoading ?? false) || divisionSegmentLoading
     const divisionSetupIncomplete =
-        !divisionSegmentLoading && Boolean(salesDivisionId) && !customerSegmentId
+        !divisionSegmentLoading &&
+        Boolean(salesDivisionId) &&
+        customerSegmentIds.length === 0
     const noDivisionAssigned =
         !divisionSegmentLoading && !salesDivisionId
 
-    const relatedPersonas = useMemo(() => {
-        if (!userIndustry) {
-            return aiPersonas
+    const catalogIndustry = useMemo(() => {
+        if (resolvedIndustryId) {
+            return industriesCatalog.find(
+                (item) => item.industry_id === resolvedIndustryId,
+            )
         }
-
-        const catalogIndustry = industriesCatalog.find(
+        if (!userIndustry) return undefined
+        return industriesCatalog.find(
             (item) =>
                 item.name === userIndustry ||
                 normalizeIndustryKey(item.name) === normalizeIndustryKey(userIndustry),
         )
+    }, [resolvedIndustryId, industriesCatalog, userIndustry])
+
+    const relatedPersonas = useMemo(() => {
+        if (!userIndustry && !resolvedIndustryId) {
+            return aiPersonas
+        }
 
         const industryFiltered = aiPersonas.filter((persona) => {
             const rawPersona = storePersonas?.find((p) => p.persona_id === persona.id)
@@ -270,16 +321,10 @@ const PersonaSelection = () => {
         })
 
         return industryFiltered.length > 0 ? industryFiltered : aiPersonas
-    }, [userIndustry, aiPersonas, storePersonas, industriesCatalog])
+    }, [userIndustry, resolvedIndustryId, aiPersonas, storePersonas, catalogIndustry])
 
     const profilePersonaIndustry = useMemo(() => {
-        if (!userIndustry || !aiPersonas.length) return ''
-
-        const catalogIndustry = industriesCatalog.find(
-            (item) =>
-                item.name === userIndustry ||
-                normalizeIndustryKey(item.name) === normalizeIndustryKey(userIndustry),
-        )
+        if ((!userIndustry && !resolvedIndustryId) || !aiPersonas.length) return ''
 
         if (catalogIndustry) {
             const match = aiPersonas.find((persona) => {
@@ -297,40 +342,24 @@ const PersonaSelection = () => {
         return relatedPersonas[0]?.industry ?? ''
     }, [
         userIndustry,
+        resolvedIndustryId,
         aiPersonas,
         storePersonas,
-        industriesCatalog,
+        catalogIndustry,
         relatedPersonas,
     ])
 
     useEffect(() => {
-        if (
-            !profilePersonaIndustry ||
-            !aiPersonas.length ||
-            industryFilterUserOverride
-        ) {
+        if (!profilePersonaIndustry || !aiPersonas.length) {
             return
         }
         setSelectedIndustry(profilePersonaIndustry)
-    }, [
-        profilePersonaIndustry,
-        aiPersonas.length,
-        industryFilterUserOverride,
-        profileInitialized,
-    ])
+    }, [profilePersonaIndustry, aiPersonas.length, profileInitialized])
 
     const isProfileIndustryFilter =
         Boolean(userIndustry) &&
         Boolean(profilePersonaIndustry) &&
         selectedIndustry === profilePersonaIndustry
-
-    const allIndustryOptions = useMemo(() => {
-        const industries = [...new Set(aiPersonas.map((p) => p.industry))].sort()
-        return [
-            { value: '', label: 'All Industries' },
-            ...industries.map((i) => ({ value: i, label: formatLabel(i) })),
-        ]
-    }, [aiPersonas])
 
     const personaPool = useMemo(() => {
         if (isProfileIndustryFilter) {
@@ -352,7 +381,7 @@ const PersonaSelection = () => {
         return [{ value: '', label: 'All Roles' }, ...roles.map((r) => ({ value: r, label: formatLabel(r) }))]
     }, [personaPool])
 
-    // Filter and search personas (profile industry by default; dropdown can narrow or switch industry)
+    // Filter and search personas (profile industry applied automatically)
     const filteredPersonas = useMemo(() => {
         return personaPool.filter((persona) => {
             const matchesSearch =
@@ -368,13 +397,10 @@ const PersonaSelection = () => {
 
             const matchesRole =
                 selectedRole === '' || persona.role === selectedRole
-            const matchesDifficulty =
-                selectedDifficulty === '' ||
-                persona.difficulty === selectedDifficulty
 
-            return matchesSearch && matchesRole && matchesDifficulty
+            return matchesSearch && matchesRole
         })
-    }, [personaPool, searchQuery, selectedRole, selectedDifficulty])
+    }, [personaPool, searchQuery, selectedRole])
 
     const handleStartSession = async (persona: AIPersona) => {
         if (creatingPersonaId) return
@@ -393,12 +419,44 @@ const PersonaSelection = () => {
 
         setCreatingPersonaId(persona.id)
         try {
+            let remaining =
+                activeUserSubscription?.credits_remaining != null
+                    ? Number(activeUserSubscription.credits_remaining)
+                    : null
+            if (remaining == null) {
+                try {
+                    const credits = await apiGetCreditsRemaining()
+                    remaining = Number(credits.credits_remaining ?? 0)
+                } catch {
+                    remaining = null
+                }
+            }
+            if (remaining != null && remaining <= 0) {
+                const poolHint = isCompanyCreditPool(activeUserSubscription)
+                    ? ' Ask your company owner to upgrade shared credits.'
+                    : ' Upgrade your plan to continue.'
+                toast.push(
+                    <Notification title="No credits remaining" type="warning">
+                        No credits remaining.{poolHint}
+                    </Notification>,
+                )
+                return
+            }
+
             const session = await apiCreateSession({
                 persona_id: persona.id,
                 mode_id: matchedMode.mode_id,
                 scenario_id: sessionData?.scenarios?.[0],
                 continue_from_session_id: sessionData?.continueFromSessionId,
             })
+
+            try {
+                const refreshed = await apiGetMySubscription()
+                dispatch(setActiveUserSubscription(refreshed))
+            } catch {
+                /* badge refresh is best-effort */
+            }
+
             navigate(`/audio-visualizer/${session.session_id}`, {
                 state: {
                     ...sessionData,
@@ -407,9 +465,23 @@ const PersonaSelection = () => {
             })
         } catch (err: unknown) {
             console.error('Failed to create session:', err)
+            const message = getApiErrorMessage(
+                err,
+                'Failed to create session. Please try again.',
+            )
+            const isCreditsError = /credit/i.test(message)
             toast.push(
-                <Notification title="Error" type="danger">
-                    {getApiErrorMessage(err, 'Failed to create session. Please try again.')}
+                <Notification
+                    title={isCreditsError ? 'No credits remaining' : 'Error'}
+                    type={isCreditsError ? 'warning' : 'danger'}
+                >
+                    {isCreditsError
+                        ? `${message}${
+                              isCompanyCreditPool(activeUserSubscription)
+                                  ? ' Ask your company owner to upgrade.'
+                                  : ''
+                          }`
+                        : message}
                 </Notification>,
             )
         } finally {
@@ -445,9 +517,7 @@ const PersonaSelection = () => {
     const handleClearFilters = () => {
         setSearchQuery('')
         setSelectedRole('')
-        setIndustryFilterUserOverride(false)
         setSelectedIndustry(profilePersonaIndustry || '')
-        setSelectedDifficulty('')
     }
 
     const getDifficultyColor = (difficulty: string) => {
@@ -518,32 +588,7 @@ const PersonaSelection = () => {
                                     menuPlacement="auto"
                                     styles={{ menu: (base) => ({ ...base, minWidth: '200px' }), option: (base) => ({ ...base, whiteSpace: 'normal', wordBreak: 'break-word' }) }}
                                 />
-                                <Select
-                                    size="sm"
-                                    placeholder="Industry"
-                                    options={allIndustryOptions}
-                                    value={allIndustryOptions.find(
-                                        (opt) => opt.value === selectedIndustry,
-                                    )}
-                                    onChange={(option) => {
-                                        setIndustryFilterUserOverride(true)
-                                        setSelectedIndustry(
-                                            (option?.value as string) || '',
-                                        )
-                                    }}
-                                    className="w-[calc(50%-0.25rem)] sm:w-40"
-                                    menuPlacement="auto"
-                                    styles={{ menu: (base) => ({ ...base, minWidth: '200px' }), option: (base) => ({ ...base, whiteSpace: 'normal', wordBreak: 'break-word' }) }}
-                                />
-                                <Select
-                                    size="sm"
-                                    placeholder="Difficulty"
-                                    options={difficultyOptions}
-                                    value={difficultyOptions.find((opt) => opt.value === selectedDifficulty)}
-                                    onChange={(option) => setSelectedDifficulty(option?.value as string || '')}
-                                    className="w-[calc(50%-0.25rem)] sm:w-32"
-                                />
-                                {(searchQuery || selectedRole || selectedIndustry || selectedDifficulty) && (
+                                {(searchQuery || selectedRole) && (
                                     <Button
                                         variant="plain"
                                         size="sm"
@@ -565,11 +610,14 @@ const PersonaSelection = () => {
                                     Filtered by profile
                                 </span>
                             )}
-                            {customerSegmentName && (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded border border-indigo-200 dark:border-indigo-800/30 text-[10px] sm:text-xs font-medium bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300">
-                                    {customerSegmentName}
+                            {customerSegmentNames.map((name) => (
+                                <span
+                                    key={name}
+                                    className="inline-flex items-center px-2 py-0.5 rounded border border-indigo-200 dark:border-indigo-800/30 text-[10px] sm:text-xs font-medium bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300"
+                                >
+                                    {name}
                                 </span>
-                            )}
+                            ))}
                         </div>
                     </div>
                 </div>
@@ -580,10 +628,10 @@ const PersonaSelection = () => {
                 {noDivisionAssigned ? (
                     <div className="flex flex-col items-center justify-center py-32 bg-white dark:bg-gray-800 rounded-3xl border border-gray-200 dark:border-gray-700 shadow-sm">
                         <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">
-                            Assign yourself to a sales division
+                            Division assignment required
                         </h3>
                         <p className="text-gray-500 dark:text-gray-400 max-w-md text-center text-lg">
-                            You must be assigned to a sales division before starting a session. Ask your manager to add you to a team.
+                            You need to be assigned to a sales division and team before starting a session. Please contact your manager or company owner.
                         </p>
                     </div>
                 ) : divisionSetupIncomplete ? (
@@ -613,7 +661,7 @@ const PersonaSelection = () => {
                                 ? "No personas match your industry and product category. Try updating your company profile in Settings."
                                 : "We couldn't find any personas matching your current filters. Try adjusting your search."}
                         </p>
-                        {(searchQuery || selectedRole || selectedIndustry || selectedDifficulty) && (
+                        {(searchQuery || selectedRole) && (
                             <Button variant="default" className="mt-8" onClick={handleClearFilters}>
                                 Clear all filters
                             </Button>

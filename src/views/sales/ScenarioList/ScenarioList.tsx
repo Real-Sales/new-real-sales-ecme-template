@@ -12,7 +12,11 @@ import ScenarioListTable from './components/ScenarioListTable'
 import ScenarioListActionTools from './components/ScenarioListActionTools'
 import ScenarioListTableTools from './components/ScenarioListTableTools'
 import ScenarioListSelected from './components/ScenarioListSelected'
-import ScenarioForm, { type ScenarioFormSchema, type ScenarioFormOption } from './components/ScenarioForm'
+import ScenarioForm, {
+    type ScenarioFormSchema,
+    type ScenarioFormOption,
+    type DivisionFormOption,
+} from './components/ScenarioForm'
 import ScenarioDetail from './components/ScenarioDetail'
 import ScenarioAssignedUsers from './components/ScenarioAssignedUsers'
 import ShareScenarioDialog from './components/ShareScenarioDialog'
@@ -45,6 +49,17 @@ type FilterValues = {
     persona: string
 }
 
+const resolveScenarioDivisionId = (
+    scenario: Scenario,
+    assignScenarioById: Record<
+        string,
+        { salesDivisionId?: string | null }
+    >,
+): string =>
+    scenario.sales_division_id ??
+    assignScenarioById[scenario.scenario_id]?.salesDivisionId ??
+    ''
+
 // Inject reducer when component mounts (lazy-loaded)
 injectReducer('scenarioLibrary', scenarioLibraryReducer)
 injectReducer('salesDivisions', salesDivisionsReducer)
@@ -71,6 +86,7 @@ const ScenarioList = () => {
         salesRepTotalPending,
         salesRepLoading,
         salesRepInitialized,
+        assignScenarioById,
         notification,
     } = useAppSelector(
         (state) =>
@@ -116,6 +132,7 @@ const ScenarioList = () => {
     const [selectedScenarios, setSelectedScenarios] = useState<Scenario[]>([])
     const [editingScenario, setEditingScenario] = useState<Scenario | null>(null)
     const [isEditMode, setIsEditMode] = useState(false)
+    const [submitting, setSubmitting] = useState(false)
     const formRef = useRef<HTMLFormElement>(null)
     const [filters, setFilters] = useState<FilterValues>({
         status: 'all',
@@ -133,6 +150,25 @@ const ScenarioList = () => {
     const handleSalesDivisionChange = useCallback((customerSegmentId: string | null) => {
         setFormCustomerSegmentId(customerSegmentId)
     }, [])
+
+    const originalScenarioDivisionId = useMemo(() => {
+        if (!editingScenario) return ''
+        return resolveScenarioDivisionId(editingScenario, assignScenarioById)
+    }, [editingScenario, assignScenarioById])
+
+    const originalScenarioSegmentId = useMemo(() => {
+        if (!originalScenarioDivisionId) return null
+        return (
+            divisionsData.find(
+                (d) => d.sales_division_id === originalScenarioDivisionId,
+            )?.customer_segment_id ?? null
+        )
+    }, [originalScenarioDivisionId, divisionsData])
+
+    const isOnOriginalScenarioSegment =
+        Boolean(formCustomerSegmentId) &&
+        Boolean(originalScenarioSegmentId) &&
+        formCustomerSegmentId === originalScenarioSegmentId
 
     useEffect(() => {
         if (isAssignedView) return
@@ -182,7 +218,12 @@ const ScenarioList = () => {
         const params: FetchPersonasParams = {
             customerSegmentId: formCustomerSegmentId,
         }
-        if (isEditMode && editingScenario?.persona?.persona_id) {
+        // Keep current persona in the list only while still on the original segment.
+        if (
+            isEditMode &&
+            isOnOriginalScenarioSegment &&
+            editingScenario?.persona?.persona_id
+        ) {
             params.includePersonaId = editingScenario.persona.persona_id
         }
         dispatch(fetchPersonas(params))
@@ -193,6 +234,7 @@ const ScenarioList = () => {
         isAssignedView,
         formCustomerSegmentId,
         isEditMode,
+        isOnOriginalScenarioSegment,
         editingScenario?.persona?.persona_id,
     ])
 
@@ -306,6 +348,17 @@ const ScenarioList = () => {
         setIsEditMode(true)
         setEditingScenario(scenario)
         setIsDrawerOpen(true)
+
+        const divisionId = resolveScenarioDivisionId(scenario, assignScenarioById)
+        if (divisionId) {
+            const division = divisionsData.find(
+                (d) => d.sales_division_id === divisionId,
+            )
+            setFormCustomerSegmentId(division?.customer_segment_id ?? null)
+        } else {
+            setFormCustomerSegmentId(null)
+            dispatch(fetchScenarioAssignmentStatus(scenario.scenario_id))
+        }
     }
 
     const handleShare = (scenario: Scenario) => {
@@ -314,6 +367,14 @@ const ScenarioList = () => {
     }
 
     const onDrawerClose = () => {
+        if (submitting) return
+        setIsDrawerOpen(false)
+        setIsEditMode(false)
+        setEditingScenario(null)
+        setFormCustomerSegmentId(null)
+    }
+
+    const closeDrawerAfterSubmit = () => {
         setIsDrawerOpen(false)
         setIsEditMode(false)
         setEditingScenario(null)
@@ -321,6 +382,7 @@ const ScenarioList = () => {
     }
 
     const handleSubmitClick = () => {
+        if (submitting) return
         if (formRef.current) {
             formRef.current.dispatchEvent(
                 new Event('submit', { cancelable: true, bubbles: true })
@@ -340,18 +402,24 @@ const ScenarioList = () => {
             time_limit_days: values.deadline ?? 7,
             message: values.message || null,
         }
-        if (isEditMode && editingScenario) {
-            const result = await dispatch(
-                updateScenario({ scenarioId: editingScenario.scenario_id, payload: basePayload })
-            )
-            if (updateScenario.fulfilled.match(result)) {
-                onDrawerClose()
+
+        setSubmitting(true)
+        try {
+            if (isEditMode && editingScenario) {
+                const result = await dispatch(
+                    updateScenario({ scenarioId: editingScenario.scenario_id, payload: basePayload })
+                )
+                if (updateScenario.fulfilled.match(result)) {
+                    closeDrawerAfterSubmit()
+                }
+            } else {
+                const result = await dispatch(createScenario(basePayload))
+                if (createScenario.fulfilled.match(result)) {
+                    closeDrawerAfterSubmit()
+                }
             }
-        } else {
-            const result = await dispatch(createScenario(basePayload))
-            if (createScenario.fulfilled.match(result)) {
-                onDrawerClose()
-            }
+        } finally {
+            setSubmitting(false)
         }
     }
 
@@ -435,22 +503,110 @@ const ScenarioList = () => {
     }, [modesData])
 
     const personaOptions: (ScenarioFormOption & { role?: string })[] = useMemo(() => {
-        return personasData
+        const options = personasData
             .filter((p) => {
                 if (!p.persona_id || !p.name) return false
                 if (!formCustomerSegmentId) return true
                 return p.customer_segment?.customer_segment_id === formCustomerSegmentId
             })
             .map((p) => ({ label: p.name, value: p.persona_id, role: p.ai_role?.name }))
-            .sort((a, b) => a.label.localeCompare(b.label))
-    }, [personasData, formCustomerSegmentId])
 
-    const divisionOptions: ScenarioFormOption[] = useMemo(() => {
+        // Seed the current edit persona only on the original division/segment.
+        // After a division change the form clears persona; seeding would keep a
+        // stale label while validation says "Persona is required".
+        const editPersona = editingScenario?.persona
+        if (
+            isOnOriginalScenarioSegment &&
+            editPersona?.persona_id &&
+            !options.some((opt) => opt.value === editPersona.persona_id)
+        ) {
+            options.push({
+                label: editPersona.name,
+                value: editPersona.persona_id,
+                role: editPersona.ai_role?.name,
+            })
+        }
+
+        return options.sort((a, b) => a.label.localeCompare(b.label))
+    }, [
+        personasData,
+        formCustomerSegmentId,
+        isOnOriginalScenarioSegment,
+        editingScenario?.persona,
+    ])
+
+    const divisionOptions: DivisionFormOption[] = useMemo(() => {
         return divisionsData
             .filter((d) => d.sales_division_id && d.name)
-            .map((d) => ({ label: d.name, value: d.sales_division_id }))
+            .map((d) => ({
+                label: d.name,
+                value: d.sales_division_id,
+                segmentName: d.customer_segment?.name?.trim() || undefined,
+                productNames: (d.products ?? [])
+                    .map((p) => p.name?.trim())
+                    .filter((name): name is string => Boolean(name)),
+            }))
             .sort((a, b) => a.label.localeCompare(b.label))
     }, [divisionsData])
+
+    const scenarioFormInitialValues = useMemo(() => {
+        if (!editingScenario) return undefined
+
+        const salesDivisionId = resolveScenarioDivisionId(
+            editingScenario,
+            assignScenarioById,
+        )
+
+        return {
+            title: editingScenario.title || '',
+            salesDivisionId,
+            modeIds: editingScenario.modes?.length
+                ? editingScenario.modes.map((m) => m.mode_id)
+                : editingScenario.mode?.mode_id
+                  ? [editingScenario.mode.mode_id]
+                  : [],
+            persona: editingScenario.persona?.persona_id ?? '',
+            deadline: editingScenario.time_limit_days,
+            scenario: editingScenario.scenario_text || '',
+            message: editingScenario.message || '',
+            document_content: editingScenario.document_content || '',
+            document_filename: editingScenario.document_filename || '',
+        }
+    }, [editingScenario, assignScenarioById])
+
+    const scenarioFormResetKey = useMemo(() => {
+        if (!isEditMode || !editingScenario) return 'create'
+        const divisionId = resolveScenarioDivisionId(
+            editingScenario,
+            assignScenarioById,
+        )
+        return `${editingScenario.scenario_id}:${divisionId}`
+    }, [isEditMode, editingScenario, assignScenarioById])
+
+    // Hydrate segment once when edit opens / division id becomes available.
+    // Do not overwrite after the user changes division in the form.
+    useEffect(() => {
+        if (!isDrawerOpen || !isEditMode || !editingScenario) return
+        if (formCustomerSegmentId) return
+
+        const divisionId = resolveScenarioDivisionId(
+            editingScenario,
+            assignScenarioById,
+        )
+        if (!divisionId) return
+
+        const division = divisionsData.find(
+            (d) => d.sales_division_id === divisionId,
+        )
+        setFormCustomerSegmentId(division?.customer_segment_id ?? null)
+    }, [
+        isDrawerOpen,
+        isEditMode,
+        editingScenario,
+        assignScenarioById,
+        divisionsData,
+        formCustomerSegmentId,
+    ])
 
     const DrawerFooter = (
         <div className="flex justify-between items-center w-full gap-3 px-2">
@@ -458,6 +614,7 @@ const ScenarioList = () => {
                 size="sm"
                 variant="default"
                 className="flex-1 dark:!bg-gray-800 dark:!border-gray-600 dark:!text-gray-200 dark:hover:!bg-gray-700 dark:hover:!border-gray-500"
+                disabled={submitting}
                 onClick={onDrawerClose}
             >
                 Cancel
@@ -466,6 +623,8 @@ const ScenarioList = () => {
                 size="sm"
                 variant="solid"
                 className="flex-1 bg-primary hover:bg-primary-deep text-neutral border-none rounded-md"
+                loading={submitting}
+                disabled={submitting}
                 onClick={handleSubmitClick}
             >
                 {isEditMode ? 'Edit' : 'Create'}
@@ -594,22 +753,10 @@ const ScenarioList = () => {
             >
                 <div className="px-2">
                     <ScenarioForm
+                        key={scenarioFormResetKey}
                         formRef={formRef}
-                        initialValues={editingScenario ? {
-                            title: editingScenario.title || '',
-                            salesDivisionId: editingScenario.sales_division_id ?? '',
-                            modeIds: editingScenario.modes?.length
-                                ? editingScenario.modes.map((m) => m.mode_id)
-                                : editingScenario.mode?.mode_id
-                                  ? [editingScenario.mode.mode_id]
-                                  : [],
-                            persona: editingScenario.persona?.persona_id ?? '',
-                            deadline: editingScenario.time_limit_days,
-                            scenario: editingScenario.scenario_text || '',
-                            message: editingScenario.message || '',
-                            document_content: editingScenario.document_content || '',
-                            document_filename: editingScenario.document_filename || '',
-                        } : undefined}
+                        formResetKey={scenarioFormResetKey}
+                        initialValues={scenarioFormInitialValues}
                         isEditMode={isEditMode}
                         modeOptions={modeOptions}
                         personaOptions={personaOptions}

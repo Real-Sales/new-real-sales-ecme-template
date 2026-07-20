@@ -8,7 +8,10 @@ import {
     TbCreditCard,
     TbMessageCircle,
 } from 'react-icons/tb'
-import type { UserSubscriptionRecord } from '@/services/SubscriptionService'
+import {
+    isCompanyCreditPool,
+    type UserSubscriptionRecord,
+} from '@/services/SubscriptionService'
 
 type CurrentPlanUsageProps = {
     activeUserSubscription: UserSubscriptionRecord | null
@@ -95,16 +98,30 @@ const CurrentPlanUsage = ({
     }
 
     const sub = activeUserSubscription.subscription
+    if (!sub) {
+        return (
+            <Card className="mb-6 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Credit pool loaded, but plan details are unavailable.
+                </p>
+            </Card>
+        )
+    }
+
     const billingLabel =
         sub.billing_cycle === 'yearly' ? 'yearly' : 'monthly'
     const periodSuffix = sub.billing_cycle === 'yearly' ? 'yr' : 'mo'
     const amount =
         sub.billing_cycle === 'yearly'
-            ? parseAmount(sub.yearly_price)
+            ? parseAmount(sub.yearly_price ?? '0')
             : parseAmount(sub.monthly_price)
 
     const creditsUsed = Number(activeUserSubscription.credits_used ?? 0)
     const creditsAllocated = Number(activeUserSubscription.credits_allocated ?? 0)
+    const creditsRemaining = Number(
+        activeUserSubscription.credits_remaining ??
+            Math.max(0, creditsAllocated - creditsUsed),
+    )
     const usageNumerator = creditsUsed
     const usageDenominator = creditsAllocated
     const usagePercentRaw =
@@ -113,9 +130,13 @@ const CurrentPlanUsage = ({
             : 0
     const usagePercent = Math.min(100, usagePercentRaw)
 
-    const renewalLabel = formatDateLabel(activeUserSubscription.end_date)
-    const daysRemaining = daysUntil(activeUserSubscription.end_date)
+    const endDate = activeUserSubscription.end_date
+    const renewalLabel = endDate ? formatDateLabel(endDate) : '—'
+    const daysRemaining = endDate ? daysUntil(endDate) : 0
     const statusLabel = activeUserSubscription.status_active ? 'active' : 'inactive'
+    const poolLabel = isCompanyCreditPool(activeUserSubscription)
+        ? 'Company credits'
+        : 'Your credits'
 
     return (
         <Card className="mb-6 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
@@ -125,12 +146,15 @@ const CurrentPlanUsage = ({
                         <TbBolt className="text-2xl text-primary" />
                     </div>
                     <div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                             <h4 className="font-bold">
                                 {formatPlanTitle(sub.plan_type)}
                             </h4>
                             <Tag className="bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-md border-0 font-semibold">
                                 <span className="capitalize">{statusLabel}</span>
+                            </Tag>
+                            <Tag className="bg-primary/10 text-primary rounded-md border-0 font-semibold">
+                                {poolLabel}
                             </Tag>
                         </div>
                         <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
@@ -140,10 +164,12 @@ const CurrentPlanUsage = ({
                                 fixedDecimalScale
                                 decimalScale={2}
                                 displayType="text"
-                                prefix="$"
+                                prefix="₹"
                                 value={amount}
                             />
                             /{periodSuffix}
+                            {' · '}
+                            {creditsRemaining} remaining
                         </p>
                     </div>
                 </div>
@@ -219,7 +245,7 @@ const CurrentPlanUsage = ({
                             fixedDecimalScale
                             decimalScale={2}
                             displayType="text"
-                            prefix="$"
+                            prefix="₹"
                             value={amount}
                         />
                     </div>

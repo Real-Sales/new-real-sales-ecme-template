@@ -195,15 +195,15 @@ const SalesWanaHero = () => {
                 />
             </div>
 
-            {/* Layer: floating particles */}
+            {/* Layer: floating particles (kept sparse for performance & cleaner hero) */}
             <div className="pointer-events-none absolute inset-0 z-[0]">
                 <Particles
                     particleColors={particleColors}
-                    particleCount={shouldReduceMotion ? 320 : t.isLight ? 800 : 1200}
-                    particleSpread={14}
-                    speed={shouldReduceMotion ? 0.06 : 0.24}
-                    particleBaseSize={t.isLight ? 75 : 260}
-                    sizeRandomness={t.isLight ? 0.8 : 1.4}
+                    particleCount={shouldReduceMotion ? 660 : t.isLight ? 740 : 820}
+                    particleSpread={16}
+                    speed={shouldReduceMotion ? 0.05 : 0.18}
+                    particleBaseSize={t.isLight ? 70 : 200}
+                    sizeRandomness={t.isLight ? 0.75 : 1.2}
                     moveParticlesOnHover={false}
                     alphaParticles
                     lightMode={t.isLight}

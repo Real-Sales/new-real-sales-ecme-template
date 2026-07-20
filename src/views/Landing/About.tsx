@@ -6,6 +6,8 @@ import Container from './components/LandingContainer'
 import { Button } from '@/components/ui'
 import SessionSetupPanel from '@/components/shared/SessionSetupPanel'
 import type { ConversationMode, AIPersona } from '@/components/shared/SessionSetupPanel'
+import Seo from '@/components/shared/Seo'
+import { organizationJsonLd, seoPages } from '@/configs/seo.config'
 import { motion } from 'framer-motion'
 import useDarkMode from '@/utils/hooks/useDarkMode'
 import { MODE_DARK, MODE_LIGHT } from '@/constants/theme.constant'
@@ -68,6 +70,7 @@ const About = () => {
 
     return (
         <main className="px-4 lg:px-0 text-base">
+            <Seo {...seoPages.about} jsonLd={organizationJsonLd()} />
             <LandingNavSentinel />
             <NavigationBar toggleMode={toggleMode} mode={mode} />
             

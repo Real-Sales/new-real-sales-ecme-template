@@ -40,7 +40,7 @@ const normalizePhone = (value: string | null | undefined) => {
     return trimmed
 }
 
-const emptyProfile: GetSettingsProfileResponse = {
+export const emptySettingsProfile: GetSettingsProfileResponse = {
     id: '',
     name: '',
     firstName: '',
@@ -73,7 +73,7 @@ export function mapUserProfileToSettings(
     profile: UserProfile | null | undefined,
 ): GetSettingsProfileResponse {
     if (!profile?.user_id) {
-        return emptyProfile
+        return emptySettingsProfile
     }
 
     const company = profile.company
@@ -123,6 +123,7 @@ export function mapUserProfileToAuthUser(
     preserve?: Pick<UserState, 'avatar' | 'authority' | 'isNewUser'>,
 ): UserState {
     const company = profile.company
+    const companyId = profile.company_id ?? company?.sales_company_id ?? ''
 
     return {
         userId: profile.user_id,
@@ -132,7 +133,7 @@ export function mapUserProfileToAuthUser(
         phoneNumber: profile.phone_number ?? '',
         userName: `${profile.first_name} ${profile.last_name}`.trim(),
         role: profile.role?.name ?? '',
-        companyId: profile.company_id ?? company?.sales_company_id ?? '',
+        companyId,
         companyName: company?.name ?? '',
         industry: company?.industry ? normalizeIndustryName(company.industry) : '',
         industryId: company?.industry_id ?? '',
@@ -141,7 +142,8 @@ export function mapUserProfileToAuthUser(
             .filter(Boolean),
         avatar: preserve?.avatar,
         authority: preserve?.authority,
-        isNewUser: preserve?.isNewUser,
+        // Once a company is linked, never treat the session as needing onboarding.
+        isNewUser: companyId ? false : preserve?.isNewUser,
     }
 }
 
@@ -324,7 +326,7 @@ export const fetchUserProfile = createAsyncThunk(
 
 const initialState: SettingsState = {
     currentView: 'profile',
-    profile: emptyProfile,
+    profile: emptySettingsProfile,
     profileLoading: false,
     profileInitialized: false,
     profileError: null,
@@ -355,7 +357,7 @@ const settingsSlice = createSlice({
             state.integration = action.payload
         },
         resetProfileData(state) {
-            state.profile = emptyProfile
+            state.profile = emptySettingsProfile
             state.profileLoading = false
             state.profileInitialized = false
             state.profileError = null

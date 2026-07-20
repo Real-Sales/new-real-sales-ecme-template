@@ -86,10 +86,10 @@ const FinalCTA = () => {
                         <div className="absolute inset-0 pointer-events-none">
                             <Particles
                                 particleColors={particleColors}
-                                particleCount={t.isLight ? 260 : 360}
+                                particleCount={t.isLight ? 80 : 120}
                                 particleSpread={11}
                                 speed={0.3}
-                                particleBaseSize={t.isLight ? 95 : 190}
+                                particleBaseSize={t.isLight ? 90 : 160}
                                 sizeRandomness={t.isLight ? 0.7 : 1.2}
                                 moveParticlesOnHover={false}
                                 alphaParticles

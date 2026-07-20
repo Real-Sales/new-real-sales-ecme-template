@@ -1,3 +1,4 @@
+export { default as Seo } from './Seo'
 export { default as AbbreviateNumber } from './AbbreviateNumber'
 export { default as ActionLink } from './ActionLink'
 export { default as AdaptiveCard } from './AdaptiveCard'

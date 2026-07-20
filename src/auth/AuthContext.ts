@@ -11,6 +11,8 @@ import type {
 
 type Auth = {
     authenticated: boolean
+    /** False while profile/company are restored after reload — avoid onboarding flash. */
+    isSessionReady: boolean
     user: User
     signIn: (values: SignInCredential) => AuthResult
     signUp: (values: SignUpCredential) => AuthResult
@@ -42,6 +44,7 @@ const defaultOAuthSignInPlaceHolder = (
 
 const AuthContext = createContext<Auth>({
     authenticated: false,
+    isSessionReady: true,
     user: {},
     signIn: async () => defaultFunctionPlaceHolder(),
     signUp: async () => defaultFunctionPlaceHolder(),

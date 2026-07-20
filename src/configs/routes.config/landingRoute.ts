@@ -3,6 +3,18 @@ import type { Routes } from '@/@types/routes'
 
 const landingRoute: Routes = [
     {
+        key: 'home',
+        path: `/`,
+        component: lazy(() => import('@/views/Landing')),
+        authority: [],
+        meta: {
+            layout: 'blank',
+            footer: false,
+            pageContainerType: 'gutterless',
+            pageBackgroundType: 'plain',
+        },
+    },
+    {
         key: 'landing',
         path: `/landing`,
         component: lazy(() => import('@/views/Landing')),

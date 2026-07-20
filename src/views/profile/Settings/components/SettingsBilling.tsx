@@ -12,6 +12,10 @@ import { PiLightningFill } from 'react-icons/pi'
 import { NumericFormat } from 'react-number-format'
 import { fetchMySubscription } from '@/views/profile/Subscription/store/subscriptionSlice'
 import { apiGetPaymentsByUser, type PaymentRecord } from '@/services/PaymentService'
+import {
+    canPurchaseSubscription,
+    isCompanyCreditPool,
+} from '@/services/SubscriptionService'
 import { planDisplayTitle } from '@/views/profile/Subscription/planFeatures'
 
 function parseAmount(value: number | string | undefined) {
@@ -39,9 +43,17 @@ const SettingsBilling = () => {
     const navigate = useNavigate()
     const dispatch = useAppDispatch()
     const userId = useAppSelector((state) => state.auth.user.userId?.trim() ?? '')
+    const userRole = useAppSelector((state) => state.auth.user.role)
+    const companyId = useAppSelector((state) => state.auth.user.companyId)
     const activeUserSubscription = useAppSelector(
         (state) => state.subscription.activeUserSubscription,
     )
+    const canPurchase = canPurchaseSubscription({
+        role: userRole,
+        companyId,
+        pool: activeUserSubscription,
+    })
+    const isCompanyPool = isCompanyCreditPool(activeUserSubscription)
     const userSubLoading = useAppSelector(
         (state) => state.subscription.userSubscriptionLoading,
     )
@@ -137,9 +149,15 @@ const SettingsBilling = () => {
                     <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
                         No active subscription is linked to your account.
                     </p>
-                    <Button size="sm" variant="solid" onClick={handleChangePlan}>
-                        Choose a plan
-                    </Button>
+                    {canPurchase ? (
+                        <Button size="sm" variant="solid" onClick={handleChangePlan}>
+                            Choose a plan
+                        </Button>
+                    ) : (
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                            Ask your company owner to set up a subscription.
+                        </p>
+                    )}
                 </div>
             ) : (
                 <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
@@ -173,26 +191,34 @@ const SettingsBilling = () => {
                                             className="font-bold heading-text"
                                             displayType="text"
                                             value={amount.toFixed(2)}
-                                            prefix="$"
+                                            prefix="₹"
                                             thousandSeparator
                                         />
                                     </span>
                                 </div>
                                 <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                                    {isCompanyPool ? 'Company credits' : 'Your credits'}:{' '}
+                                    {activeUserSubscription.credits_remaining} remaining ·{' '}
                                     {activeUserSubscription.credits_used} /{' '}
-                                    {activeUserSubscription.credits_allocated} sessions used
+                                    {activeUserSubscription.credits_allocated} used
                                 </p>
                             </div>
                         </div>
                         <div className="flex">
-                            <Button
-                                size="sm"
-                                variant="solid"
-                                className="rounded-md"
-                                onClick={handleChangePlan}
-                            >
-                                Change plan
-                            </Button>
+                            {canPurchase ? (
+                                <Button
+                                    size="sm"
+                                    variant="solid"
+                                    className="rounded-md"
+                                    onClick={handleChangePlan}
+                                >
+                                    Change plan
+                                </Button>
+                            ) : (
+                                <p className="text-sm text-gray-500 dark:text-gray-400 max-w-[220px] text-right">
+                                    Ask your company owner to upgrade
+                                </p>
+                            )}
                         </div>
                     </div>
                 </div>

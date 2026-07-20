@@ -4,7 +4,7 @@ import { TbPlus, TbMinus } from 'react-icons/tb'
 import { useLandingTheme } from '../LandingThemeProvider'
 import { SectionBadge, SectionHeading, SectionDesc } from './landingUi'
 
-const faqs = [
+export const landingFaqs = [
     {
         question: 'How is SalesWana different from role-playing with a colleague?',
         answer:
@@ -54,7 +54,7 @@ const FAQItem = ({
     onToggle,
     shouldReduceMotion,
 }: {
-    faq: (typeof faqs)[0]
+    faq: (typeof landingFaqs)[0]
     index: number
     open: boolean
     onToggle: () => void
@@ -154,7 +154,7 @@ const FAQSection = () => {
 
                     <div>
                         <div className="h-px mb-0" style={{ backgroundColor: t.border }} />
-                        {faqs.map((faq, i) => (
+                        {landingFaqs.map((faq, i) => (
                             <FAQItem
                                 key={i}
                                 faq={faq}

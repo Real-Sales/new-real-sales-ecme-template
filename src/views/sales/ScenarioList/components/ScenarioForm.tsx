@@ -1,6 +1,13 @@
-import { useState, useRef, useEffect, type RefObject } from 'react'
+import {
+    useState,
+    useRef,
+    useEffect,
+    type ComponentProps,
+    type RefObject,
+} from 'react'
 import Input from '@/components/ui/Input'
 import Select, { Option as SelectOption } from '@/components/ui/Select'
+import Tag from '@/components/ui/Tag'
 import Upload from '@/components/ui/Upload'
 import Dialog from '@/components/ui/Dialog'
 import { FormItem, Form } from '@/components/ui/Form'
@@ -17,8 +24,12 @@ import { MODE_PIPELINE_ORDER } from '@/utils/modePipeline'
 
 export type ScenarioFormOption = { label: string; value: string }
 export type PersonaFormOption = ScenarioFormOption & { role?: string }
+export type DivisionFormOption = ScenarioFormOption & {
+    segmentName?: string
+    productNames?: string[]
+}
 
-type ScenarioFormSchema = {
+export type ScenarioFormSchema = {
     title: string
     salesDivisionId: string
     modeIds: string[]
@@ -28,6 +39,18 @@ type ScenarioFormSchema = {
     message?: string
     document_content?: string
     document_filename?: string
+}
+
+const emptyScenarioFormValues: ScenarioFormSchema = {
+    title: '',
+    salesDivisionId: '',
+    modeIds: [],
+    persona: '',
+    deadline: 0,
+    scenario: '',
+    message: '',
+    document_content: '',
+    document_filename: '',
 }
 
 const validationSchema = z.object({
@@ -65,10 +88,12 @@ const defaultPersonaOptions: ScenarioFormOption[] = [
 
 type ScenarioFormProps = {
     initialValues?: ScenarioFormSchema
+    /** Changes when switching create/edit or when edit payload is hydrated. */
+    formResetKey?: string
     isEditMode?: boolean
     modeOptions?: ScenarioFormOption[]
     personaOptions?: PersonaFormOption[]
-    divisionOptions?: ScenarioFormOption[]
+    divisionOptions?: DivisionFormOption[]
     divisionsData?: SalesDivision[]
     divisionsLoading?: boolean
     personasLoading?: boolean
@@ -81,6 +106,7 @@ type ScenarioFormProps = {
 
 const ScenarioForm = ({
     initialValues,
+    formResetKey = 'create',
     isEditMode,
     modeOptions: modeOptionsProp,
     personaOptions: personaOptionsProp,
@@ -113,18 +139,9 @@ const ScenarioForm = ({
         control,
         watch,
         setValue,
+        reset,
     } = useForm<ScenarioFormSchema>({
-        defaultValues: initialValues || {
-            title: '',
-            salesDivisionId: '',
-            modeIds: [],
-            persona: '',
-            deadline: 0,
-            scenario: '',
-            message: '',
-            document_content: '',
-            document_filename: '',
-        },
+        defaultValues: initialValues || emptyScenarioFormValues,
         resolver: zodResolver(validationSchema),
     })
 
@@ -133,7 +150,20 @@ const ScenarioForm = ({
     const selectedPersonaId = watch('persona')
     const salesDivisionId = watch('salesDivisionId')
     const selectedPersona = personasData?.find((p) => p.persona_id === selectedPersonaId)
-    const prevSalesDivisionIdRef = useRef(salesDivisionId)
+    const selectedDivision = divisionsData.find(
+        (d) => d.sales_division_id === salesDivisionId,
+    )
+    const selectedDivisionSegmentName =
+        selectedDivision?.customer_segment?.name?.trim() || null
+    const selectedDivisionProducts = selectedDivision?.products ?? []
+    const prevSalesDivisionIdRef = useRef('')
+
+    useEffect(() => {
+        const nextValues = initialValues || emptyScenarioFormValues
+        reset(nextValues)
+        setCharacterCount(nextValues.scenario?.length || 0)
+        prevSalesDivisionIdRef.current = nextValues.salesDivisionId
+    }, [formResetKey, initialValues, reset])
 
     useEffect(() => {
         const division = divisionsData.find(
@@ -141,10 +171,19 @@ const ScenarioForm = ({
         )
         onSalesDivisionChange?.(division?.customer_segment_id ?? null)
 
-        if (prevSalesDivisionIdRef.current !== salesDivisionId) {
-            setValue('persona', '')
-            prevSalesDivisionIdRef.current = salesDivisionId
+        // Only clear persona when the user switches division — not on initial edit load.
+        if (
+            prevSalesDivisionIdRef.current &&
+            salesDivisionId &&
+            prevSalesDivisionIdRef.current !== salesDivisionId
+        ) {
+            setValue('persona', '', {
+                shouldDirty: true,
+                shouldTouch: true,
+                shouldValidate: true,
+            })
         }
+        prevSalesDivisionIdRef.current = salesDivisionId
     }, [salesDivisionId, divisionsData, onSalesDivisionChange, setValue])
 
     const handleCharacterCount = (value: string) => {
@@ -219,16 +258,118 @@ const ScenarioForm = ({
                         name="salesDivisionId"
                         control={control}
                         render={({ field }) => (
-                            <Select
+                            <Select<DivisionFormOption>
                                 loading={divisionsLoading}
                                 className="[&>div]:!bg-gray-50 [&>div]:dark:!bg-gray-800/50 [&>div]:border [&>div]:border-gray-200 [&>div]:dark:border-gray-700 [&>div]:shadow-md"
                                 placeholder="Select division"
                                 options={divisionOptions}
-                                value={divisionOptions.find((opt) => opt.value === field.value)}
-                                onChange={(option) => field.onChange(option?.value ?? '')}
+                                value={
+                                    divisionOptions.find(
+                                        (opt) => opt.value === field.value,
+                                    ) ?? null
+                                }
+                                onChange={(option) =>
+                                    field.onChange(option?.value ?? '')
+                                }
+                                components={{
+                                    Option: (props) => (
+                                        <SelectOption<DivisionFormOption>
+                                            {...(props as ComponentProps<
+                                                typeof SelectOption<DivisionFormOption>
+                                            >)}
+                                            customLabel={(data, label) => (
+                                                <div className="flex flex-col gap-1.5 py-1 min-w-0">
+                                                    <span className="font-medium leading-tight">
+                                                        {label}
+                                                    </span>
+                                                    <div className="flex flex-col gap-0.5">
+                                                        <span className="text-[10px] text-gray-500 dark:text-gray-400">
+                                                            Customer segment
+                                                        </span>
+                                                        <div className="flex flex-wrap gap-1">
+                                                            {data.segmentName ? (
+                                                                <span className="inline-flex items-center rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-medium text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300">
+                                                                    {data.segmentName}
+                                                                </span>
+                                                            ) : (
+                                                                <span className="text-[10px] text-gray-400 dark:text-gray-500">
+                                                                    Not set
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex flex-col gap-0.5">
+                                                        <span className="text-[10px] text-gray-500 dark:text-gray-400">
+                                                            Products
+                                                        </span>
+                                                        <div className="flex flex-wrap gap-1">
+                                                            {(data.productNames?.length
+                                                                ? data.productNames
+                                                                : []
+                                                            ).map((name) => (
+                                                                <span
+                                                                    key={name}
+                                                                    className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary dark:bg-primary/20 dark:text-primary-mild"
+                                                                >
+                                                                    {name}
+                                                                </span>
+                                                            ))}
+                                                            {!data.productNames?.length ? (
+                                                                <span className="text-[10px] text-gray-400 dark:text-gray-500">
+                                                                    None assigned
+                                                                </span>
+                                                            ) : null}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        />
+                                    ),
+                                }}
                             />
                         )}
                     />
+                    {salesDivisionId && selectedDivision ? (
+                        <div className="mt-2.5 space-y-2">
+                            <div className="flex flex-col gap-1">
+                                <span className="text-xs text-gray-500 dark:text-gray-400">
+                                    Customer segment
+                                </span>
+                                <div className="flex flex-wrap gap-1.5">
+                                    {selectedDivisionSegmentName ? (
+                                        <Tag className="rounded-full border-0 bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300">
+                                            {selectedDivisionSegmentName}
+                                        </Tag>
+                                    ) : (
+                                        <span className="text-xs text-gray-400 dark:text-gray-500">
+                                            Not set
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <span className="text-xs text-gray-500 dark:text-gray-400">
+                                    Products
+                                </span>
+                                <div className="flex flex-wrap gap-1.5">
+                                    {selectedDivisionProducts.length > 0 ? (
+                                        selectedDivisionProducts.map((product) => (
+                                            <Tag
+                                                key={product.product_id || product.name}
+                                                className="rounded-full border-0 bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary dark:bg-primary/20 dark:text-primary-mild"
+                                            >
+                                                {product.name}
+                                            </Tag>
+                                        ))
+                                    ) : (
+                                        <span className="text-xs text-gray-400 dark:text-gray-500">
+                                            No products assigned
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    ) : null}
                 </FormItem>
 
                 <FormItem
@@ -337,15 +478,30 @@ const ScenarioForm = ({
                                     className="[&>div]:!bg-gray-50 [&>div]:dark:!bg-gray-800/50 [&>div]:border [&>div]:border-gray-200 [&>div]:dark:border-gray-700 [&>div]:shadow-md"
                                     placeholder={
                                         salesDivisionId
-                                            ? personasLoading
+                                            ? personasLoading &&
+                                              !personaOptionsList.some(
+                                                  (opt) => opt.value === field.value,
+                                              )
                                                 ? 'Loading personas...'
                                                 : 'Select a persona'
                                             : 'Select a division first'
                                     }
-                                    isDisabled={!salesDivisionId || personasLoading}
+                                    isDisabled={
+                                        !salesDivisionId ||
+                                        (personasLoading &&
+                                            !personaOptionsList.some(
+                                                (opt) => opt.value === field.value,
+                                            ))
+                                    }
                                     options={personaOptionsList}
-                                    value={personaOptionsList.find((opt) => opt.value === field.value)}
-                                    onChange={(option) => field.onChange(option?.value)}
+                                    value={
+                                        personaOptionsList.find(
+                                            (opt) => opt.value === field.value,
+                                        ) ?? null
+                                    }
+                                    onChange={(option) =>
+                                        field.onChange(option?.value ?? '')
+                                    }
                                     menuIsOpen={personaMenuOpenByUser || personaPopupOpen}
                                     onMenuOpen={() => setPersonaMenuOpenByUser(true)}
                                     onMenuClose={() => {

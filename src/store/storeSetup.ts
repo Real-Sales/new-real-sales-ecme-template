@@ -18,15 +18,21 @@ import {
 import storage from 'redux-persist/lib/storage'
 import { createTransform } from 'redux-persist'
 import type { SettingsState } from '@/views/profile/Settings/store/settingsSlice'
+import { emptySettingsProfile } from '@/views/profile/Settings/store/settingsSlice'
+
+const clearPersistedProfile = (state: SettingsState): SettingsState => ({
+    ...state,
+    profile: emptySettingsProfile,
+    profileInitialized: false,
+    profileLoading: false,
+    profileSaving: false,
+    profileSaveError: null,
+    profileError: null,
+})
 
 const settingsTransform = createTransform(
-    (inboundState: SettingsState) => ({
-        ...inboundState,
-        profileSaving: false,
-        profileLoading: false,
-        profileSaveError: null,
-    }),
-    (outboundState) => outboundState,
+    (inboundState: SettingsState) => clearPersistedProfile(inboundState),
+    (outboundState: SettingsState) => clearPersistedProfile(outboundState),
     { whitelist: ['settings'] },
 )
 

@@ -15,6 +15,8 @@ import useDarkMode from '@/utils/hooks/useDarkMode'
 import { MODE_DARK, MODE_LIGHT } from '@/constants/theme.constant'
 import { LandingThemeProvider } from '../../LandingThemeProvider'
 import NavigationBar from '../NavigationBar'
+import Seo from '@/components/shared/Seo'
+import { seoPages } from '@/configs/seo.config'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -740,6 +742,7 @@ function FoodAndBeverages<T extends Meta>(_props: T): JSX.Element {
 
     return (
       <LandingThemeProvider mode={mode}>
+        <Seo {...seoPages.foodAndBeverages} />
         <div
             className={`relative z-0 flex-1 w-full min-w-full min-h-screen min-h-[100dvh] overflow-x-clip ${isLight ? 'bg-white' : 'bg-[#050505]'}`}
             style={{

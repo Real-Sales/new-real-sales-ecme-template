@@ -4,6 +4,8 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { TbCheck, TbCalendar, TbClock, TbArrowRight, TbUsers, TbMail, TbBuilding } from 'react-icons/tb'
 import { LandingThemeProvider, useLandingTheme } from './LandingThemeProvider'
 import NavigationBar from './components/NavigationBar'
+import Seo from '@/components/shared/Seo'
+import { seoPages } from '@/configs/seo.config'
 import useDarkMode from '@/utils/hooks/useDarkMode'
 import { MODE_DARK, MODE_LIGHT } from '@/constants/theme.constant'
 import type { Mode } from '@/@types/theme'
@@ -90,6 +92,7 @@ function BookDemoContent({ mode, toggleMode }: { mode: Mode; toggleMode: () => v
             className="min-h-screen w-full relative overflow-x-clip flex flex-col transition-colors duration-300"
             style={{ backgroundColor: t.bg, color: t.text, fontFamily: "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}
         >
+            <Seo {...seoPages.bookDemo} />
             {/* Subtle background glow */}
             <div className="absolute inset-0 pointer-events-none overflow-hidden">
                 <div
@@ -486,7 +489,7 @@ function BookDemoContent({ mode, toggleMode }: { mode: Mode; toggleMode: () => v
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
                                 transition={{ delay: 0.6 }}
-                                onClick={() => navigate('/landing')}
+                                onClick={() => navigate('/')}
                                 whileHover={{ scale: 1.03 }}
                                 whileTap={{ scale: 0.97 }}
                                 className="inline-flex items-center gap-2 px-6 py-3 rounded-full text-sm font-semibold"

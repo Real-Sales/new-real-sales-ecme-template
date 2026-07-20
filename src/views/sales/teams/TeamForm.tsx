@@ -30,6 +30,9 @@ type DivisionOption = {
 
 type TeamFormProps = {
     companyId: string
+    /** When set, the division select is locked to this division (e.g. creating a team from within a division's detail page). */
+    lockedDivisionId?: string
+    lockedDivisionName?: string
     formRef?: React.RefObject<HTMLFormElement | null>
     onSubmit: (values: TeamFormSchema) => void
     onCancel: () => void
@@ -38,7 +41,14 @@ type TeamFormProps = {
 const fieldControlClass =
     '!bg-gray-50 dark:!bg-gray-800/50 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-200 shadow-md'
 
-const TeamForm = ({ companyId, formRef, onSubmit, onCancel }: TeamFormProps) => {
+const TeamForm = ({
+    companyId,
+    lockedDivisionId,
+    lockedDivisionName,
+    formRef,
+    onSubmit,
+    onCancel,
+}: TeamFormProps) => {
     const dispatch = useAppDispatch()
 
     const {
@@ -59,19 +69,23 @@ const TeamForm = ({ companyId, formRef, onSubmit, onCancel }: TeamFormProps) => 
     )
 
     useEffect(() => {
+        if (lockedDivisionId) return
         if (companyId && !initialized && !divisionsLoading) {
             dispatch(fetchSalesDivisions(companyId))
         }
-    }, [dispatch, companyId, initialized, divisionsLoading])
+    }, [dispatch, companyId, initialized, divisionsLoading, lockedDivisionId])
 
     const divisions = useMemo(() => {
+        if (lockedDivisionId) {
+            return [{ label: lockedDivisionName || 'Current division', value: lockedDivisionId }]
+        }
         return divisionsData.map((div) => ({
             label: div.name,
             value: div.sales_division_id,
         }))
-    }, [divisionsData])
+    }, [divisionsData, lockedDivisionId, lockedDivisionName])
 
-    const isLoading = divisionsLoading
+    const isLoading = !lockedDivisionId && divisionsLoading
 
     const {
         handleSubmit,
@@ -80,7 +94,7 @@ const TeamForm = ({ companyId, formRef, onSubmit, onCancel }: TeamFormProps) => 
     } = useForm<TeamFormSchema>({
         defaultValues: {
             teamName: '',
-            sales_division_id: '',
+            sales_division_id: lockedDivisionId || '',
             description: '',
         },
         resolver: zodResolver(validationSchema),
@@ -109,30 +123,33 @@ const TeamForm = ({ companyId, formRef, onSubmit, onCancel }: TeamFormProps) => 
                         )}
                     />
                 </FormItem>
-                <FormItem
-                    label="Division"
-                    asterisk
-                    invalid={Boolean(errors.sales_division_id)}
-                    errorMessage={errors.sales_division_id?.message}
-                >
-                    <Controller
-                        name="sales_division_id"
-                        control={control}
-                        render={({ field }) => (
-                            <Select
-                                loading={isLoading}
-                                placeholder="Select division"
-                                options={divisions}
-                                value={divisions.find(
-                                    (opt) => opt.value === field.value
-                                )}
-                                onChange={(option) =>
-                                    field.onChange(option?.value)
-                                }
-                            />
-                        )}
-                    />
-                </FormItem>
+                {/* Hidden when creating inside a division — value comes from lockedDivisionId default. */}
+                {!lockedDivisionId && (
+                    <FormItem
+                        label="Division"
+                        asterisk
+                        invalid={Boolean(errors.sales_division_id)}
+                        errorMessage={errors.sales_division_id?.message}
+                    >
+                        <Controller
+                            name="sales_division_id"
+                            control={control}
+                            render={({ field }) => (
+                                <Select
+                                    loading={isLoading}
+                                    placeholder="Select division"
+                                    options={divisions}
+                                    value={divisions.find(
+                                        (opt) => opt.value === field.value
+                                    )}
+                                    onChange={(option) =>
+                                        field.onChange(option?.value)
+                                    }
+                                />
+                            )}
+                        />
+                    </FormItem>
+                )}
                 <FormItem
                     label="Description"
                     invalid={Boolean(errors.description)}

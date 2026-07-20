@@ -9,7 +9,7 @@ import VideoSection from './components/VideoSection'
 import DashboardSection from './components/DashboardSection'
 import SocialProof from './components/SocialProof'
 import PricingSection from './components/PricingSection'
-import FAQSection from './components/FAQSection'
+import FAQSection, { landingFaqs } from './components/FAQSection'
 import FinalCTA from './components/FinalCTA'
 import LandingFooter from './components/LandingFooter'
 import IndustriesTeaser from './components/IndustriesTeaser'
@@ -20,6 +20,14 @@ import { useLandingTheme } from './LandingThemeProvider'
 import { useAppDispatch } from '@/store'
 import { setSchema } from '@/store/slices/theme/themeSlice'
 import { getLandingNavScrollOffset, scrollToLandingSection, setLenis } from './smoothScroll'
+import Seo from '@/components/shared/Seo'
+import {
+    faqPageJsonLd,
+    organizationJsonLd,
+    seoPages,
+    softwareApplicationJsonLd,
+    websiteJsonLd,
+} from '@/configs/seo.config'
 import type { Mode } from '@/@types/theme'
 
 type LandingContentProps = {
@@ -121,8 +129,20 @@ const Landing = () => {
         }
     }, [])
 
+    const pageSeo =
+        location.pathname === '/' ? seoPages.home : seoPages.landing
+
     return (
         <LandingThemeProvider mode={mode}>
+            <Seo
+                {...pageSeo}
+                jsonLd={[
+                    organizationJsonLd(),
+                    websiteJsonLd(),
+                    softwareApplicationJsonLd(),
+                    faqPageJsonLd(landingFaqs),
+                ]}
+            />
             <LandingContent mode={mode} toggleMode={toggleMode} />
         </LandingThemeProvider>
     )
