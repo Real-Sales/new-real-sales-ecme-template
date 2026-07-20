@@ -15,6 +15,7 @@ type DivisionTeamsPanelProps = {
     | 'teamsLoading'
     | 'initialized'
     | 'isDrawerOpen'
+    | 'editingTeam'
     | 'onDrawerClose'
     | 'handleSubmitClick'
     | 'onTeamSubmit'
@@ -22,6 +23,7 @@ type DivisionTeamsPanelProps = {
     | 'deleteDialogOpen'
     | 'teamToDelete'
     | 'deletingTeamId'
+    | 'openEditDrawer'
     | 'openDeleteDialog'
     | 'closeDeleteDialog'
     | 'handleDeleteTeam'
@@ -38,6 +40,7 @@ const DivisionTeamsPanel = ({
     teamsLoading,
     initialized,
     isDrawerOpen,
+    editingTeam,
     onDrawerClose,
     formRef,
     handleSubmitClick,
@@ -46,10 +49,13 @@ const DivisionTeamsPanel = ({
     deleteDialogOpen,
     teamToDelete,
     deletingTeamId,
+    openEditDrawer,
     openDeleteDialog,
     closeDeleteDialog,
     handleDeleteTeam,
 }: DivisionTeamsPanelProps) => {
+    const isEditing = Boolean(editingTeam)
+
     const DrawerFooter = (
         <div className="flex justify-between items-center w-full gap-3 px-2">
             <Button
@@ -69,16 +75,20 @@ const DivisionTeamsPanel = ({
                 disabled={submitting}
                 onClick={handleSubmitClick}
             >
-                Create
+                {isEditing ? 'Save' : 'Create'}
             </Button>
         </div>
     )
 
     const DrawerTitle = (
         <div>
-            <h4 className="mb-2 text-lg font-bold">Create New Team</h4>
+            <h4 className="mb-2 text-lg font-bold">
+                {isEditing ? 'Edit Team' : 'Create New Team'}
+            </h4>
             <p className="text-sm text-gray-600 dark:text-gray-400">
-                Fill in the details to create a new team
+                {isEditing
+                    ? 'Update the team details below'
+                    : 'Fill in the details to create a new team'}
             </p>
         </div>
     )
@@ -102,6 +112,14 @@ const DivisionTeamsPanel = ({
                             key={team.id}
                             {...team}
                             deleting={deletingTeamId === team.id}
+                            onEdit={() =>
+                                openEditDrawer({
+                                    id: team.id,
+                                    name: team.name,
+                                    sales_division_id: team.sales_division_id,
+                                    manager_id: team.manager_id,
+                                })
+                            }
                             onDelete={() =>
                                 openDeleteDialog({ id: team.id, name: team.name })
                             }
@@ -122,9 +140,18 @@ const DivisionTeamsPanel = ({
             >
                 <div className="px-2">
                     <TeamForm
+                        key={editingTeam?.id ?? 'create'}
                         companyId={companyId}
                         lockedDivisionId={divisionId}
                         lockedDivisionName={divisionName}
+                        initialValues={
+                            editingTeam
+                                ? {
+                                      teamName: editingTeam.name,
+                                      sales_division_id: editingTeam.sales_division_id,
+                                  }
+                                : undefined
+                        }
                         formRef={formRef}
                         onSubmit={(values: TeamFormSchema) => onTeamSubmit(values)}
                         onCancel={onDrawerClose}

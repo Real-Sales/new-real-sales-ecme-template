@@ -41,6 +41,7 @@ export type TeamCardProps = {
     performance: number
     status?: 'Focus' | 'Stable' | 'New'
     createdAt: string
+    onEdit?: () => void
     onDelete?: () => void
     deleting?: boolean
 }
@@ -54,6 +55,7 @@ export const TeamCard = ({
     sessions,
     status,
     createdAt,
+    onEdit,
     onDelete,
     deleting = false,
 }: TeamCardProps) => {
@@ -177,7 +179,10 @@ export const TeamCard = ({
                             variant="default"
                             icon={<HiPencil />}
                             className="bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 hover:text-primary border border-gray-200 dark:border-gray-600 transition-all"
-                            onClick={(e) => e.stopPropagation()}
+                            onClick={(e) => {
+                                e.stopPropagation()
+                                onEdit?.()
+                            }}
                         />
                         <Button
                             size="sm"

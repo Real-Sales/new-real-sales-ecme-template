@@ -425,6 +425,7 @@ const CompanyDetail = () => {
                                             teamsLoading={divisionTeams.teamsLoading}
                                             initialized={divisionTeams.initialized}
                                             isDrawerOpen={divisionTeams.isDrawerOpen}
+                                            editingTeam={divisionTeams.editingTeam}
                                             onDrawerClose={divisionTeams.onDrawerClose}
                                             formRef={divisionTeams.formRef}
                                             handleSubmitClick={divisionTeams.handleSubmitClick}
@@ -433,6 +434,7 @@ const CompanyDetail = () => {
                                             deleteDialogOpen={divisionTeams.deleteDialogOpen}
                                             teamToDelete={divisionTeams.teamToDelete}
                                             deletingTeamId={divisionTeams.deletingTeamId}
+                                            openEditDrawer={divisionTeams.openEditDrawer}
                                             openDeleteDialog={divisionTeams.openDeleteDialog}
                                             closeDeleteDialog={divisionTeams.closeDeleteDialog}
                                             handleDeleteTeam={divisionTeams.handleDeleteTeam}

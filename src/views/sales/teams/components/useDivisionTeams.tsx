@@ -3,7 +3,11 @@ import { toast, Notification } from '@/components/ui'
 import { HiUserGroup, HiChartBar, HiTrendingUp } from 'react-icons/hi'
 import { injectReducer } from '@/store'
 import type { TeamFormSchema } from '../TeamForm'
-import { apiCreateTeam, apiDeleteTeam } from '@/services/TeamService'
+import {
+    apiCreateTeam,
+    apiDeleteTeam,
+    apiUpdateTeam,
+} from '@/services/TeamService'
 import teamsReducer, {
     useAppSelector,
     useAppDispatch,
@@ -14,6 +18,13 @@ import teamsReducer, {
 // Idempotent — safe even if already injected elsewhere.
 injectReducer('teams', teamsReducer)
 
+export type EditableTeam = {
+    id: string
+    name: string
+    sales_division_id: string
+    manager_id: string
+}
+
 type UseDivisionTeamsParams = {
     companyId?: string | null
     divisionId?: string | null
@@ -22,7 +33,7 @@ type UseDivisionTeamsParams = {
 }
 
 /**
- * Owns all data/state for a division's "Teams" tab (fetch, stats, cards, create/delete),
+ * Owns all data/state for a division's "Teams" tab (fetch, stats, cards, create/edit/delete),
  * so the stat boxes and the "Create Team" action can live in the division page's header —
  * above the Members/Teams tabs — while the card grid stays in its own tab.
  */
@@ -34,6 +45,7 @@ export const useDivisionTeams = ({
 }: UseDivisionTeamsParams) => {
     const dispatch = useAppDispatch()
     const [isDrawerOpen, setIsDrawerOpen] = useState(false)
+    const [editingTeam, setEditingTeam] = useState<EditableTeam | null>(null)
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
     const [teamToDelete, setTeamToDelete] = useState<{ id: string; name: string } | null>(
         null,
@@ -151,18 +163,31 @@ export const useDivisionTeams = ({
                     ? 'Stable'
                     : 'Focus') as 'Stable' | 'Focus' | 'New',
                 createdAt: 'Recently',
+                sales_division_id: team.sales_division_id,
+                manager_id: team.manager_id,
             }
         })
     }, [divisionTeams, divisionName])
 
-    const openDrawer = () => setIsDrawerOpen(true)
+    const openDrawer = () => {
+        setEditingTeam(null)
+        setIsDrawerOpen(true)
+    }
+
+    const openEditDrawer = (team: EditableTeam) => {
+        setEditingTeam(team)
+        setIsDrawerOpen(true)
+    }
+
     const onDrawerClose = () => {
         if (submitting) return
         setIsDrawerOpen(false)
+        setEditingTeam(null)
     }
 
     const closeDrawerAfterSubmit = () => {
         setIsDrawerOpen(false)
+        setEditingTeam(null)
     }
 
     const handleSubmitClick = () => {
@@ -186,27 +211,44 @@ export const useDivisionTeams = ({
 
         try {
             setSubmitting(true)
-            const response = await apiCreateTeam({
-                name: values.teamName,
-                sales_company_id: companyId,
-                sales_division_id: values.sales_division_id,
-                manager_id: userId,
-            })
 
-            if (response) {
+            if (editingTeam) {
+                await apiUpdateTeam(editingTeam.id, {
+                    name: values.teamName,
+                    sales_division_id: values.sales_division_id,
+                    manager_id: editingTeam.manager_id || userId,
+                    sales_company_id: companyId,
+                })
+                toast.push(
+                    <Notification title="Success" type="success">
+                        Team updated successfully!
+                    </Notification>,
+                )
+            } else {
+                await apiCreateTeam({
+                    name: values.teamName,
+                    sales_company_id: companyId,
+                    sales_division_id: values.sales_division_id,
+                    manager_id: userId,
+                })
                 toast.push(
                     <Notification title="Success" type="success">
                         Team created successfully!
                     </Notification>,
                 )
-                closeDrawerAfterSubmit()
-                dispatch(fetchTeams(companyId))
             }
+
+            closeDrawerAfterSubmit()
+            dispatch(fetchTeams(companyId))
         } catch (error: unknown) {
-            const err = error as { response?: { data?: { message?: string } } }
+            const err = error as {
+                response?: { data?: { message?: string; detail?: string } }
+            }
             toast.push(
                 <Notification title="Error" type="danger">
-                    {err.response?.data?.message || 'Failed to create team'}
+                    {err.response?.data?.detail ||
+                        err.response?.data?.message ||
+                        (editingTeam ? 'Failed to update team' : 'Failed to create team')}
                 </Notification>,
             )
         } finally {
@@ -255,7 +297,9 @@ export const useDivisionTeams = ({
         stats,
         teams,
         isDrawerOpen,
+        editingTeam,
         openDrawer,
+        openEditDrawer,
         onDrawerClose,
         formRef,
         handleSubmitClick,

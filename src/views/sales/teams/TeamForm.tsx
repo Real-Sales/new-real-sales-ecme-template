@@ -33,6 +33,8 @@ type TeamFormProps = {
     /** When set, the division select is locked to this division (e.g. creating a team from within a division's detail page). */
     lockedDivisionId?: string
     lockedDivisionName?: string
+    /** Prefill when editing an existing team. Remount with a `key` when switching create/edit. */
+    initialValues?: Partial<TeamFormSchema>
     formRef?: React.RefObject<HTMLFormElement | null>
     onSubmit: (values: TeamFormSchema) => void
     onCancel: () => void
@@ -45,6 +47,7 @@ const TeamForm = ({
     companyId,
     lockedDivisionId,
     lockedDivisionName,
+    initialValues,
     formRef,
     onSubmit,
     onCancel,
@@ -93,9 +96,10 @@ const TeamForm = ({
         control,
     } = useForm<TeamFormSchema>({
         defaultValues: {
-            teamName: '',
-            sales_division_id: lockedDivisionId || '',
-            description: '',
+            teamName: initialValues?.teamName ?? '',
+            sales_division_id:
+                initialValues?.sales_division_id || lockedDivisionId || '',
+            description: initialValues?.description ?? '',
         },
         resolver: zodResolver(validationSchema),
     })

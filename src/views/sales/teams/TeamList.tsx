@@ -5,7 +5,12 @@ import ConfirmDialog from '@/components/shared/ConfirmDialog'
 import { injectReducer } from '@/store'
 import TeamForm, { type TeamFormSchema } from './TeamForm'
 import { TeamCard, TeamStatCard } from './components/TeamCard'
-import { apiCreateTeam, apiDeleteTeam } from '@/services/TeamService'
+import type { EditableTeam } from './components/useDivisionTeams'
+import {
+    apiCreateTeam,
+    apiDeleteTeam,
+    apiUpdateTeam,
+} from '@/services/TeamService'
 import teamsReducer, {
     useAppSelector,
     useAppDispatch,
@@ -20,6 +25,7 @@ injectReducer('teams', teamsReducer)
 const TeamList = () => {
     const dispatch = useAppDispatch()
     const [isDrawerOpen, setIsDrawerOpen] = useState(false)
+    const [editingTeam, setEditingTeam] = useState<EditableTeam | null>(null)
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
     const [teamToDelete, setTeamToDelete] = useState<{ id: string; name: string } | null>(
         null,
@@ -69,16 +75,24 @@ const TeamList = () => {
     const performanceData = teamsData
 
     const openDrawer = () => {
+        setEditingTeam(null)
+        setIsDrawerOpen(true)
+    }
+
+    const openEditDrawer = (team: EditableTeam) => {
+        setEditingTeam(team)
         setIsDrawerOpen(true)
     }
 
     const onDrawerClose = () => {
         if (submitting) return
         setIsDrawerOpen(false)
+        setEditingTeam(null)
     }
 
     const closeDrawerAfterSubmit = () => {
         setIsDrawerOpen(false)
+        setEditingTeam(null)
     }
 
     const handleSubmitClick = () => {
@@ -102,29 +116,45 @@ const TeamList = () => {
 
         try {
             setSubmitting(true)
-            const response = await apiCreateTeam({
-                name: values.teamName,
-                sales_company_id: companyId,
-                sales_division_id: values.sales_division_id,
-                manager_id: userId,
-            })
 
-            if (response) {
+            if (editingTeam) {
+                await apiUpdateTeam(editingTeam.id, {
+                    name: values.teamName,
+                    sales_division_id: values.sales_division_id,
+                    manager_id: editingTeam.manager_id || userId,
+                    sales_company_id: companyId,
+                })
+                toast.push(
+                    <Notification title="Success" type="success">
+                        Team updated successfully!
+                    </Notification>,
+                )
+            } else {
+                await apiCreateTeam({
+                    name: values.teamName,
+                    sales_company_id: companyId,
+                    sales_division_id: values.sales_division_id,
+                    manager_id: userId,
+                })
                 toast.push(
                     <Notification title="Success" type="success">
                         Team created successfully!
-                    </Notification>
+                    </Notification>,
                 )
-                closeDrawerAfterSubmit()
-                if (companyId) {
-                    dispatch(fetchTeams(companyId))
-                }
             }
-        } catch (error: any) {
+
+            closeDrawerAfterSubmit()
+            dispatch(fetchTeams(companyId))
+        } catch (error: unknown) {
+            const err = error as {
+                response?: { data?: { message?: string; detail?: string } }
+            }
             toast.push(
                 <Notification title="Error" type="danger">
-                    {error.response?.data?.message || 'Failed to create team'}
-                </Notification>
+                    {err.response?.data?.detail ||
+                        err.response?.data?.message ||
+                        (editingTeam ? 'Failed to update team' : 'Failed to create team')}
+                </Notification>,
             )
         } finally {
             setSubmitting(false)
@@ -187,16 +217,20 @@ const TeamList = () => {
                 disabled={submitting}
                 onClick={handleSubmitClick}
             >
-                Create
+                {editingTeam ? 'Save' : 'Create'}
             </Button>
         </div>
     )
 
     const DrawerTitle = (
         <div>
-            <h4 className="mb-2 text-lg font-bold">Create New Team</h4>
+            <h4 className="mb-2 text-lg font-bold">
+                {editingTeam ? 'Edit Team' : 'Create New Team'}
+            </h4>
             <p className="text-sm text-gray-600 dark:text-gray-400">
-                Fill in the details to create a new team
+                {editingTeam
+                    ? 'Update the team details below'
+                    : 'Fill in the details to create a new team'}
             </p>
         </div>
     )
@@ -257,7 +291,9 @@ const TeamList = () => {
                 sessions: teamSessions,
                 performance: team.team_average_score || 0,
                 status: (team.team_average_score && team.team_average_score > 80 ? 'Stable' : 'Focus') as 'Stable' | 'Focus' | 'New',
-                createdAt: 'Recently', // Assuming created_at is not in the team top-level response
+                createdAt: 'Recently',
+                sales_division_id: team.sales_division_id,
+                manager_id: team.manager_id,
             }
         })
     }, [performanceData])
@@ -302,6 +338,14 @@ const TeamList = () => {
                                 key={team.id}
                                 {...team}
                                 deleting={deletingTeamId === team.id}
+                                onEdit={() =>
+                                    openEditDrawer({
+                                        id: team.id,
+                                        name: team.name,
+                                        sales_division_id: team.sales_division_id,
+                                        manager_id: team.manager_id,
+                                    })
+                                }
                                 onDelete={() =>
                                     openDeleteDialog({
                                         id: team.id,
@@ -326,7 +370,16 @@ const TeamList = () => {
             >
                 <div className="px-2">
                     <TeamForm
+                        key={editingTeam?.id ?? 'create'}
                         companyId={companyId || ''}
+                        initialValues={
+                            editingTeam
+                                ? {
+                                      teamName: editingTeam.name,
+                                      sales_division_id: editingTeam.sales_division_id,
+                                  }
+                                : undefined
+                        }
                         formRef={formRef}
                         onSubmit={onTeamSubmit}
                         onCancel={onDrawerClose}

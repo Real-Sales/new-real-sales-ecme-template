@@ -62,6 +62,13 @@ export async function apiGetTeamPerformance(teamId: string) {
     })
 }
 
+export type UpdateTeamRequest = {
+    name?: string
+    sales_division_id?: string | null
+    manager_id?: string
+    sales_company_id?: string
+}
+
 export async function apiCreateTeam(data: CreateTeamRequest) {
     return ApiService.fetchDataWithAxios<TeamResponse>({
         url: endpointConfig.companyTeams,
@@ -70,9 +77,17 @@ export async function apiCreateTeam(data: CreateTeamRequest) {
     })
 }
 
+export async function apiUpdateTeam(teamId: string, data: UpdateTeamRequest) {
+    return ApiService.fetchDataWithAxios<TeamResponse>({
+        url: endpointConfig.companyTeamById(teamId),
+        method: 'put',
+        data,
+    })
+}
+
 export async function apiDeleteTeam(teamId: string) {
     return ApiService.fetchDataWithAxios<void>({
-        url: endpointConfig.deleteCompanyTeam(teamId),
+        url: endpointConfig.companyTeamById(teamId),
         method: 'delete',
     })
 }

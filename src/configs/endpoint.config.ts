@@ -50,6 +50,8 @@ const endpointConfig = {
     salesDivisionsDelete: (divisionId: string) => `sales-divisions/${divisionId}`,
     salesDivisionInfo: (divisionId: string) => `sales-divisions/${divisionId}/info`,
     companyTeams: 'company-teams/',
+    companyTeamById: (teamId: string) => `company-teams/${teamId}`,
+    /** @deprecated use companyTeamById */
     deleteCompanyTeam: (teamId: string) => `company-teams/${teamId}`,
     teamPerformance: (companyId: string) => `company-teams/sales-company/${companyId}/performance`,
     companyTeamPerformance: (teamId: string) => `company-teams/${teamId}/performance`,
