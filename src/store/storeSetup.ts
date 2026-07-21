@@ -41,7 +41,7 @@ const persistConfig = {
     keyPrefix: '',
     storage,
     // auth is handled by its own nested persistReducer in rootReducer
-    whitelist: ['locale', 'settings'],
+    whitelist: ['locale', 'settings', 'concierge'],
     transforms: [settingsTransform],
 }
 

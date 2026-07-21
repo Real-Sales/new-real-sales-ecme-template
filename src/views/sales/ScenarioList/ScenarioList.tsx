@@ -651,7 +651,10 @@ const ScenarioList = () => {
             <Container>
                 <AdaptiveCard>
                     <div className="flex flex-col gap-4">
-                        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+                        <div
+                            className="flex flex-col md:flex-row md:items-center md:justify-between gap-2"
+                            data-tour-id={isAssignedView ? 'assigned-scenarios-page' : 'scenario-library-page'}
+                        >
                             <div>
                                 <h3 className="text-2xl font-bold">
                                     {isAssignedView ? 'Assigned scenarios' : 'Scenario Library'}

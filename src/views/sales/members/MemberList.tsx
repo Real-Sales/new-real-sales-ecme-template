@@ -357,7 +357,7 @@ const MemberList = () => {
     return (
         <div className="min-h-full">
             <Container className="pb-6 px-4">
-                <div className="mb-6">
+                <div className="mb-6" data-tour-id="company-members-page">
                     <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
                         Company Members
                     </h1>

@@ -590,7 +590,10 @@ const Leaderboard = () => {
             <div className="flex flex-col gap-5">
 
                 {/* ── Hero header ─────────────────────────────────── */}
-                <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary via-primary to-primary-deep p-6 sm:p-8 shadow-xl">
+                <div
+                    className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary via-primary to-primary-deep p-6 sm:p-8 shadow-xl"
+                    data-tour-id="leaderboard-page"
+                >
                     <div className="absolute -top-12 -right-12 w-52 h-52 rounded-full bg-white/10 blur-3xl pointer-events-none" />
                     <div className="absolute -bottom-16 -left-8 w-60 h-60 rounded-full bg-black/10 blur-3xl pointer-events-none" />
                     <TbTrophy className="absolute right-4 bottom-0 text-white/8 text-[160px] pointer-events-none select-none" />

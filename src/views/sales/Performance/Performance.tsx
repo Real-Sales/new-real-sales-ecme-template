@@ -96,7 +96,7 @@ const Performance = () => {
         <div className="min-h-full">
             <Container className="pb-6">
                 {/* Header */}
-                <div className="mb-6">
+                <div className="mb-6" data-tour-id="performance-page">
                     <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
                         Performance
                     </h1>

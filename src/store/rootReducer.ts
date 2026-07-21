@@ -10,6 +10,7 @@ import subscription, { SubscriptionState } from '@/views/profile/Subscription/st
 import industriesCatalog, {
     IndustriesCatalogState,
 } from './slices/industriesCatalogSlice'
+import concierge, { ConciergeState } from './slices/concierge/conciergeSlice'
 import RtkQueryService from '@/services/RtkQueryService'
 import { persistReducer } from 'redux-persist'
 import storage from 'redux-persist/lib/storage'
@@ -53,6 +54,7 @@ export type RootState = {
     settings: SettingsState
     subscription: SubscriptionState
     industriesCatalog: IndustriesCatalogState
+    concierge: ConciergeState
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     [key: string]: any
 }
@@ -70,6 +72,7 @@ const staticReducers = {
     settings,
     subscription,
     industriesCatalog,
+    concierge,
     [RtkQueryService.reducerPath]: RtkQueryService.reducer,
 }
 

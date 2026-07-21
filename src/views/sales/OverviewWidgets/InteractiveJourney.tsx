@@ -1,0 +1,149 @@
+import { useEffect, useRef, useState } from 'react'
+import { motion, useReducedMotion } from 'framer-motion'
+import gsap from 'gsap'
+import { ScrollTrigger } from 'gsap/ScrollTrigger'
+import {
+    TbAdjustmentsHorizontal,
+    TbUserCircle,
+    TbMicrophone2,
+    TbMessageChatbot,
+    TbChartArrowsVertical,
+} from 'react-icons/tb'
+import { Reveal, SectionHeading, EASE_OUT } from './common'
+
+gsap.registerPlugin(ScrollTrigger)
+
+const steps = [
+    {
+        title: 'Choose mode',
+        description: 'Prospecting, discovery, or closing.',
+        icon: TbAdjustmentsHorizontal,
+    },
+    {
+        title: 'Select persona',
+        description: 'Pick the AI buyer that fits your scenario.',
+        icon: TbUserCircle,
+    },
+    {
+        title: 'Talk naturally',
+        description: 'Speak or type through a live conversation.',
+        icon: TbMicrophone2,
+    },
+    {
+        title: 'Receive AI feedback',
+        description: 'Get a scored breakdown right after the call.',
+        icon: TbMessageChatbot,
+    },
+    {
+        title: 'Improve performance',
+        description: 'Track the gap close session over session.',
+        icon: TbChartArrowsVertical,
+    },
+]
+
+/** Isolated GSAP leaf: fills the connector line as the journey scrolls into view. */
+const JourneyConnector = ({ containerRef }: { containerRef: React.RefObject<HTMLDivElement | null> }) => {
+    const lineRef = useRef<HTMLDivElement>(null)
+    const reduce = useReducedMotion()
+
+    useEffect(() => {
+        if (reduce || !lineRef.current || !containerRef.current) return
+        const ctx = gsap.context(() => {
+            gsap.fromTo(
+                lineRef.current,
+                { scaleX: 0 },
+                {
+                    scaleX: 1,
+                    ease: 'none',
+                    scrollTrigger: {
+                        trigger: containerRef.current,
+                        start: 'top 75%',
+                        end: 'bottom 60%',
+                        scrub: 0.6,
+                    },
+                },
+            )
+        }, containerRef)
+        return () => ctx.revert()
+    }, [reduce, containerRef])
+
+    return (
+        <div className="absolute left-0 right-0 top-9 hidden h-px bg-gray-200 dark:bg-white/10 md:block">
+            <div
+                ref={lineRef}
+                className="h-px w-full origin-left bg-gradient-to-r from-primary via-primary-mild to-primary"
+                style={{ transform: 'scaleX(0)' }}
+            />
+        </div>
+    )
+}
+
+const InteractiveJourney = () => {
+    const containerRef = useRef<HTMLDivElement>(null)
+    const [activeStep, setActiveStep] = useState<number | null>(null)
+
+    return (
+        <section className="px-4 py-16 md:py-20">
+            <div className="max-w-7xl mx-auto">
+                <Reveal className="mb-12">
+                    <SectionHeading
+                        eyebrow="The training loop"
+                        heading="One conversation, five moves"
+                        description="Every session follows the same rhythm, so the feedback you get always maps back to something you can practice again."
+                    />
+                </Reveal>
+
+                <div ref={containerRef} className="relative">
+                    <JourneyConnector containerRef={containerRef} />
+
+                    <div className="grid gap-8 md:grid-cols-5 md:gap-4">
+                        {steps.map((step, i) => {
+                            const Icon = step.icon
+                            const isActive = activeStep === i
+                            return (
+                                <motion.div
+                                    key={step.title}
+                                    initial={{ opacity: 0, y: 24 }}
+                                    whileInView={{ opacity: 1, y: 0 }}
+                                    viewport={{ once: true, amount: 0.4 }}
+                                    transition={{ duration: 0.55, delay: i * 0.09, ease: EASE_OUT }}
+                                    onHoverStart={() => setActiveStep(i)}
+                                    onHoverEnd={() => setActiveStep(null)}
+                                    className="relative flex flex-col items-start"
+                                >
+                                    <motion.div
+                                        animate={{
+                                            scale: isActive ? 1.08 : 1,
+                                            backgroundColor: isActive
+                                                ? 'var(--primary)'
+                                                : 'var(--primary-subtle)',
+                                        }}
+                                        transition={{ duration: 0.25, ease: EASE_OUT }}
+                                        className="relative z-10 flex h-[38px] w-[38px] items-center justify-center rounded-full ring-4 ring-white dark:ring-gray-950"
+                                    >
+                                        <Icon
+                                            className="h-[18px] w-[18px] transition-colors duration-200"
+                                            style={{ color: isActive ? 'white' : 'var(--primary)' }}
+                                        />
+                                    </motion.div>
+
+                                    <span className="mt-1 text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                                        Step {i + 1}
+                                    </span>
+                                    <h3 className="mt-1 text-base font-bold text-gray-900 dark:text-white">
+                                        {step.title}
+                                    </h3>
+                                    <p className="mt-1.5 text-sm leading-relaxed text-gray-500 dark:text-gray-400">
+                                        {step.description}
+                                    </p>
+                                </motion.div>
+                            )
+                        })}
+                    </div>
+                </div>
+            </div>
+        </section>
+    )
+}
+
+export default InteractiveJourney

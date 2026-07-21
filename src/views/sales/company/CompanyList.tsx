@@ -497,7 +497,10 @@ const CompanyList = () => {
         <div className="min-h-full">
             {/* Header Section */}
             <Container className="pb-6 px-4">
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+                <div
+                    className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6"
+                    data-tour-id="sales-division-page"
+                >
                     <div>
                         <h1 className="text-3xl font-bold mb-1 text-gray-900 dark:text-white">
                             Sales Division Management
@@ -512,6 +515,7 @@ const CompanyList = () => {
                         icon={<HiPlus />}
                         className="bg-primary hover:bg-primary-deep text-neutral border-none whitespace-nowrap rounded-md"
                         onClick={() => openDrawer('create')}
+                        data-tour-id="add-division-button"
                     >
                         Create Sales Division
                     </Button>

@@ -6,9 +6,9 @@ import {
 import type { NavigationTree } from '@/@types/navigation'
 
 /** Full scenario + org nav; `sales_person` only sees Assigned scenarios (not Scenario Library). */
-const MANAGER_ROLES = ['sales_manager', 'company_owner', 'manager']
-const ASSIGNED_SCENARIOS_ROLES = ['sales_person', ...MANAGER_ROLES]
-const COMPANY_MEMBERS_ROLES = ['sales_person', ...MANAGER_ROLES]
+export const MANAGER_ROLES = ['sales_manager', 'company_owner', 'manager']
+export const ASSIGNED_SCENARIOS_ROLES = ['sales_person', ...MANAGER_ROLES]
+export const COMPANY_MEMBERS_ROLES = ['sales_person', ...MANAGER_ROLES]
 
 const salesNavigationConfig: NavigationTree[] = [
     {

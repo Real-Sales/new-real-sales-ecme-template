@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Dialog, Button, Upload } from '@/components/ui'
 import {
@@ -38,6 +38,8 @@ interface SessionSetupPanelProps {
     isOpen: boolean
     onClose: () => void
     onNavigateToPersonas: (mode: ConversationMode, scenarios?: string[], files?: File[]) => void
+    /** Pre-select a mode (e.g. clicked directly from a mode-specific entry point). */
+    initialMode?: ConversationMode
 }
 
 const modes: ModeOption[] = [
@@ -68,12 +70,19 @@ const SessionSetupPanel = ({
     isOpen,
     onClose,
     onNavigateToPersonas,
+    initialMode,
 }: SessionSetupPanelProps) => {
     const [step, setStep] = useState<1 | 2>(1)
     const [selectedMode, setSelectedMode] = useState<ConversationMode | null>(
-        null
+        initialMode ?? null
     )
     const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
+
+    useEffect(() => {
+        if (isOpen) {
+            setSelectedMode(initialMode ?? null)
+        }
+    }, [isOpen, initialMode])
 
     const isClosingMode = selectedMode === 'closing'
     const hasSecondStep = isClosingMode
