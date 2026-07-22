@@ -70,6 +70,8 @@ export const TeamCard = ({
             className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 shadow-md hover:shadow-xl transition-all duration-300 cursor-pointer overflow-hidden rounded-2xl relative"
             bodyClass="!p-2"
             onClick={handleCardClick}
+            data-tour-id="team-card"
+            data-team-id={id}
         >
             {/* Header image */}
             <div className="relative h-23 rounded-2xl bg-slate-100 dark:bg-gray-900 overflow-hidden">

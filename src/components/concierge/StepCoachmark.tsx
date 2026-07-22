@@ -1,51 +1,98 @@
-import { useMemo } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { TbSparkles, TbArrowRight, TbArrowLeft, TbX } from 'react-icons/tb'
 import type { TargetRect } from './useSpotlightTarget'
 import type { TourStep } from './steps'
 
-const GAP = 20
+const GAP = 16
 const PANEL_WIDTH = 320
-const PANEL_EST_HEIGHT = 220
+/** Fallback until the panel has been measured — long copy needs ~280–320px. */
+const PANEL_EST_HEIGHT = 300
+const EDGE = 16
 
-const computePosition = (rect: TargetRect, placement: TourStep['placement']) => {
+const clamp = (value: number, min: number, max: number) =>
+    Math.min(Math.max(value, min), max)
+
+/**
+ * Prefer the requested placement, but flip or park the panel so the full card
+ * (including Skip / Next) stays inside the viewport.
+ */
+const computePosition = (
+    rect: TargetRect,
+    placement: TourStep['placement'],
+    panelHeight: number,
+) => {
     const vw = window.innerWidth
     const vh = window.innerHeight
-    // Prefer the on-screen portion of tall targets so we don't park the panel
-    // below a section that already fills the viewport.
-    const visTop = Math.max(rect.top, 16)
-    const visBottom = Math.min(rect.top + rect.height, vh - 16)
-    const visLeft = Math.max(rect.left, 16)
+    const h = Math.max(panelHeight, PANEL_EST_HEIGHT)
+    const maxTop = Math.max(EDGE, vh - h - EDGE)
+    const maxLeft = Math.max(EDGE, vw - PANEL_WIDTH - EDGE)
+
+    const visTop = Math.max(rect.top, EDGE)
+    const visBottom = Math.min(rect.top + rect.height, vh - EDGE)
+    const visLeft = Math.max(rect.left, EDGE)
     const visHeight = Math.max(visBottom - visTop, 0)
+    const midTop = clamp(rect.top + rect.height / 2 - h / 2, EDGE, maxTop)
+
+    const placeBottom = () => {
+        const below = visBottom + GAP
+        if (below <= maxTop) {
+            return { top: below, left: clamp(visLeft, EDGE, maxLeft) }
+        }
+        // Not enough room below — try above the target.
+        const above = visTop - GAP - h
+        if (above >= EDGE) {
+            return { top: above, left: clamp(visLeft, EDGE, maxLeft) }
+        }
+        // Target fills the viewport — park fully on-screen near the bottom.
+        return { top: maxTop, left: clamp(visLeft, EDGE, maxLeft) }
+    }
+
+    const placeTop = () => {
+        const above = visTop - GAP - h
+        if (above >= EDGE) {
+            return { top: above, left: clamp(visLeft, EDGE, maxLeft) }
+        }
+        return placeBottom()
+    }
 
     switch (placement) {
-        case 'right':
-            return {
-                top: Math.min(Math.max(rect.top, 16), vh - PANEL_EST_HEIGHT),
-                left: Math.min(rect.left + rect.width + GAP, vw - PANEL_WIDTH - 16),
+        case 'right': {
+            const left = rect.left + rect.width + GAP
+            if (left <= maxLeft) {
+                return { top: midTop, left }
             }
+            const leftSide = rect.left - PANEL_WIDTH - GAP
+            if (leftSide >= EDGE) {
+                return { top: midTop, left: leftSide }
+            }
+            return { top: midTop, left: maxLeft }
+        }
+        case 'left': {
+            const left = rect.left - PANEL_WIDTH - GAP
+            if (left >= EDGE) {
+                return { top: midTop, left }
+            }
+            const rightSide = rect.left + rect.width + GAP
+            if (rightSide <= maxLeft) {
+                return { top: midTop, left: rightSide }
+            }
+            return { top: midTop, left: EDGE }
+        }
         case 'top':
-            return {
-                top: Math.max(rect.top - GAP - PANEL_EST_HEIGHT, 16),
-                left: Math.min(Math.max(rect.left, 16), vw - PANEL_WIDTH - 16),
-            }
-        case 'left':
-            return {
-                top: Math.min(Math.max(rect.top, 16), vh - PANEL_EST_HEIGHT),
-                left: Math.max(rect.left - PANEL_WIDTH - GAP, 16),
-            }
+            return placeTop()
         case 'bottom':
         default: {
-            // Tall targets (e.g. whole training section): sit just under the top of
-            // what's visible, not under the entire element.
-            const top =
-                visHeight > vh * 0.45
-                    ? Math.min(visTop + GAP + 48, vh - PANEL_EST_HEIGHT)
-                    : Math.min(visBottom + GAP, vh - PANEL_EST_HEIGHT)
-            return {
-                top: Math.max(top, 16),
-                left: Math.min(Math.max(visLeft, 16), vw - PANEL_WIDTH - 16),
+            // Tall targets: don't sit under the whole block — prefer under the
+            // visible top, then clamp / flip so buttons stay on screen.
+            if (visHeight > vh * 0.45) {
+                const nearTop = visTop + GAP + 48
+                if (nearTop <= maxTop) {
+                    return { top: nearTop, left: clamp(visLeft, EDGE, maxLeft) }
+                }
+                return placeTop()
             }
+            return placeBottom()
         }
     }
 }
@@ -68,22 +115,47 @@ const StepCoachmark = ({
     onSkip: () => void
 }) => {
     const reduce = useReducedMotion()
+    const panelRef = useRef<HTMLDivElement>(null)
+    const [panelHeight, setPanelHeight] = useState(PANEL_EST_HEIGHT)
 
     // Anchored steps must wait for a real rect. Rendering a centered fallback
     // while the next page mounts is what caused the "flash to center" jump.
     const ready = !step.target || rect !== null
     const canGoBack = stepIndex > 0
 
+    useLayoutEffect(() => {
+        const el = panelRef.current
+        if (!el) return
+        const measure = () => {
+            const next = el.getBoundingClientRect().height
+            if (next > 0) setPanelHeight(next)
+        }
+        measure()
+        const ro = new ResizeObserver(measure)
+        ro.observe(el)
+        return () => ro.disconnect()
+    }, [step.id, ready, rect])
+
     const position = useMemo(() => {
         if (!rect) return null
-        return computePosition(rect, step.placement)
-    }, [rect, step.placement])
+        return computePosition(rect, step.placement, panelHeight)
+    }, [rect, step.placement, panelHeight])
+
+    // Re-clamp after layout if the measured height changed mid-animation.
+    useEffect(() => {
+        if (!rect || !panelRef.current) return
+        const measured = panelRef.current.getBoundingClientRect().height
+        if (measured > 0 && Math.abs(measured - panelHeight) > 2) {
+            setPanelHeight(measured)
+        }
+    }, [rect, panelHeight, step.id])
 
     return (
         <AnimatePresence>
             {ready && position && (
                 <motion.div
                     key={step.id}
+                    ref={panelRef}
                     className="fixed z-[80]"
                     style={{ width: PANEL_WIDTH }}
                     initial={reduce ? false : { opacity: 0, scale: 0.96, top: position.top, left: position.left }}

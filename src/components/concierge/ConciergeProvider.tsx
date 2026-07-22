@@ -71,19 +71,54 @@ const ConciergeProvider = () => {
         if (!activeStep) return
 
         const onDivisionDetail = /^\/sales-division\/[^/]+$/.test(location.pathname)
+        const onTeamDetail = /^\/teams\/[^/]+$/.test(location.pathname)
+
+        const openFirstDivision = () => {
+            const firstDivision = document.querySelector(
+                '[data-tour-id="division-card"]',
+            ) as HTMLElement | null
+            const divisionId = firstDivision?.dataset.divisionId
+            if (!divisionId) return false
+            navigate(`/sales-division/${divisionId}`)
+            return true
+        }
+
+        const openFirstTeam = () => {
+            const firstTeam = document.querySelector(
+                '[data-tour-id="team-card"]',
+            ) as HTMLElement | null
+            const teamId = firstTeam?.dataset.teamId
+            if (!teamId) return false
+            navigate(`/teams/${teamId}`)
+            return true
+        }
+
+        if (activeStep.openFirstTeamDetail) {
+            if (onTeamDetail) return
+
+            const tryOpen = () => {
+                if (openFirstTeam()) return true
+                // Team cards live on a division detail page — open one first if needed.
+                if (!onDivisionDetail) return openFirstDivision()
+                return false
+            }
+
+            if (tryOpen()) return
+
+            const interval = window.setInterval(() => {
+                if (tryOpen()) window.clearInterval(interval)
+            }, 300)
+            const timeout = window.setTimeout(() => window.clearInterval(interval), 10000)
+            return () => {
+                window.clearInterval(interval)
+                window.clearTimeout(timeout)
+            }
+        }
 
         if (activeStep.openFirstDivisionDetail) {
             if (onDivisionDetail) return
 
-            const tryOpen = () => {
-                const firstDivision = document.querySelector(
-                    '[data-tour-id="division-card"]',
-                ) as HTMLElement | null
-                const divisionId = firstDivision?.dataset.divisionId
-                if (!divisionId) return false
-                navigate(`/sales-division/${divisionId}`)
-                return true
-            }
+            const tryOpen = () => openFirstDivision()
 
             if (tryOpen()) return
 
@@ -108,6 +143,10 @@ const ConciergeProvider = () => {
                 activeStep.route === '/sales-division' &&
                 onDivisionDetail
             ) {
+                return
+            }
+            // Stay on a team detail when the step's route is the teams prefix.
+            if (activeStep.route === '/teams' && onTeamDetail) {
                 return
             }
             navigate(activeStep.route)
@@ -216,10 +255,14 @@ const ConciergeProvider = () => {
     // Hold the coachmark until the route has settled and the spotlight target
     // exists. Showing it early falls back to the viewport center for one frame
     // while the next page mounts — the flash the user was seeing.
+    const onDivisionDetail = /^\/sales-division\/[^/]+$/.test(location.pathname)
+    const onTeamDetail = /^\/teams\/[^/]+$/.test(location.pathname)
     const routeReady =
         !activeStep?.route ||
         location.pathname === activeStep.route ||
-        location.pathname.startsWith(`${activeStep.route}/`)
+        location.pathname.startsWith(`${activeStep.route}/`) ||
+        (activeStep.openFirstDivisionDetail && onDivisionDetail) ||
+        (activeStep.openFirstTeamDetail && onTeamDetail)
     const targetReady = !activeStep?.target || rect !== null
     const showCoachmark = Boolean(activeStep && routeReady && targetReady)
 

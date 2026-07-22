@@ -15,6 +15,11 @@ export interface TourStep {
      * when this step becomes active and the user is still on the list.
      */
     openFirstDivisionDetail?: boolean
+    /**
+     * If true, open the first team detail page (`/teams/:id`) from the
+     * division Teams tab when this step becomes active.
+     */
+    openFirstTeamDetail?: boolean
     title: string
     body: string
     /** Real product event (see conciergeBus) that advances this step automatically. */
@@ -219,21 +224,21 @@ const allSteps: TourStep[] = [
     },
     {
         id: 'division-teams',
-        target: '[data-tour-id="division-teams-panel"]',
+        target: '[data-tour-id="team-card"]',
         route: '/sales-division',
         openFirstDivisionDetail: true,
         title: 'What a team is',
-        body: 'Inside a division, a team is a group of reps who train and sell together. Use teams to assign practice scenarios, compare progress, and keep coaching focused on the right people.',
-        placement: 'bottom',
+        body: 'Inside a division, a team is a group of reps who train and sell together. Use teams to assign practice scenarios and keep coaching focused.',
+        placement: 'top',
         roles: MANAGER_ROLES,
     },
     {
-        id: 'division-team-performance',
-        target: '[data-tour-id="division-team-performance"]',
-        route: '/sales-division',
-        openFirstDivisionDetail: true,
+        id: 'team-performance',
+        target: '[data-tour-id="team-performance"]',
+        route: '/teams',
+        openFirstTeamDetail: true,
         title: 'Team performance',
-        body: 'These numbers show how teams in this division are doing — average scores, sessions completed, and who’s on track. Open a team card for a deeper breakdown.',
+        body: 'Open a team to see its average score, growth by mode, and how each member is doing. This is where you coach the group, not just individuals.',
         placement: 'bottom',
         roles: MANAGER_ROLES,
     },

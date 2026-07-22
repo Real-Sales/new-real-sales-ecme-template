@@ -228,7 +228,10 @@ const TeamDetail = () => {
                 </div>
 
                 {/* Team Performance Section */}
-                <Card className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 shadow-md hover:shadow-xl transition-all duration-300 mb-6">
+                <Card
+                    className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 shadow-md hover:shadow-xl transition-all duration-300 mb-6"
+                    data-tour-id="team-performance"
+                >
                     <div className="p-2">
                         <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-1">
                             Team Performance
