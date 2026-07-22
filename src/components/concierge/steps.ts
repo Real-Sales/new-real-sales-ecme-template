@@ -10,6 +10,11 @@ export interface TourStep {
     route?: string
     /** If true, the tour itself navigates here the moment this step becomes active - no waiting on the user to find the link. */
     navigateOnEnter?: boolean
+    /**
+     * If true, open the first sales division detail page (`/sales-division/:id`)
+     * when this step becomes active and the user is still on the list.
+     */
+    openFirstDivisionDetail?: boolean
     title: string
     body: string
     /** Real product event (see conciergeBus) that advances this step automatically. */
@@ -212,6 +217,26 @@ const allSteps: TourStep[] = [
         placement: 'left',
         roles: MANAGER_ROLES,
     },
+    {
+        id: 'division-teams',
+        target: '[data-tour-id="division-teams-panel"]',
+        route: '/sales-division',
+        openFirstDivisionDetail: true,
+        title: 'What a team is',
+        body: 'Inside a division, a team is a group of reps who train and sell together. Use teams to assign practice scenarios, compare progress, and keep coaching focused on the right people.',
+        placement: 'bottom',
+        roles: MANAGER_ROLES,
+    },
+    {
+        id: 'division-team-performance',
+        target: '[data-tour-id="division-team-performance"]',
+        route: '/sales-division',
+        openFirstDivisionDetail: true,
+        title: 'Team performance',
+        body: 'These numbers show how teams in this division are doing — average scores, sessions completed, and who’s on track. Open a team card for a deeper breakdown.',
+        placement: 'bottom',
+        roles: MANAGER_ROLES,
+    },
 ]
 
 /** Steps for this user, in order, filtered to what their role can actually see. */
@@ -230,11 +255,6 @@ const allChecklistItems: ChecklistItem[] = [
         id: 'run-first-session',
         label: 'Run your first training session',
         description: 'Start a live roleplay in any mode.',
-    },
-    {
-        id: 'review-first-report',
-        label: 'Review a performance report',
-        description: 'See your score breakdown after a session.',
     },
     {
         id: 'visit-performance',

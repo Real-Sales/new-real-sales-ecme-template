@@ -23,7 +23,6 @@ import { resetScenarioLibraryData } from '@/views/sales/ScenarioList/store/scena
 import { resetCompanyMembersData } from '@/views/sales/members/store/companyMembersSlice'
 import { resetTeamsData } from '@/store/slices/teams'
 import { resetSalesDivisionsData } from '@/store/slices/salesDivisions'
-import { resetConcierge } from '@/store/slices/concierge/conciergeSlice'
 import {
     companyOwnerNeedsOnboarding,
     roleMayResolveCompanyViaManager,
@@ -285,7 +284,8 @@ function AuthProvider({ children }: AuthProviderProps) {
         dispatch(resetSalesDivisionsData())
         dispatch(resetProfileData())
         dispatch(resetSubscriptionData())
-        dispatch(resetConcierge())
+        // Concierge progress is persisted per user (ownerUserId) — do not wipe on logout
+        // or the welcome tour would reappear on every sign-in.
         dispatch(signOutSuccess())
         dispatch(setUser({}))
         clearAuthCookie()

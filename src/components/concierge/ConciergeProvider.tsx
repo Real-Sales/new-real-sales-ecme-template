@@ -8,6 +8,8 @@ import {
     pauseTour,
     completeTour,
     markStepComplete,
+    goBackStep,
+    ensureOwner,
     toggleChecklistItem,
     setCelebrated,
 } from '@/store/slices/concierge/conciergeSlice'
@@ -42,6 +44,13 @@ const ConciergeProvider = () => {
     const steps = useMemo(() => buildTourSteps(user.role), [user.role])
     const checklistItems = useMemo(() => buildChecklistItems(user.role), [user.role])
 
+    // Keep tour/celebration progress across logins for the same account; reset only
+    // when a different user signs in on this browser.
+    useEffect(() => {
+        if (!ready || !user.userId) return
+        dispatch(ensureOwner(user.userId))
+    }, [ready, user.userId, dispatch])
+
     // Subscription (credits/sessions_completed) is needed app-wide for the celebration signal.
     useEffect(() => {
         if (ready) dispatch(fetchMySubscription())
@@ -59,7 +68,48 @@ const ConciergeProvider = () => {
     // Auto-pilot: the moment a step becomes active, drive the browser there for the user
     // instead of waiting for them to find the link themselves.
     useEffect(() => {
-        if (activeStep?.navigateOnEnter && activeStep.route && location.pathname !== activeStep.route) {
+        if (!activeStep) return
+
+        const onDivisionDetail = /^\/sales-division\/[^/]+$/.test(location.pathname)
+
+        if (activeStep.openFirstDivisionDetail) {
+            if (onDivisionDetail) return
+
+            const tryOpen = () => {
+                const firstDivision = document.querySelector(
+                    '[data-tour-id="division-card"]',
+                ) as HTMLElement | null
+                const divisionId = firstDivision?.dataset.divisionId
+                if (!divisionId) return false
+                navigate(`/sales-division/${divisionId}`)
+                return true
+            }
+
+            if (tryOpen()) return
+
+            // Division cards may still be loading after create — retry briefly.
+            const interval = window.setInterval(() => {
+                if (tryOpen()) window.clearInterval(interval)
+            }, 300)
+            const timeout = window.setTimeout(() => window.clearInterval(interval), 10000)
+            return () => {
+                window.clearInterval(interval)
+                window.clearTimeout(timeout)
+            }
+        }
+
+        if (
+            activeStep.navigateOnEnter &&
+            activeStep.route &&
+            location.pathname !== activeStep.route
+        ) {
+            // Stay on a division detail page when the step's route is the list prefix.
+            if (
+                activeStep.route === '/sales-division' &&
+                onDivisionDetail
+            ) {
+                return
+            }
             navigate(activeStep.route)
         }
     }, [activeStep, location.pathname, navigate])
@@ -84,6 +134,11 @@ const ConciergeProvider = () => {
         },
         [dispatch, steps],
     )
+
+    const handleBack = useCallback(() => {
+        if (concierge.currentStepIndex <= 0) return
+        dispatch(goBackStep())
+    }, [dispatch, concierge.currentStepIndex])
 
     // Real-action advancement (guide by doing, not by describing).
     useTourEvent('start-training-opened', () => {
@@ -117,9 +172,6 @@ const ConciergeProvider = () => {
             if (location.pathname.startsWith(route)) {
                 dispatch(toggleChecklistItem({ id, done: true }))
             }
-        }
-        if (location.pathname.startsWith('/sessions/')) {
-            dispatch(toggleChecklistItem({ id: 'review-first-report', done: true }))
         }
     }, [location.pathname, dispatch])
 
@@ -192,6 +244,7 @@ const ConciergeProvider = () => {
                             stepIndex={concierge.currentStepIndex}
                             totalSteps={steps.length}
                             onNext={() => advanceStep(activeStep.id)}
+                            onBack={handleBack}
                             onSkip={handleSkipDuringStep}
                         />
                     )}

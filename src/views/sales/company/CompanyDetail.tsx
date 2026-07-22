@@ -378,7 +378,10 @@ const CompanyDetail = () => {
                                 </Card>
                             </div>
                         ) : (
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+                            <div
+                                className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6"
+                                data-tour-id="division-team-performance"
+                            >
                                 {divisionTeams.stats.map((stat, index) => (
                                     <TeamStatCard key={index} {...stat} />
                                 ))}
@@ -415,7 +418,7 @@ const CompanyDetail = () => {
 
                             {/* ── Teams tab (default) ── */}
                             <Tabs.TabContent value="teams">
-                                <div className="pt-4">
+                                <div className="pt-4" data-tour-id="division-teams-panel">
                                     {companyId && id && (
                                         <DivisionTeamsPanel
                                             companyId={companyId}

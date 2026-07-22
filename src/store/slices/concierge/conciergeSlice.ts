@@ -3,6 +3,8 @@ import { createSlice, PayloadAction } from '@reduxjs/toolkit'
 export type TourStatus = 'not_started' | 'in_progress' | 'paused' | 'skipped' | 'completed'
 
 export interface ConciergeState {
+    /** Which account this progress belongs to. Switching users resets. */
+    ownerUserId: string | null
     tourStatus: TourStatus
     currentStepIndex: number
     /** Step ids the user has already walked through, across any number of logins. */
@@ -15,6 +17,7 @@ export interface ConciergeState {
 }
 
 const initialState: ConciergeState = {
+    ownerUserId: null,
     tourStatus: 'not_started',
     currentStepIndex: 0,
     completedStepIds: [],
@@ -27,6 +30,19 @@ const conciergeSlice = createSlice({
     name: 'concierge',
     initialState,
     reducers: {
+        /**
+         * Bind progress to the signed-in user. Same user → keep state across
+         * logout/login. Different user on this browser → fresh tour for them.
+         */
+        ensureOwner(state, action: PayloadAction<string>) {
+            const userId = action.payload
+            if (state.ownerUserId === userId) return
+            if (state.ownerUserId == null) {
+                state.ownerUserId = userId
+                return
+            }
+            return { ...initialState, ownerUserId: userId }
+        },
         startTour(state) {
             state.tourStatus = 'in_progress'
             if (state.currentStepIndex === 0 && state.completedStepIds.length === 0) {
@@ -34,7 +50,12 @@ const conciergeSlice = createSlice({
             }
         },
         goToStep(state, action: PayloadAction<number>) {
-            state.currentStepIndex = action.payload
+            state.currentStepIndex = Math.max(0, action.payload)
+            state.tourStatus = 'in_progress'
+        },
+        goBackStep(state) {
+            if (state.currentStepIndex <= 0) return
+            state.currentStepIndex -= 1
             state.tourStatus = 'in_progress'
         },
         markStepComplete(state, action: PayloadAction<{ stepId: string; nextIndex: number }>) {
@@ -69,8 +90,10 @@ const conciergeSlice = createSlice({
 })
 
 export const {
+    ensureOwner,
     startTour,
     goToStep,
+    goBackStep,
     markStepComplete,
     skipTour,
     pauseTour,

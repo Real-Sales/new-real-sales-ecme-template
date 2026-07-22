@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
-import { TbSparkles, TbArrowRight, TbX } from 'react-icons/tb'
+import { TbSparkles, TbArrowRight, TbArrowLeft, TbX } from 'react-icons/tb'
 import type { TargetRect } from './useSpotlightTarget'
 import type { TourStep } from './steps'
 
@@ -56,6 +56,7 @@ const StepCoachmark = ({
     stepIndex,
     totalSteps,
     onNext,
+    onBack,
     onSkip,
 }: {
     step: TourStep
@@ -63,6 +64,7 @@ const StepCoachmark = ({
     stepIndex: number
     totalSteps: number
     onNext: () => void
+    onBack: () => void
     onSkip: () => void
 }) => {
     const reduce = useReducedMotion()
@@ -70,6 +72,7 @@ const StepCoachmark = ({
     // Anchored steps must wait for a real rect. Rendering a centered fallback
     // while the next page mounts is what caused the "flash to center" jump.
     const ready = !step.target || rect !== null
+    const canGoBack = stepIndex > 0
 
     const position = useMemo(() => {
         if (!rect) return null
@@ -127,7 +130,16 @@ const StepCoachmark = ({
                                 <span className="shrink-0 text-[11px] font-medium tabular-nums text-gray-400 dark:text-gray-500">
                                     {stepIndex + 1} / {totalSteps}
                                 </span>
-                                <div className="flex shrink-0 items-center gap-3">
+                                <div className="flex shrink-0 items-center gap-2">
+                                    {canGoBack && (
+                                        <button
+                                            onClick={onBack}
+                                            className="inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1.5 text-xs font-medium text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
+                                        >
+                                            <TbArrowLeft className="h-3 w-3" />
+                                            Back
+                                        </button>
+                                    )}
                                     <button
                                         onClick={onSkip}
                                         className="text-xs font-medium text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"

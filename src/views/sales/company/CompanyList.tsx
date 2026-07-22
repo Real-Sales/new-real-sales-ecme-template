@@ -80,6 +80,7 @@ type CompanyCardProps = {
 }
 
 const CompanyCard = ({
+    id,
     name,
     category,
     customerSegmentName,
@@ -96,6 +97,8 @@ const CompanyCard = ({
             className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 shadow-md hover:shadow-xl transition-all duration-300 cursor-pointer overflow-hidden rounded-2xl relative"
             bodyClass="!p-2"
             onClick={onClick}
+            data-tour-id="division-card"
+            data-division-id={id}
         >
             {/* Header image removed for brevity in search, will replace carefully */}
             <div className="relative h-23 rounded-2xl bg-slate-100 dark:bg-gray-900 overflow-hidden">

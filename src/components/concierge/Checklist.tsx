@@ -5,7 +5,6 @@ import type { ChecklistItem } from './steps'
 
 const routeForItem: Record<string, string> = {
     'run-first-session': '/overview',
-    'review-first-report': '/performance',
     'visit-performance': '/performance',
     'visit-assigned-scenarios': '/assigned-scenarios',
     'visit-scenario-library': '/scenario-library',
