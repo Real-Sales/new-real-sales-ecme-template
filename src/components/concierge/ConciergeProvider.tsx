@@ -4,6 +4,7 @@ import useAuth from '@/auth/useAuth'
 import { useAppDispatch, useAppSelector } from '@/store'
 import {
     startTour,
+    restartTour,
     skipTour,
     pauseTour,
     completeTour,
@@ -243,8 +244,16 @@ const ConciergeProvider = () => {
     }
 
     const handleResumeTour = () => {
-        if (concierge.tourStatus === 'completed') return
-        dispatch(startTour())
+        // Paused / mid-tour → pick up where they left off.
+        // Completed / skipped / not started → manual restart from the beginning.
+        if (
+            concierge.tourStatus === 'paused' ||
+            concierge.tourStatus === 'in_progress'
+        ) {
+            dispatch(startTour())
+            return
+        }
+        dispatch(restartTour())
     }
 
     const hasPendingNudge = useMemo(

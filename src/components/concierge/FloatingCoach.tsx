@@ -58,20 +58,20 @@ const FloatingCoach = ({
                                     {tip}
                                 </p>
 
-                                {tourStatus !== 'completed' && (
-                                    <button
-                                        onClick={() => {
-                                            onResumeTour()
-                                            setOpen(false)
-                                        }}
-                                        className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/20 transition-colors"
-                                    >
-                                        <TbRotateClockwise2 className="h-3.5 w-3.5" />
-                                        {tourStatus === 'in_progress' || tourStatus === 'paused'
-                                            ? 'Resume the tour'
-                                            : 'Take the tour'}
-                                    </button>
-                                )}
+                                <button
+                                    onClick={() => {
+                                        onResumeTour()
+                                        setOpen(false)
+                                    }}
+                                    className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/20 transition-colors"
+                                >
+                                    <TbRotateClockwise2 className="h-3.5 w-3.5" />
+                                    {tourStatus === 'in_progress' || tourStatus === 'paused'
+                                        ? 'Resume the tour'
+                                        : tourStatus === 'completed'
+                                          ? 'Take the tour again'
+                                          : 'Take the tour'}
+                                </button>
 
                                 <div className="mt-5 border-t border-gray-100 dark:border-white/10 pt-4">
                                     <Checklist items={checklistItems} done={checklistDone} />

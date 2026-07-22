@@ -49,6 +49,12 @@ const conciergeSlice = createSlice({
                 state.currentStepIndex = 0
             }
         },
+        /** Manual restart from the AI coach — always begin at step 0. */
+        restartTour(state) {
+            state.tourStatus = 'in_progress'
+            state.currentStepIndex = 0
+            state.completedStepIds = []
+        },
         goToStep(state, action: PayloadAction<number>) {
             state.currentStepIndex = Math.max(0, action.payload)
             state.tourStatus = 'in_progress'
@@ -92,6 +98,7 @@ const conciergeSlice = createSlice({
 export const {
     ensureOwner,
     startTour,
+    restartTour,
     goToStep,
     goBackStep,
     markStepComplete,
