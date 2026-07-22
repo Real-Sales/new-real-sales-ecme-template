@@ -216,6 +216,7 @@ const allSteps: TourStep[] = [
         id: 'sales-division-add',
         target: '[data-tour-id="add-division-button"]',
         route: '/sales-division',
+        navigateOnEnter: true,
         title: 'Create a division',
         body: 'Click here to set up your first division. You can add teams inside it right after.',
         advanceOnClick: true,

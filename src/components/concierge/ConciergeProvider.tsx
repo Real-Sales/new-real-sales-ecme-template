@@ -66,13 +66,15 @@ const ConciergeProvider = () => {
         activeStep ? activeStep.target : null,
     )
 
-    // Auto-pilot: the moment a step becomes active, drive the browser there for the user
-    // instead of waiting for them to find the link themselves.
+    // Auto-pilot: keep the browser on the page this step needs — including when
+    // the user hits Back from a deeper page (team → division → list).
     useEffect(() => {
         if (!activeStep) return
 
-        const onDivisionDetail = /^\/sales-division\/[^/]+$/.test(location.pathname)
-        const onTeamDetail = /^\/teams\/[^/]+$/.test(location.pathname)
+        const path = location.pathname
+        const onDivisionList = path === '/sales-division'
+        const onDivisionDetail = /^\/sales-division\/[^/]+$/.test(path)
+        const onTeamDetail = /^\/teams\/[^/]+$/.test(path)
 
         const openFirstDivision = () => {
             const firstDivision = document.querySelector(
@@ -94,62 +96,63 @@ const ConciergeProvider = () => {
             return true
         }
 
+        const pollUntil = (tryOpen: () => boolean) => {
+            if (tryOpen()) return () => {}
+            const interval = window.setInterval(() => {
+                if (tryOpen()) window.clearInterval(interval)
+            }, 300)
+            const timeout = window.setTimeout(() => window.clearInterval(interval), 10000)
+            return () => {
+                window.clearInterval(interval)
+                window.clearTimeout(timeout)
+            }
+        }
+
+        // --- Team detail steps ---
         if (activeStep.openFirstTeamDetail) {
             if (onTeamDetail) return
-
-            const tryOpen = () => {
+            return pollUntil(() => {
                 if (openFirstTeam()) return true
-                // Team cards live on a division detail page — open one first if needed.
-                if (!onDivisionDetail) return openFirstDivision()
-                return false
-            }
-
-            if (tryOpen()) return
-
-            const interval = window.setInterval(() => {
-                if (tryOpen()) window.clearInterval(interval)
-            }, 300)
-            const timeout = window.setTimeout(() => window.clearInterval(interval), 10000)
-            return () => {
-                window.clearInterval(interval)
-                window.clearTimeout(timeout)
-            }
+                if (onDivisionDetail) return false
+                if (!onDivisionList) {
+                    navigate('/sales-division')
+                    return true
+                }
+                return openFirstDivision()
+            })
         }
 
+        // --- Division detail steps (e.g. "What a team is") ---
         if (activeStep.openFirstDivisionDetail) {
             if (onDivisionDetail) return
-
-            const tryOpen = () => openFirstDivision()
-
-            if (tryOpen()) return
-
-            // Division cards may still be loading after create — retry briefly.
-            const interval = window.setInterval(() => {
-                if (tryOpen()) window.clearInterval(interval)
-            }, 300)
-            const timeout = window.setTimeout(() => window.clearInterval(interval), 10000)
-            return () => {
-                window.clearInterval(interval)
-                window.clearTimeout(timeout)
+            // Coming back from a team page — return to the list first, then open a division.
+            if (onTeamDetail) {
+                navigate('/sales-division')
+                return
             }
+            return pollUntil(openFirstDivision)
         }
 
+        // --- Sales-division LIST steps (header / create button) ---
+        // Must not stay on /sales-division/:id or /teams/:id or the target is missing
+        // and the spotlight goes full-black with no coachmark.
+        if (
+            activeStep.route === '/sales-division' &&
+            !activeStep.openFirstDivisionDetail
+        ) {
+            if (!onDivisionList) {
+                navigate('/sales-division')
+            }
+            return
+        }
+
+        // --- Generic route steps ---
         if (
             activeStep.navigateOnEnter &&
             activeStep.route &&
-            location.pathname !== activeStep.route
+            path !== activeStep.route &&
+            !path.startsWith(`${activeStep.route}/`)
         ) {
-            // Stay on a division detail page when the step's route is the list prefix.
-            if (
-                activeStep.route === '/sales-division' &&
-                onDivisionDetail
-            ) {
-                return
-            }
-            // Stay on a team detail when the step's route is the teams prefix.
-            if (activeStep.route === '/teams' && onTeamDetail) {
-                return
-            }
             navigate(activeStep.route)
         }
     }, [activeStep, location.pathname, navigate])
@@ -161,6 +164,16 @@ const ConciergeProvider = () => {
             return () => window.clearTimeout(t)
         }
     }, [activeStep, rect, panToTarget])
+
+    // If the spotlight target never appears (wrong page after Back, missing landmark),
+    // drop the full-black overlay instead of trapping the user.
+    useEffect(() => {
+        if (!activeStep?.target || rect) return
+        const timeout = window.setTimeout(() => {
+            dispatch(pauseTour())
+        }, 8000)
+        return () => window.clearTimeout(timeout)
+    }, [activeStep, rect, dispatch])
 
     const advanceStep = useCallback(
         (stepId: string) => {
