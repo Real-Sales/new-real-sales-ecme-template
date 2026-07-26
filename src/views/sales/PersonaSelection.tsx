@@ -14,7 +14,11 @@ import {
 import { useAppSelector, useAppDispatch } from '@/store'
 import { fetchIndustries } from '@/store/slices/industriesCatalogSlice'
 import { fetchUserProfile } from '@/views/profile/Settings/store/settingsSlice'
-import type { AIPersona } from '@/components/shared/SessionSetupPanel'
+import type {
+    AIPersona,
+    ConversationMode,
+} from '@/components/shared/SessionSetupPanel'
+import ModeSelectDialog from '@/views/sales/components/ModeSelectDialog'
 import { apiCreateSession } from '@/services/SessionService'
 import {
     apiGetCreditsRemaining,
@@ -197,19 +201,21 @@ const PersonaSelection = () => {
         return match?.industry_id ?? ''
     }, [companyIndustryId, userIndustry, industriesCatalog])
     const sessionData = location.state as {
-        mode: string
+        mode?: string
         scenarios?: string[]
         files?: File[]
         /** Prior mode's session_id — set when arriving via "Continue to next mode" from SessionReport. */
         continueFromSessionId?: string
         /** Persona to auto-continue with, so the rep isn't asked to re-pick who they were talking to. */
         prefillPersonaId?: string
-    }
+    } | null
     const autoContinueTriggeredRef = useRef(false)
 
     const [creatingPersonaId, setCreatingPersonaId] = useState<string | null>(
         null,
     )
+    const [pendingPersona, setPendingPersona] = useState<AIPersona | null>(null)
+    const [modeDialogOpen, setModeDialogOpen] = useState(false)
     const [searchQuery, setSearchQuery] = useState('')
     const [selectedRole, setSelectedRole] = useState('')
     const [selectedIndustry, setSelectedIndustry] = useState('')
@@ -402,22 +408,27 @@ const PersonaSelection = () => {
         })
     }, [personaPool, searchQuery, selectedRole])
 
-    const handleStartSession = async (persona: AIPersona) => {
+    const handleStartSession = async (
+        persona: AIPersona,
+        modeOverride?: ConversationMode | string,
+    ) => {
         if (creatingPersonaId) return
 
+        const modeName = (modeOverride || sessionData?.mode || '').toLowerCase()
         const matchedMode = interactionModes.find(
-            (m) => m.name.toLowerCase() === sessionData?.mode?.toLowerCase(),
+            (m) => m.name.toLowerCase() === modeName,
         )
         if (!matchedMode) {
             toast.push(
                 <Notification title="Error" type="danger">
-                    Interaction mode not found. Please go back and try again.
+                    Interaction mode not found. Please try again.
                 </Notification>,
             )
             return
         }
 
         setCreatingPersonaId(persona.id)
+        setModeDialogOpen(false)
         try {
             let remaining =
                 activeUserSubscription?.credits_remaining != null
@@ -460,6 +471,7 @@ const PersonaSelection = () => {
             navigate(`/audio-visualizer/${session.session_id}`, {
                 state: {
                     ...sessionData,
+                    mode: matchedMode.name,
                     persona,
                 },
             })
@@ -486,7 +498,24 @@ const PersonaSelection = () => {
             )
         } finally {
             setCreatingPersonaId(null)
+            setPendingPersona(null)
         }
+    }
+
+    const handlePersonaSelect = (persona: AIPersona) => {
+        if (creatingPersonaId) return
+        // Continue-to-next-mode already knows the target mode — skip the picker.
+        if (sessionData?.continueFromSessionId && sessionData?.mode) {
+            void handleStartSession(persona)
+            return
+        }
+        setPendingPersona(persona)
+        setModeDialogOpen(true)
+    }
+
+    const handleModeSelected = (mode: ConversationMode) => {
+        if (!pendingPersona) return
+        void handleStartSession(pendingPersona, mode)
     }
 
     // Arriving from SessionReport's "Continue to next mode" CTA: skip the
@@ -537,18 +566,30 @@ const PersonaSelection = () => {
         <div className="min-h-screen bg-gray-50 dark:bg-gray-900 font-sans">
             {/* Header */}
             <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border-b border-gray-200/80 dark:border-gray-800 sticky top-0 z-30 shadow-sm">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
+                <div className="w-full mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 2xl:px-16 py-4 sm:py-6">
                     <div className="flex items-start justify-between gap-4 mb-4">
                         <div className="min-w-0 flex-1 pr-2">
                             <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight mb-1">
                                 Select Your AI Persona
                             </h1>
                             <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 max-w-2xl">
-                                Choose who you'd like to practice with for your{' '}
-                                <span className="font-semibold text-primary bg-primary/10 dark:bg-primary/15 px-2 py-0.5 rounded-md">
-                                    {sessionData?.mode}
-                                </span>{' '}
-                                session. Tap a persona to start.
+                                {sessionData?.continueFromSessionId &&
+                                sessionData?.mode ? (
+                                    <>
+                                        Continuing your{' '}
+                                        <span className="font-semibold text-primary bg-primary/10 dark:bg-primary/15 px-2 py-0.5 rounded-md">
+                                            {sessionData.mode}
+                                        </span>{' '}
+                                        session. Tap a persona to start.
+                                    </>
+                                ) : (
+                                    <>
+                                        Choose who you&apos;d like to practice
+                                        with. After you pick a persona,
+                                        you&apos;ll choose prospecting, discovery,
+                                        or closing.
+                                    </>
+                                )}
                             </p>
                         </div>
                         <Button
@@ -624,7 +665,7 @@ const PersonaSelection = () => {
             </div>
 
             {/* Personas Grid */}
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+            <div className="w-full mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 2xl:px-16 py-10">
                 {noDivisionAssigned ? (
                     <div className="flex flex-col items-center justify-center py-32 bg-white dark:bg-gray-800 rounded-3xl border border-gray-200 dark:border-gray-700 shadow-sm">
                         <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">
@@ -668,7 +709,7 @@ const PersonaSelection = () => {
                         )}
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                    <div className="flex flex-wrap gap-6">
                         {filteredPersonas.map((persona) => {
                             const isBusy = creatingPersonaId === persona.id
 
@@ -678,15 +719,13 @@ const PersonaSelection = () => {
                                     initial={{ opacity: 0, y: 20 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     transition={{ duration: 0.3 }}
-                                    className="h-full"
+                                    className="flex-1 basis-[260px] min-w-[240px] max-w-full h-full"
                                 >
                                     <div
                                         role="button"
                                         tabIndex={0}
                                         onClick={() => {
-                                            if (!creatingPersonaId) {
-                                                void handleStartSession(persona)
-                                            }
+                                            handlePersonaSelect(persona)
                                         }}
                                         onKeyDown={(e) => {
                                             if (
@@ -695,13 +734,11 @@ const PersonaSelection = () => {
                                                 !creatingPersonaId
                                             ) {
                                                 e.preventDefault()
-                                                void handleStartSession(
-                                                    persona,
-                                                )
+                                                handlePersonaSelect(persona)
                                             }
                                         }}
                                         aria-busy={isBusy}
-                                        aria-label={`Start session with ${persona.name}`}
+                                        aria-label={`Select persona ${persona.name}`}
                                         className={`
                                             group relative h-full flex flex-col bg-gray-50 dark:bg-gray-800/50 rounded-2xl transition-all duration-300 overflow-hidden border shadow-md
                                             ${
@@ -802,7 +839,10 @@ const PersonaSelection = () => {
                                                 >
                                                     {isBusy
                                                         ? 'Starting…'
-                                                        : 'Start session'}
+                                                        : pendingPersona?.id ===
+                                                            persona.id
+                                                          ? 'Choose mode…'
+                                                          : 'Select persona'}
                                                     {!isBusy && (
                                                         <span className="text-lg opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all duration-300">
                                                             →
@@ -819,6 +859,17 @@ const PersonaSelection = () => {
                 )}
             </div>
 
+            <ModeSelectDialog
+                isOpen={modeDialogOpen}
+                persona={pendingPersona}
+                recommendedModeName="Prospecting"
+                onClose={() => {
+                    if (creatingPersonaId) return
+                    setModeDialogOpen(false)
+                    setPendingPersona(null)
+                }}
+                onSelectMode={handleModeSelected}
+            />
         </div>
     )
 }

@@ -15,14 +15,14 @@ gsap.registerPlugin(ScrollTrigger)
 
 const steps = [
     {
-        title: 'Choose mode',
-        description: 'Prospecting, discovery, or closing.',
-        icon: TbAdjustmentsHorizontal,
-    },
-    {
         title: 'Select persona',
         description: 'Pick the AI buyer that fits your scenario.',
         icon: TbUserCircle,
+    },
+    {
+        title: 'Choose mode',
+        description: 'Prospecting, discovery, or closing.',
+        icon: TbAdjustmentsHorizontal,
     },
     {
         title: 'Talk naturally',
@@ -41,8 +41,18 @@ const steps = [
     },
 ]
 
-/** Isolated GSAP leaf: fills the connector line as the journey scrolls into view. */
-const JourneyConnector = ({ containerRef }: { containerRef: React.RefObject<HTMLDivElement | null> }) => {
+const STEP_COUNT = steps.length
+const GAP_REM = 1 // md:gap-4
+
+/**
+ * Single connector: animates left → right as you scroll (same as before),
+ * but only from the first circle center to the last circle center.
+ */
+const JourneyConnector = ({
+    containerRef,
+}: {
+    containerRef: React.RefObject<HTMLDivElement | null>
+}) => {
     const lineRef = useRef<HTMLDivElement>(null)
     const reduce = useReducedMotion()
 
@@ -67,11 +77,19 @@ const JourneyConnector = ({ containerRef }: { containerRef: React.RefObject<HTML
         return () => ctx.revert()
     }, [reduce, containerRef])
 
+    // 5 equal columns + gap-4: distance between first & last circle centers
+    // = (n-1)/n of content width + (n-1)/n of total gap
+    const lineWidth = `calc(${((STEP_COUNT - 1) / STEP_COUNT) * 100}% + ${((STEP_COUNT - 1) / STEP_COUNT) * GAP_REM}rem)`
+
     return (
-        <div className="absolute left-0 right-0 top-9 hidden h-px bg-gray-200 dark:bg-white/10 md:block">
+        <div
+            className="pointer-events-none absolute top-[19px] z-0 hidden h-px md:block"
+            style={{ left: 19, width: lineWidth }}
+        >
+            <div className="h-px w-full bg-gray-200 dark:bg-white/10" />
             <div
                 ref={lineRef}
-                className="h-px w-full origin-left bg-gradient-to-r from-primary via-primary-mild to-primary"
+                className="absolute inset-0 h-px w-full origin-left bg-gradient-to-r from-primary via-primary-mild to-primary"
                 style={{ transform: 'scaleX(0)' }}
             />
         </div>
@@ -106,26 +124,37 @@ const InteractiveJourney = () => {
                                     initial={{ opacity: 0, y: 24 }}
                                     whileInView={{ opacity: 1, y: 0 }}
                                     viewport={{ once: true, amount: 0.4 }}
-                                    transition={{ duration: 0.55, delay: i * 0.09, ease: EASE_OUT }}
+                                    transition={{
+                                        duration: 0.55,
+                                        delay: i * 0.09,
+                                        ease: EASE_OUT,
+                                    }}
                                     onHoverStart={() => setActiveStep(i)}
                                     onHoverEnd={() => setActiveStep(null)}
-                                    className="relative flex flex-col items-start"
+                                    className="relative z-10 flex flex-col items-start"
                                 >
-                                    <motion.div
-                                        animate={{
-                                            scale: isActive ? 1.08 : 1,
-                                            backgroundColor: isActive
-                                                ? 'var(--primary)'
-                                                : 'var(--primary-subtle)',
-                                        }}
-                                        transition={{ duration: 0.25, ease: EASE_OUT }}
-                                        className="relative z-10 flex h-[38px] w-[38px] items-center justify-center rounded-full ring-4 ring-white dark:ring-gray-950"
-                                    >
-                                        <Icon
-                                            className="h-[18px] w-[18px] transition-colors duration-200"
-                                            style={{ color: isActive ? 'white' : 'var(--primary)' }}
-                                        />
-                                    </motion.div>
+                                    <div className="relative z-10 rounded-full bg-white dark:bg-gray-900 p-[3px]">
+                                        <motion.div
+                                            animate={{ scale: isActive ? 1.08 : 1 }}
+                                            transition={{
+                                                duration: 0.25,
+                                                ease: EASE_OUT,
+                                            }}
+                                            className={`flex h-[38px] w-[38px] items-center justify-center rounded-full border-2 ${
+                                                isActive
+                                                    ? 'border-primary bg-primary'
+                                                    : 'border-primary/40 bg-white dark:bg-gray-900'
+                                            }`}
+                                        >
+                                            <Icon
+                                                className={`h-[18px] w-[18px] ${
+                                                    isActive
+                                                        ? 'text-white'
+                                                        : 'text-primary'
+                                                }`}
+                                            />
+                                        </motion.div>
+                                    </div>
 
                                     <span className="mt-1 text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
                                         Step {i + 1}

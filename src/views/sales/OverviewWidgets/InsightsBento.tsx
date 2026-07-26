@@ -88,7 +88,7 @@ const InsightsBento = ({
     onSelectMode,
 }: {
     data: OverviewData
-    onSelectMode: (mode: ConversationMode) => void
+    onSelectMode: (mode?: ConversationMode) => void
 }) => {
     const improvementUp = data.improvementPct >= 0
     const goalMode = data.recommendedPractice?.mode ?? 'a training'

@@ -81,8 +81,11 @@ type ScenarioListTableProps = {
     onPaginationChange: (page: number) => void
     onSelectChange: (value: number) => void
     variant?: 'manager' | 'salesRep'
+    getDivisionName?: (scenario: Scenario) => string
+    /** Session currently validating / starting (disables Start / Resume). */
+    startingSessionId?: string | null
     /** Start / Resume — navigate to existing session (ephemeral token + chat_history). */
-    onSalesRepOpenSession?: (scenario: Scenario) => void
+    onSalesRepOpenSession?: (scenario: Scenario) => void | Promise<void>
     onSalesRepViewReport?: (scenario: Scenario) => void
     onSort?: (sort: { key: string | number; order: 'asc' | 'desc' | '' }) => void
 }
@@ -101,6 +104,8 @@ const ScenarioListTable = ({
     onPaginationChange,
     onSelectChange,
     variant = 'manager',
+    getDivisionName,
+    startingSessionId = null,
     onSalesRepOpenSession,
     onSalesRepViewReport,
     onSort,
@@ -163,6 +168,26 @@ const ScenarioListTable = ({
                             )}
                         >
                             {row.mode?.name || '—'}
+                        </span>
+                    )
+                },
+            },
+            {
+                header: 'Division',
+                id: 'division',
+                enableSorting: false,
+                cell: (props) => {
+                    const row = props.row.original
+                    const isInactive = getDerivedStatus(row) === 'inactive'
+                    const name = getDivisionName?.(row)?.trim() || '—'
+                    return (
+                        <span
+                            className={classNames(
+                                'font-semibold',
+                                isInactive && 'text-gray-500 dark:text-gray-500',
+                            )}
+                        >
+                            {name}
                         </span>
                     )
                 },
@@ -255,7 +280,7 @@ const ScenarioListTable = ({
                 ),
             },
         ],
-        [handleDelete, onEdit, onShare, onRowClick],
+        [handleDelete, onEdit, onShare, onRowClick, getDivisionName],
     )
 
     const salesRepColumns: ColumnDef<Scenario>[] = useMemo(
@@ -369,13 +394,16 @@ const ScenarioListTable = ({
                         )
                     }
 
+                    const isStarting = Boolean(sid && startingSessionId === sid)
+
                     if (st === 'pending') {
                         return (
                             <Button
                                 size="xs"
                                 variant="solid"
                                 className="h-8 min-w-[5.5rem] bg-primary hover:bg-primary-deep text-white border-none gap-1"
-                                disabled={!sid}
+                                disabled={!sid || Boolean(startingSessionId)}
+                                loading={isStarting}
                                 icon={<TbPlayerPlay className="text-sm" />}
                                 onClick={() => sid && onSalesRepOpenSession?.(row)}
                             >
@@ -390,7 +418,8 @@ const ScenarioListTable = ({
                                 size="xs"
                                 variant="solid"
                                 className="h-8 min-w-[5.5rem] bg-primary hover:bg-primary-deep text-white border-none gap-1"
-                                disabled={!sid}
+                                disabled={!sid || Boolean(startingSessionId)}
+                                loading={isStarting}
                                 icon={<TbRefresh className="text-sm" />}
                                 onClick={() => sid && onSalesRepOpenSession?.(row)}
                             >
@@ -405,6 +434,8 @@ const ScenarioListTable = ({
                                 size="xs"
                                 variant="solid"
                                 className="h-8 min-w-[5.5rem] bg-primary hover:bg-primary-deep text-white border-none gap-1"
+                                disabled={Boolean(startingSessionId)}
+                                loading={isStarting}
                                 icon={<TbPlayerPlay className="text-sm" />}
                                 onClick={() => onSalesRepOpenSession?.(row)}
                             >
@@ -417,7 +448,7 @@ const ScenarioListTable = ({
                 },
             },
         ],
-        [onRowClick, onSalesRepOpenSession, onSalesRepViewReport],
+        [onRowClick, onSalesRepOpenSession, onSalesRepViewReport, startingSessionId],
     )
 
     const columns = variant === 'salesRep' ? salesRepColumns : managerColumns

@@ -26,8 +26,12 @@ import scenarioLibraryReducer, {
     useAppSelector as useScenarioSelector,
     fetchModes,
 } from '@/views/sales/ScenarioList/store'
+import SessionFeedbackDialog from '@/views/sales/components/SessionFeedbackDialog'
 
 injectReducer('scenarioLibrary', scenarioLibraryReducer)
+
+const feedbackPromptKey = (sessionId: string) =>
+    `sw-platform-feedback-prompted:${sessionId}`
 
 type ReportState =
     | { status: 'loading' }
@@ -146,6 +150,7 @@ const SessionReport = () => {
     const [downloading, setDownloading] = useState(false)
     const [session, setSession] = useState<SessionResponse | null>(null)
     const [regeneratingMemory, setRegeneratingMemory] = useState(false)
+    const [feedbackOpen, setFeedbackOpen] = useState(false)
 
     const modesData = useScenarioSelector(
         (s) => s.scenarioLibrary?.data?.modesData,
@@ -204,6 +209,30 @@ const SessionReport = () => {
     useEffect(() => {
         loadSession()
     }, [loadSession])
+
+    useEffect(() => {
+        if (state.status !== 'ready' || !sessionId) return
+        try {
+            if (sessionStorage.getItem(feedbackPromptKey(sessionId))) return
+        } catch {
+            // sessionStorage may be unavailable; still show once per mount
+        }
+        setFeedbackOpen(true)
+    }, [state.status, sessionId])
+
+    const markFeedbackPrompted = useCallback(() => {
+        if (!sessionId) return
+        try {
+            sessionStorage.setItem(feedbackPromptKey(sessionId), '1')
+        } catch {
+            // ignore
+        }
+    }, [sessionId])
+
+    const handleFeedbackClose = useCallback(() => {
+        markFeedbackPrompted()
+        setFeedbackOpen(false)
+    }, [markFeedbackPrompted])
 
     const currentModeName = useMemo(() => {
         if (!session || !modesData?.length) return null
@@ -554,6 +583,12 @@ const SessionReport = () => {
                     </div>
                 )}
             </Container>
+
+            <SessionFeedbackDialog
+                isOpen={feedbackOpen}
+                onClose={handleFeedbackClose}
+                onSubmitted={markFeedbackPrompted}
+            />
         </div>
     )
 }

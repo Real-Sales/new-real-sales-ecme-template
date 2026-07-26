@@ -261,6 +261,7 @@ export type Filter = {
     status: string
     mode: string
     persona: string
+    division: string
     daysRemaining: string
 }
 

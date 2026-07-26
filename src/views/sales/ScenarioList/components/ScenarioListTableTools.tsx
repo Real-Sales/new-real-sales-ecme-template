@@ -8,6 +8,7 @@ type FilterValues = {
     status: string
     mode: string
     persona: string
+    division: string
 }
 
 type ScenarioListTableToolsProps = {
@@ -15,6 +16,7 @@ type ScenarioListTableToolsProps = {
     onSearch: (value: string) => void
     onFilterChange: (filters: FilterValues) => void
     filterValues: FilterValues
+    getDivisionName?: (scenario: Scenario) => string
 }
 
 const ScenarioListTableTools = ({
@@ -22,6 +24,7 @@ const ScenarioListTableTools = ({
     onSearch,
     onFilterChange,
     filterValues,
+    getDivisionName,
 }: ScenarioListTableToolsProps) => {
     const handleInputChange = (event: ChangeEvent<HTMLInputElement>) => {
         const val = event.target.value
@@ -41,6 +44,7 @@ const ScenarioListTableTools = ({
                 scenarios={scenarios}
                 onFilterChange={onFilterChange}
                 defaultValues={filterValues}
+                getDivisionName={getDivisionName}
             />
         </div>
     )

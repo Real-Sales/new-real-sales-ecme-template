@@ -98,6 +98,7 @@ const endpointConfig = {
     paymentsCreateOrder: 'create-order',
     paymentsVerifyPayment: 'verify-payment',
     leaderboard: 'leaderboard',
+    platformFeedback: 'platform-feedback/',
 }
 
 export default endpointConfig

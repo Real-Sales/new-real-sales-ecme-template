@@ -40,6 +40,11 @@ import type { Scenario } from './types'
 import { getAssignedScenarioTab, type AssignedScenarioTab } from './types'
 import { canManageScenarioLibrary } from '@/utils/inviteAccess'
 import { scenarioToAudioVizState } from '@/utils/audioVizSessionState'
+import { getApiErrorMessage } from '@/utils/getApiErrorMessage'
+import { apiGetGeminiEphemeralToken } from '@/services/GeminiService'
+import {
+    isCompanyCreditPool,
+} from '@/services/SubscriptionService'
 import type { FetchPersonasParams } from './store'
 import { TbClock, TbCircleCheck, TbAlertTriangle } from 'react-icons/tb'
 
@@ -47,6 +52,7 @@ type FilterValues = {
     status: string
     mode: string
     persona: string
+    division: string
 }
 
 const resolveScenarioDivisionId = (
@@ -70,6 +76,9 @@ const ScenarioList = () => {
     const dispatch = useAppDispatch()
     const userRole = useAppSelector((state) => state.auth.user.role)
     const companyId = useAppSelector((state) => state.auth.user.companyId)
+    const activeUserSubscription = useAppSelector(
+        (state) => state.subscription.activeUserSubscription,
+    )
     const canManageLibrary = canManageScenarioLibrary(userRole)
     const isAssignedView = pathname === '/assigned-scenarios'
 
@@ -138,6 +147,7 @@ const ScenarioList = () => {
         status: 'all',
         mode: 'all',
         persona: 'all',
+        division: 'all',
     })
     const [tableData, setTableData] = useState({
         pageIndex: 1,
@@ -146,6 +156,7 @@ const ScenarioList = () => {
     const [sortConfig, setSortConfig] = useState<{ key: string; order: 'asc' | 'desc' | '' }>({ key: '', order: '' })
     const [assignedTab, setAssignedTab] = useState<AssignedScenarioTab>('pending')
     const [formCustomerSegmentId, setFormCustomerSegmentId] = useState<string | null>(null)
+    const [startingSessionId, setStartingSessionId] = useState<string | null>(null)
 
     const handleSalesDivisionChange = useCallback((customerSegmentId: string | null) => {
         setFormCustomerSegmentId(customerSegmentId)
@@ -265,11 +276,40 @@ const ScenarioList = () => {
         setTableData((prev) => ({ ...prev, pageIndex: 1 }))
     }
 
-    const handleSalesRepOpenSession = (scenario: Scenario) => {
-        if (!scenario.session_id) return
-        navigate(`/audio-visualizer/${scenario.session_id}`, {
-            state: scenarioToAudioVizState(scenario),
-        })
+    const handleSalesRepOpenSession = async (scenario: Scenario) => {
+        const sessionId = scenario.session_id
+        if (!sessionId || startingSessionId) return
+
+        setStartingSessionId(sessionId)
+        try {
+            // Same gate as AudioVisualizer: no credits → backend rejects ephemeral-token.
+            await apiGetGeminiEphemeralToken(sessionId)
+            navigate(`/audio-visualizer/${sessionId}`, {
+                state: scenarioToAudioVizState(scenario),
+            })
+        } catch (err: unknown) {
+            const message = getApiErrorMessage(
+                err,
+                'Failed to start session. Please try again.',
+            )
+            const isCreditsError = /credit/i.test(message)
+            toast.push(
+                <Notification
+                    title={isCreditsError ? 'No credits remaining' : 'Error'}
+                    type={isCreditsError ? 'warning' : 'danger'}
+                >
+                    {isCreditsError
+                        ? `${message}${
+                              isCompanyCreditPool(activeUserSubscription)
+                                  ? ' Ask your company owner to upgrade.'
+                                  : ''
+                          }`
+                        : message}
+                </Notification>,
+            )
+        } finally {
+            setStartingSessionId(null)
+        }
     }
 
     const handleSalesRepViewReport = (scenario: Scenario) => {
@@ -277,17 +317,37 @@ const ScenarioList = () => {
         navigate(`/sessions/${scenario.session_id}/report`)
     }
 
+    const getDivisionName = useCallback(
+        (scenario: Scenario) => {
+            const divisionId = resolveScenarioDivisionId(scenario, assignScenarioById)
+            if (!divisionId) {
+                return (
+                    assignScenarioById[scenario.scenario_id]?.salesDivisionName?.trim() ||
+                    ''
+                )
+            }
+            return (
+                divisionsData.find((d) => d.sales_division_id === divisionId)?.name?.trim() ||
+                assignScenarioById[scenario.scenario_id]?.salesDivisionName?.trim() ||
+                ''
+            )
+        },
+        [assignScenarioById, divisionsData],
+    )
+
     // Filter scenarios based on search and filters
     const filteredScenarios = useMemo(() => {
         const source = isAssignedView ? tabFilteredScenarios : rawScenarios
         return source.filter((scenario) => {
             const q = searchQuery.toLowerCase()
+            const divisionName = getDivisionName(scenario)
             const matchesSearch =
                 searchQuery === '' ||
                 scenario.title?.toLowerCase().includes(q) ||
                 scenario.scenario_id.toLowerCase().includes(q) ||
                 scenario.persona?.name?.toLowerCase().includes(q) ||
                 scenario.mode?.name?.toLowerCase().includes(q) ||
+                divisionName.toLowerCase().includes(q) ||
                 (scenario.session_id?.toLowerCase().includes(q) ?? false)
 
             const derivedStatus = scenario.persona?.status_active && scenario.mode?.status_active ? 'active' : 'inactive'
@@ -300,9 +360,25 @@ const ScenarioList = () => {
             const matchesPersona =
                 filters.persona === 'all' || scenario.persona?.name === filters.persona
 
-            return matchesSearch && matchesStatus && matchesMode && matchesPersona
+            const matchesDivision =
+                filters.division === 'all' || divisionName === filters.division
+
+            return (
+                matchesSearch &&
+                matchesStatus &&
+                matchesMode &&
+                matchesPersona &&
+                matchesDivision
+            )
         })
-    }, [isAssignedView, tabFilteredScenarios, rawScenarios, searchQuery, filters])
+    }, [
+        isAssignedView,
+        tabFilteredScenarios,
+        rawScenarios,
+        searchQuery,
+        filters,
+        getDivisionName,
+    ])
 
     // Sort filtered scenarios
     const sortedScenarios = useMemo(() => {
@@ -713,6 +789,7 @@ const ScenarioList = () => {
                             onSearch={handleSearch}
                             onFilterChange={handleFilterChange}
                             filterValues={filters}
+                            getDivisionName={getDivisionName}
                         />
                     <ScenarioListTable 
                         data={paginatedScenarios}
@@ -725,6 +802,8 @@ const ScenarioList = () => {
                         onShare={handleShare}
                         onConfirmDeleteScenario={handleConfirmDeleteScenario}
                         variant={isAssignedView ? 'salesRep' : 'manager'}
+                        getDivisionName={getDivisionName}
+                        startingSessionId={startingSessionId}
                         onSalesRepOpenSession={handleSalesRepOpenSession}
                         onSalesRepViewReport={handleSalesRepViewReport}
                         pagingData={{

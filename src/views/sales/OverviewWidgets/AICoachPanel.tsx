@@ -9,7 +9,7 @@ const AICoachPanel = ({
     onSelectMode,
 }: {
     data: OverviewData
-    onSelectMode: (mode: ConversationMode) => void
+    onSelectMode: (mode?: ConversationMode) => void
 }) => {
     const mode = data.recommendedPractice?.mode ?? 'objection handling'
     const improvement = data.recommendedPractice?.estimatedImprovement ?? 12

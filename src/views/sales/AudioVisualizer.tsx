@@ -21,6 +21,7 @@ import { invalidateSalesRepDashboard } from '@/views/sales/ScenarioList/store/sc
 import { invalidatePerformanceData } from '@/store/slices/performance';
 import { invalidateLeaderboard } from '@/views/sales/Leaderboard/store/leaderboardSlice';
 import { invalidateTeamScenariosDashboardCache } from '@/services/TeamService';
+import { getApiErrorMessage } from '@/utils/getApiErrorMessage';
 
 // --- 1. Audio Analyzer Hook ---
 const useAudioAnalyzer = () => {
@@ -574,9 +575,24 @@ export default function InteractiveVisualizerSession() {
           }));
           setMessages(restored);
         }
+        if (!cancelled) setTokenReady(true);
       } catch (err) {
         console.error('Failed to prefetch ephemeral token:', err);
-      } finally {
+        if (cancelled) return;
+        const message = getApiErrorMessage(err, 'Failed to start session.');
+        const isCreditsError = /credit/i.test(message);
+        toast.push(
+          <Notification
+            title={isCreditsError ? 'No credits remaining' : 'Error'}
+            type={isCreditsError ? 'warning' : 'danger'}
+          >
+            {message}
+          </Notification>,
+        );
+        if (isCreditsError) {
+          navigateTo('/assigned-scenarios');
+          return;
+        }
         if (!cancelled) setTokenReady(true);
       }
     })();

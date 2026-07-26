@@ -1,6 +1,4 @@
-import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import SessionSetupPanel from '@/components/shared/SessionSetupPanel'
 import type { ConversationMode } from '@/components/shared/SessionSetupPanel'
 import { emitTourEvent } from '@/components/concierge/conciergeBus'
 import { useOverviewData } from './OverviewWidgets/useOverviewData'
@@ -16,54 +14,35 @@ import ProgressCharts from './OverviewWidgets/ProgressCharts'
 import Achievements from './OverviewWidgets/Achievements'
 
 const Overview = () => {
-    const [isSetupOpen, setIsSetupOpen] = useState(false)
-    const [initialMode, setInitialMode] = useState<ConversationMode | undefined>(
-        undefined,
-    )
     const navigate = useNavigate()
     const data = useOverviewData()
 
-    const handleNavigateToPersonas = (
-        mode: ConversationMode,
-        scenarios?: string[],
-        files?: File[],
-    ) => {
-        navigate('/persona-selection', {
-            state: {
-                mode,
-                scenarios,
-                files,
-            },
-        })
-    }
-
-    const openSessionSetup = (mode?: ConversationMode) => {
-        setInitialMode(mode)
-        setIsSetupOpen(true)
-        emitTourEvent('start-training-opened', { mode })
+    /** Mode is chosen after persona selection — go straight to the listing. */
+    const goToPersonaSelection = (_mode?: ConversationMode) => {
+        emitTourEvent('start-training-opened', { mode: _mode })
+        navigate('/persona-selection')
     }
 
     return (
-        <div className="min-h-full overflow-x-hidden" style={{ fontFamily: "'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif" }}>
+        <div
+            className="min-h-full overflow-x-hidden"
+            style={{
+                fontFamily:
+                    "'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif",
+            }}
+        >
             <Hero data={data} />
             <div data-tour-id="start-training">
-                <StartTraining data={data} onSelectMode={openSessionSetup} />
+                <StartTraining data={data} onSelectMode={goToPersonaSelection} />
             </div>
             <ProductWalkthrough />
             <InteractiveJourney />
-            <InsightsBento data={data} onSelectMode={openSessionSetup} />
+            <InsightsBento data={data} onSelectMode={goToPersonaSelection} />
             <ContinueTraining data={data} />
             <PlatformCapabilities />
-            <AICoachPanel data={data} onSelectMode={openSessionSetup} />
+            <AICoachPanel data={data} onSelectMode={goToPersonaSelection} />
             <ProgressCharts data={data} />
             <Achievements data={data} />
-
-            <SessionSetupPanel
-                isOpen={isSetupOpen}
-                onClose={() => setIsSetupOpen(false)}
-                onNavigateToPersonas={handleNavigateToPersonas}
-                initialMode={initialMode}
-            />
         </div>
     )
 }
