@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
+import { SURFACE_CARD_CLASSNAME } from '@/constants/surfaceCard.constant'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { injectReducer } from '@/store'
@@ -36,6 +37,7 @@ import scenarioLibraryReducer, {
 } from '@/views/sales/ScenarioList/store'
 import { useUserDivisionSegment } from '@/utils/hooks/useUserDivisionSegment'
 import { canLoadAllPersonas } from '@/utils/inviteAccess'
+import { SEARCH_NATIVE_INPUT_CLASSNAME } from '@/constants/searchInput.constant'
 
 injectReducer('scenarioLibrary', scenarioLibraryReducer)
 
@@ -612,7 +614,7 @@ const PersonaSelection = () => {
                                 </div>
                                 <input
                                     type="text"
-                                    className="block w-full pl-10 pr-3 py-2 bg-gray-100/50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-900 dark:text-gray-100 placeholder-gray-500 focus:ring-2 focus:ring-primary focus:border-transparent transition-all text-sm shadow-sm"
+                                    className={`block w-full pl-10 pr-3 py-2 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all text-sm ${SEARCH_NATIVE_INPUT_CLASSNAME}`}
                                     placeholder="Search by name, role, company..."
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
@@ -740,7 +742,7 @@ const PersonaSelection = () => {
                                         aria-busy={isBusy}
                                         aria-label={`Select persona ${persona.name}`}
                                         className={`
-                                            group relative h-full flex flex-col bg-gray-50 dark:bg-gray-800/50 rounded-2xl transition-all duration-300 overflow-hidden border shadow-md
+                                            group relative h-full flex flex-col ${SURFACE_CARD_CLASSNAME} transition-all duration-300 overflow-hidden border
                                             ${
                                                 creatingPersonaId
                                                     ? 'cursor-wait opacity-90'
@@ -748,8 +750,8 @@ const PersonaSelection = () => {
                                             }
                                             ${
                                                 isBusy
-                                                    ? 'border-primary shadow-xl shadow-primary/10'
-                                                    : 'border-gray-200 dark:border-gray-700 hover:shadow-xl hover:translate-y-[-4px]'
+                                                    ? '!border-primary shadow-xl shadow-primary/10'
+                                                    : 'hover:shadow-md hover:translate-y-[-4px]'
                                             }
                                         `}
                                     >

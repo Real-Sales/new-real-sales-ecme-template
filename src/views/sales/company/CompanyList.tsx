@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
+import { SURFACE_CARD_CLASSNAME } from '@/constants/surfaceCard.constant'
 import { useNavigate } from 'react-router-dom'
 import { Card, Button, Badge, Drawer, toast, Notification } from '@/components/ui'
 import Container from '@/components/shared/Container'
@@ -44,7 +45,7 @@ type StatsCardProps = {
 
 const StatsCard = ({ icon, value, label }: StatsCardProps) => {
     return (
-        <Card className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 shadow-md hover:shadow-xl transition-all duration-300"
+        <Card className={`${SURFACE_CARD_CLASSNAME} hover:shadow-md transition-shadow duration-300`}
             bodyClass="!p-4"
         >
             <div className="flex items-center gap-3">
@@ -94,7 +95,7 @@ const CompanyCard = ({
 }: CompanyCardProps) => {
     return (
         <Card
-            className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 shadow-md hover:shadow-xl transition-all duration-300 cursor-pointer overflow-hidden rounded-2xl relative"
+            className={`${SURFACE_CARD_CLASSNAME} hover:shadow-md transition-shadow duration-300 cursor-pointer overflow-hidden rounded-2xl relative`}
             bodyClass="!p-2"
             onClick={onClick}
             data-tour-id="division-card"

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { SURFACE_INNER_TILE_CLASSNAME } from '@/constants/surfaceCard.constant'
 import Drawer from '@/components/ui/Drawer'
 import Avatar from '@/components/ui/Avatar'
 import Button from '@/components/ui/Button'
@@ -75,7 +76,7 @@ const AccordionItem = ({
     }
 
     return (
-        <div className={`border-l-4 ${borderColor} border-t border-t-gray-200 dark:border-t-gray-700 border-b border-b-gray-200 dark:border-b-gray-700 border-r border-r-gray-200 dark:border-r-gray-700 rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-all bg-gray-50 dark:bg-gray-800/50`}>
+        <div className={`border-l-4 ${borderColor} ${SURFACE_INNER_TILE_CLASSNAME} overflow-hidden shadow-sm hover:shadow-md transition-all`}>
             <button
                 className="w-full flex items-center justify-between p-4 hover:opacity-90 transition-all cursor-pointer"
                 onClick={() => setIsOpen(!isOpen)}
@@ -269,7 +270,7 @@ const ScenarioUsersDrawer = ({ isOpen, onClose, scenario, users, onUnassignScena
                         <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                             Complete information about this scenario
                         </p>
-                        <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                        <div className={`${SURFACE_INNER_TILE_CLASSNAME} p-4`}>
                             <ScenarioDetail scenario={scenario} />
                         </div>
                     </div>

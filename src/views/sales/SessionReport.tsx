@@ -4,6 +4,10 @@ import type { ReactNode } from 'react'
 import Container from '@/components/shared/Container'
 import Loading from '@/components/shared/Loading'
 import Card from '@/components/ui/Card'
+import {
+    SURFACE_CARD_CLASSNAME,
+    SURFACE_INNER_TILE_CLASSNAME,
+} from '@/constants/surfaceCard.constant'
 import Button from '@/components/ui/Button'
 import { TbArrowLeft, TbArrowRight, TbDownload, TbRefresh } from 'react-icons/tb'
 import toast from '@/components/ui/toast'
@@ -365,7 +369,7 @@ const SessionReport = () => {
                 </div>
 
                 {state.status === 'loading' && (
-                    <Card>
+                    <Card className={SURFACE_CARD_CLASSNAME}>
                         <div className="py-16 flex flex-col items-center justify-center gap-3">
                             <Loading
                                 loading
@@ -380,7 +384,7 @@ const SessionReport = () => {
                 )}
 
                 {state.status === 'error' && (
-                    <Card>
+                    <Card className={SURFACE_CARD_CLASSNAME}>
                         <div className="py-12 px-6 flex flex-col items-center justify-center gap-3 text-center">
                             <p className="text-sm text-gray-700 dark:text-gray-200">
                                 {state.message}
@@ -402,7 +406,7 @@ const SessionReport = () => {
                 {state.status === 'ready' && (
                     <div className="flex flex-col gap-6">
                         {typeof overall === 'number' && (
-                            <Card bodyClass="!p-6">
+                            <Card className={SURFACE_CARD_CLASSNAME} bodyClass="!p-6">
                                 <div className="flex items-center justify-between flex-wrap gap-4">
                                     <div>
                                         <p className="text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400">
@@ -437,7 +441,7 @@ const SessionReport = () => {
                         )}
 
                         {categoryRows.length > 0 && (
-                            <Card bodyClass="!p-6">
+                            <Card className={SURFACE_CARD_CLASSNAME} bodyClass="!p-6">
                                 <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-4">
                                     Skill Breakdown
                                 </h2>
@@ -445,7 +449,7 @@ const SessionReport = () => {
                                     {categoryRows.map((m) => (
                                         <div
                                             key={m.key}
-                                            className="flex flex-col gap-2 p-4 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/40"
+                                            className={`flex flex-col gap-2 p-4 ${SURFACE_INNER_TILE_CLASSNAME}`}
                                         >
                                             <div className="flex items-center justify-between gap-2">
                                                 <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
@@ -481,7 +485,7 @@ const SessionReport = () => {
                         )}
 
                         {hasCoachingContent && coaching && (
-                            <Card bodyClass="!p-6">
+                            <Card className={SURFACE_CARD_CLASSNAME} bodyClass="!p-6">
                                 <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-4">
                                     Coaching Summary
                                 </h2>
@@ -527,7 +531,7 @@ const SessionReport = () => {
                         )}
 
                         {scenarioEval ? (
-                            <Card bodyClass="!p-6">
+                            <Card className={SURFACE_CARD_CLASSNAME} bodyClass="!p-6">
                                 <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-3">
                                     Scenario Evaluation
                                 </h2>
@@ -538,7 +542,7 @@ const SessionReport = () => {
                         ) : null}
 
                         {session?.status === 'completed' && nextModeName && (
-                            <Card bodyClass="!p-6">
+                            <Card className={SURFACE_CARD_CLASSNAME} bodyClass="!p-6">
                                 <div className="flex items-center justify-between flex-wrap gap-4">
                                     <div>
                                         <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-1">

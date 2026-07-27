@@ -59,8 +59,13 @@ const buildDivisionOptions = (
     const divisions = [
         ...new Set(
             scenarios
-                .map((s) => getDivisionName?.(s)?.trim() || '')
-                .filter(Boolean),
+                .map(
+                    (s) =>
+                        getDivisionName?.(s)?.trim() ||
+                        s.sales_division_name?.trim() ||
+                        '',
+                )
+                .filter((name) => name && name !== '—'),
         ),
     ].sort() as string[]
     return [

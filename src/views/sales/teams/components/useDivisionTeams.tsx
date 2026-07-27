@@ -14,6 +14,7 @@ import teamsReducer, {
     fetchTeams,
     resetNotification,
 } from '@/store/slices/teams'
+import dayjs from 'dayjs'
 
 // Idempotent — safe even if already injected elsewhere.
 injectReducer('teams', teamsReducer)
@@ -162,7 +163,15 @@ export const useDivisionTeams = ({
                 status: (team.team_average_score && team.team_average_score > 80
                     ? 'Stable'
                     : 'Focus') as 'Stable' | 'Focus' | 'New',
-                createdAt: 'Recently',
+                createdAt:
+                    team.members.length > 0
+                        ? `Created ${dayjs(
+                              team.members
+                                  .map((m) => m.created_at)
+                                  .filter(Boolean)
+                                  .sort()[0],
+                          ).format('MMM D, YYYY')}`
+                        : 'New team',
                 sales_division_id: team.sales_division_id,
                 manager_id: team.manager_id,
             }

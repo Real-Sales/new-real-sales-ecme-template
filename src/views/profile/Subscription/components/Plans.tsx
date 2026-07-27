@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { SURFACE_CARD_CLASSNAME } from '@/constants/surfaceCard.constant'
 import Button from '@/components/ui/Button'
 import Tag from '@/components/ui/Tag'
 import { useAppSelector, useAppDispatch } from '@/store/hook'
@@ -133,7 +134,7 @@ const Plans = ({
                     <div
                         key={plan.subscription_id}
                         className={classNames(
-                            'flex flex-col rounded-2xl border border-gray-200 bg-gray-100/80 p-6 dark:border-gray-700 dark:bg-gray-800/50',
+                            `flex flex-col border p-6 ${SURFACE_CARD_CLASSNAME}`,
                             plan.plan_type.toLowerCase() === 'manager' &&
                                 'ring-2 ring-primary/30',
                         )}
@@ -219,8 +220,18 @@ const Plans = ({
                         <div className="mt-auto pt-8">
                             <Button
                                 block
+                                variant={
+                                    isCurrentPlan || (!canPurchase && !isEnterprise)
+                                        ? 'default'
+                                        : 'solid'
+                                }
                                 disabled={isCurrentPlan || (!canPurchase && !isEnterprise)}
-                                className="h-11 border-0 bg-gray-900 font-semibold uppercase tracking-wide text-amber-400 hover:bg-gray-800 dark:bg-gray-950 dark:hover:bg-black"
+                                className={classNames(
+                                    'h-11 font-semibold uppercase tracking-wide border-none',
+                                    isCurrentPlan || (!canPurchase && !isEnterprise)
+                                        ? '!bg-gray-50 dark:!bg-gray-800/50 !border !border-gray-200 dark:!border-white/10 !text-gray-500 dark:!text-gray-400'
+                                        : '!bg-primary hover:!bg-primary-deep dark:!bg-primary dark:hover:!bg-primary-deep !text-white',
+                                )}
                                 onClick={() => handleChoosePlan(plan)}
                             >
                                 <span className="flex items-center justify-center gap-2">

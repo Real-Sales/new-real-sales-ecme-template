@@ -8,6 +8,7 @@ import {
     fetchMonthlyTrend,
 } from '@/store/slices/performance'
 import type { MonthlyTrend } from '@/services/PerformanceService'
+import { SURFACE_CARD_CLASSNAME } from '@/constants/surfaceCard.constant'
 import dayjs from 'dayjs'
 
 const PerformanceLineChart = () => {
@@ -74,7 +75,7 @@ const PerformanceLineChart = () => {
     const colors = chartData.metrics.map((m) => m.color)
 
     return (
-        <Card className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 shadow-md">
+        <Card className={SURFACE_CARD_CLASSNAME}>
             {/* Header */}
             <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-3">

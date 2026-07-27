@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { SURFACE_INNER_TILE_CLASSNAME } from '@/constants/surfaceCard.constant'
 import Avatar from '@/components/ui/Avatar'
 import Badge from '@/components/ui/Badge'
 import Dialog from '@/components/ui/Dialog'
@@ -190,8 +191,14 @@ const ScenarioDetail = ({ scenario }: ScenarioDetailProps) => {
         ? Boolean(scenario.is_completed)
         : sessionStatusKey === 'completed'
 
-    const salesDivisionName = isLibraryScenario(scenario) && scenario.sales_division_id
-        ? divisionsData.find((d) => d.sales_division_id === scenario.sales_division_id)?.name
+    const salesDivisionName = isLibraryScenario(scenario)
+        ? scenario.sales_division_name?.trim() ||
+          (scenario.sales_division_id
+              ? divisionsData.find(
+                    (d) => d.sales_division_id === scenario.sales_division_id,
+                )?.name?.trim()
+              : null) ||
+          null
         : null
 
     return (
@@ -260,7 +267,7 @@ const ScenarioDetail = ({ scenario }: ScenarioDetailProps) => {
                             onClose={() => setPersonaPopupOpen(false)}
                             onRequestClose={() => setPersonaPopupOpen(false)}
                             width={560}
-                            contentClassName="!p-6 !rounded-xl !bg-gray-100 dark:!bg-gray-900 max-h-[min(85vh,720px)] overflow-y-auto"
+                            contentClassName="!p-6 !rounded-[1.5rem] !bg-white dark:!bg-gray-900/60 !border-gray-200 dark:!border-white/10 max-h-[min(85vh,720px)] overflow-y-auto"
                             overlayClassName="!bg-black/20 dark:!bg-gray-900/40 !backdrop-blur-md"
                             shouldFocusAfterRender={false}
                         >
@@ -285,7 +292,7 @@ const ScenarioDetail = ({ scenario }: ScenarioDetailProps) => {
             {scenario.scenario_text && (
                 <div>
                     <span className="font-semibold block mb-2">Scenario</span>
-                    <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
+                    <div className={`p-4 ${SURFACE_INNER_TILE_CLASSNAME}`}>
                         <p className="text-sm heading-text whitespace-pre-wrap leading-relaxed">
                             {scenario.scenario_text}
                         </p>
@@ -297,7 +304,7 @@ const ScenarioDetail = ({ scenario }: ScenarioDetailProps) => {
             {scenario.message && (
                 <div>
                     <span className="font-semibold block mb-2">Message</span>
-                    <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
+                    <div className={`p-4 ${SURFACE_INNER_TILE_CLASSNAME}`}>
                         <p className="text-sm heading-text whitespace-pre-wrap leading-relaxed">
                             {scenario.message}
                         </p>
@@ -309,7 +316,7 @@ const ScenarioDetail = ({ scenario }: ScenarioDetailProps) => {
             {(documentFilename || documentContent) && (
                 <div>
                     <span className="font-semibold block mb-2">Document</span>
-                    <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
+                    <div className={`p-4 ${SURFACE_INNER_TILE_CLASSNAME}`}>
                         {documentFilename && (
                             <div className="flex items-center gap-3 pb-3 mb-3 border-b border-gray-200 dark:border-gray-700">
                                 <div className="text-3xl shrink-0">

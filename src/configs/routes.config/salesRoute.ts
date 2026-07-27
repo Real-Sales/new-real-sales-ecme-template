@@ -114,12 +114,6 @@ const salesRoute: Routes = [
         authority: [],
     },
     {
-        key: 'companyGroup.feedback',
-        path: '/feedback',
-        component: lazy(() => import('@/views/sales/MyFeedback')),
-        authority: [],
-    },
-    {
         key: 'profile.settings',
         path: '/profile/settings',
         component: lazy(() => import('@/views/profile/Settings')),

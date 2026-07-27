@@ -22,10 +22,13 @@ import {
     useAppSelector,
     useAppDispatch,
     fetchScenarioAssignmentStatus,
+    invalidateAssignScenarioCache,
     markScenarioMemberAssigned,
     isAssignScenarioCacheFresh,
 } from '../store'
 import Tag from '@/components/ui/Tag'
+import { SEARCH_INPUT_CLASSNAME } from '@/constants/searchInput.constant'
+import { SURFACE_INNER_TILE_CLASSNAME } from '@/constants/surfaceCard.constant'
 
 type ProductOption = { value: string; label: string }
 
@@ -96,8 +99,25 @@ const ShareScenarioDialog = ({
 
         if (!scenarioId) return
 
+        const scenarioDivisionId = scenario?.sales_division_id ?? null
+        const cacheDivisionMismatch =
+            Boolean(cacheEntry?.salesDivisionId) &&
+            Boolean(scenarioDivisionId) &&
+            cacheEntry!.salesDivisionId !== scenarioDivisionId
+
+        if (cacheDivisionMismatch) {
+            dispatch(invalidateAssignScenarioCache(scenarioId))
+        }
+
         dispatch(fetchScenarioAssignmentStatus(scenarioId))
-    }, [dispatch, isOpen, resetDialogUiState, scenarioId])
+    }, [
+        cacheEntry?.salesDivisionId,
+        dispatch,
+        isOpen,
+        resetDialogUiState,
+        scenario?.sales_division_id,
+        scenarioId,
+    ])
 
     const productFilterOptions: ProductOption[] = useMemo(() => {
         const seen = new Map<string, string>()
@@ -231,7 +251,7 @@ const ShareScenarioDialog = ({
             isOpen={isOpen}
             onClose={onClose}
             onRequestClose={onClose}
-            contentClassName="mt-[8vh] max-w-lg"
+            contentClassName="mt-[8vh] max-w-lg !bg-white dark:!bg-gray-900/60 !border-gray-200 dark:!border-white/10"
         >
             <div className="text-center mb-6">
                 <h4 className="mb-1 text-2xl font-bold">Assign Scenario</h4>
@@ -261,8 +281,8 @@ const ShareScenarioDialog = ({
                     <div className="flex gap-2 mb-4">
                         <Input
                             ref={inputRef}
-                            className="flex-1 bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700"
-                            prefix={<TbSearch className="text-xl text-gray-400" />}
+                            className={`flex-1 ${SEARCH_INPUT_CLASSNAME}`}
+                            prefix={<TbSearch className="text-lg" />}
                             placeholder="Search team members..."
                             onChange={onSearch}
                         />
@@ -282,7 +302,7 @@ const ShareScenarioDialog = ({
                     </div>
 
                     {filterOpen && (
-                        <div className="mb-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 p-4">
+                        <div className={`mb-4 ${SURFACE_INNER_TILE_CLASSNAME} p-4`}>
                             <Form id={FILTER_FORM_ID} onSubmit={(e) => e.preventDefault()}>
                                 <FormItem label="Products">
                                     <Select<ProductOption, true>
@@ -339,7 +359,7 @@ const ShareScenarioDialog = ({
                             {memberList.map((member) => (
                                 <div
                                     key={member.userId}
-                                    className="py-3 px-4 mb-2 rounded-xl flex items-center justify-between hover:bg-gray-100 dark:hover:bg-gray-800/60 transition-colors"
+                                    className="py-3 px-4 mb-2 rounded-xl flex items-center justify-between hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
                                 >
                                     <div className="flex items-center gap-3 min-w-0">
                                         <Avatar
@@ -387,7 +407,7 @@ const ShareScenarioDialog = ({
                                             'font-semibold shrink-0 ml-2',
                                             member.canAssign
                                                 ? 'bg-primary hover:bg-primary-deep text-white'
-                                                : 'bg-gray-100 dark:bg-gray-700 text-gray-500',
+                                                : '!bg-gray-50 dark:!bg-gray-800/50 !border !border-gray-200 dark:!border-white/10 text-gray-500',
                                         )}
                                         onClick={() =>
                                             onAssignScenario(

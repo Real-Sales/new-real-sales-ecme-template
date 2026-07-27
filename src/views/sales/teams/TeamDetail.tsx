@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from 'react'
+import { SURFACE_CARD_CLASSNAME } from '@/constants/surfaceCard.constant'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Card, Button, Dialog, Progress, Spinner, toast, Notification } from '@/components/ui'
 import Container from '@/components/shared/Container'
@@ -229,7 +230,7 @@ const TeamDetail = () => {
 
                 {/* Team Performance Section */}
                 <Card
-                    className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 shadow-md hover:shadow-xl transition-all duration-300 mb-6"
+                    className={`${SURFACE_CARD_CLASSNAME} hover:shadow-md transition-shadow duration-300 mb-6`}
                     data-tour-id="team-performance"
                 >
                     <div className="p-2">
@@ -260,7 +261,7 @@ const TeamDetail = () => {
                 </div>
 
                 {/* Team Members Section */}
-                <Card className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 shadow-md hover:shadow-xl transition-all duration-300">
+                <Card className={`${SURFACE_CARD_CLASSNAME} hover:shadow-md transition-shadow duration-300`}>
                     <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
@@ -304,6 +305,7 @@ const TeamDetail = () => {
                 isOpen={dialogOpen}
                 onClose={onDialogClose}
                 onRequestClose={onDialogClose}
+                contentClassName="!bg-white dark:!bg-gray-900/60 !border-gray-200 dark:!border-white/10"
             >
                 <AddTeamMemberContent
                     salesCompanyId={data?.sales_company_id || ''}

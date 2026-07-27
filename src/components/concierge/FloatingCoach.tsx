@@ -23,6 +23,13 @@ const FloatingCoach = ({
     const [open, setOpen] = useState(false)
     const location = useLocation()
     const tip = contextTipFor(location.pathname)
+    const isOverviewPage =
+        location.pathname === '/overview' ||
+        location.pathname.startsWith('/overview/')
+
+    if (!isOverviewPage) {
+        return null
+    }
 
     return (
         <div className="fixed bottom-5 right-5 z-[60] sm:bottom-6 sm:right-6">

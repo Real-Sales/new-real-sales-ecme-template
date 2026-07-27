@@ -567,13 +567,19 @@ const scenarioLibrarySlice = createSlice({
                 }
                 pruneAssignScenarioCache(state.assignScenarioById)
 
-                // Keep library rows in sync so Edit can hydrate division without refetch.
-                if (action.payload.salesDivisionId) {
-                    const scenario = state.scenariosData.find(
-                        (row) => row.scenario_id === action.payload.scenarioId,
-                    )
-                    if (scenario && !scenario.sales_division_id) {
+                // Keep library rows in sync so Edit / Division column stay current.
+                const scenario = state.scenariosData.find(
+                    (row) => row.scenario_id === action.payload.scenarioId,
+                )
+                if (scenario) {
+                    if (action.payload.salesDivisionId && !scenario.sales_division_id) {
                         scenario.sales_division_id = action.payload.salesDivisionId
+                    }
+                    if (
+                        action.payload.salesDivisionName &&
+                        !scenario.sales_division_name
+                    ) {
+                        scenario.sales_division_name = action.payload.salesDivisionName
                     }
                 }
             })
@@ -594,6 +600,8 @@ const scenarioLibrarySlice = createSlice({
                         sales_division_id:
                             action.payload.sales_division_id ??
                             action.meta.arg.sales_division_id,
+                        sales_division_name:
+                            action.payload.sales_division_name ?? null,
                     },
                     ...state.scenariosData,
                 ]
@@ -615,15 +623,26 @@ const scenarioLibrarySlice = createSlice({
                 )
                 if (index > -1) {
                     const previous = state.scenariosData[index]
+                    const nextDivisionId =
+                        action.payload.sales_division_id ??
+                        action.meta.arg.payload.sales_division_id ??
+                        previous.sales_division_id
+                    const divisionChanged =
+                        Boolean(nextDivisionId) &&
+                        nextDivisionId !== previous.sales_division_id
                     state.scenariosData[index] = {
                         ...previous,
                         ...action.payload,
-                        sales_division_id:
-                            action.payload.sales_division_id ??
-                            action.meta.arg.payload.sales_division_id ??
-                            previous.sales_division_id,
+                        sales_division_id: nextDivisionId,
+                        sales_division_name:
+                            action.payload.sales_division_name ??
+                            (divisionChanged
+                                ? null
+                                : previous.sales_division_name ?? null),
                     }
                 }
+                // Assign dialog caches members by division — drop so next open refetches.
+                delete state.assignScenarioById[action.payload.scenario_id]
                 state.scenarioLibraryLoading = false
                 state.notification = { type: 'success', message: 'Scenario updated successfully!' }
             })

@@ -9,6 +9,7 @@ import toast from '@/components/ui/toast'
 import wildCardSearch from '@/utils/wildCardSearch'
 import classNames from '@/utils/classNames'
 import { TbSearch } from 'react-icons/tb'
+import { SEARCH_INPUT_CLASSNAME } from '@/constants/searchInput.constant'
 import debounce from 'lodash/debounce'
 import { apiGetCompanyUsers, apiAddTeamMember, apiDeleteTeamMember, apiGetCompanyTeamPerformance } from '@/services/TeamService'
 import type { CompanyUser } from '@/services/TeamService'
@@ -149,10 +150,10 @@ const AddTeamMemberContent = ({
             </div>
             <Input
                 ref={inputRef}
-                prefix={<TbSearch className="text-xl text-gray-400" />}
+                className={SEARCH_INPUT_CLASSNAME}
+                prefix={<TbSearch className="text-lg" />}
                 placeholder="Quick search member"
                 onChange={onSearch}
-                className="bg-gray-50 dark:bg-gray-800"
             />
             <div className="mt-6">
                 <p className="font-bold uppercase text-xs text-gray-500 mb-4 tracking-wider">
@@ -170,13 +171,17 @@ const AddTeamMemberContent = ({
                                 .map((member) => (
                                     <div
                                         key={member.id}
-                                        className="py-3 px-4 mb-2 rounded-xl flex items-center justify-between hover:bg-gray-100 dark:hover:bg-gray-800/60 transition-colors"
+                                        className="py-3 px-4 mb-2 rounded-xl flex items-center justify-between hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
                                     >
                                         <div className="flex items-center gap-3">
                                             {member.img ? (
                                                 <Avatar size={45} shape="circle" src={member.img} />
                                             ) : (
-                                                <Avatar size={45} shape="circle">
+                                                <Avatar
+                                                    size={45}
+                                                    shape="circle"
+                                                    className="bg-primary/10 text-primary"
+                                                >
                                                     {getInitials(member.name)}
                                                 </Avatar>
                                             )}
@@ -191,7 +196,7 @@ const AddTeamMemberContent = ({
                                         </div>
                                         <Button
                                             size="sm"
-                                            className="bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 font-semibold"
+                                            className="!bg-gray-50 dark:!bg-gray-800/50 !border !border-gray-200 dark:!border-white/10 hover:!bg-gray-100 dark:hover:!bg-gray-800 font-semibold"
                                             onClick={() => onAddMember(member)}
                                         >
                                             Add

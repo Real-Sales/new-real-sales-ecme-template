@@ -101,16 +101,6 @@ const salesNavigationConfig: NavigationTree[] = [
                 authority: MANAGER_ROLES,
                 subMenu: [],
             },
-            {
-                key: 'companyGroup.feedback',
-                path: '/feedback',
-                title: 'My Feedback',
-                translateKey: '',
-                icon: 'feedback',
-                type: NAV_ITEM_TYPE_ITEM,
-                authority: [],
-                subMenu: [],
-            },
         ],
     },
 ]

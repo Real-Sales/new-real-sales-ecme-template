@@ -1,4 +1,5 @@
 import { useCallback, useEffect } from 'react'
+import { SURFACE_CARD_CLASSNAME } from '@/constants/surfaceCard.constant'
 import axios from 'axios'
 import Card from '@/components/ui/Card'
 import Alert from '@/components/ui/Alert'
@@ -85,7 +86,7 @@ const Subscription = () => {
                 hasUserId={!!userId}
                 loading={userSubLoading}
             />
-            <Card className="mb-4 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
+            <Card className={`mb-4 ${SURFACE_CARD_CLASSNAME}`}>
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-8">
                     <h3>Subscription Plans</h3>
                     {canPurchase && <PaymentCycleToggle />}

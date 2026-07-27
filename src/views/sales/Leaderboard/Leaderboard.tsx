@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { SURFACE_CARD_CLASSNAME } from '@/constants/surfaceCard.constant'
 import { motion } from 'framer-motion'
 import {
     Card,
@@ -251,7 +252,7 @@ const Podium = ({ entries }: { entries: PodiumEntry[] }) => {
             : entries.slice().sort((a, b) => a.rank - b.rank)
 
     return (
-        <div className="rounded-2xl bg-gray-100/80 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 px-4 sm:px-8 pt-8 pb-0 overflow-hidden">
+        <div className={`${SURFACE_CARD_CLASSNAME} border px-4 sm:px-8 pt-8 pb-0 overflow-hidden`}>
             <div
                 className="flex items-end justify-center"
                 style={{ height: BAR_MAX_H + 180, gap: '50px' }}
@@ -285,10 +286,10 @@ const UserRow = ({
         initial={{ opacity: 0, y: 6 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay, duration: 0.25 }}
-        className={`flex items-center gap-3 px-3 sm:px-4 py-3 rounded-2xl border transition-all duration-200 ${
+        className={`flex items-center gap-3 px-3 sm:px-4 py-3 border transition-all duration-200 ${
             isMe
-                ? 'bg-primary/5 border-primary/25 ring-1 ring-primary/15'
-                : 'bg-gray-100/80 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 hover:border-primary/40 hover:shadow-sm'
+                ? `${SURFACE_CARD_CLASSNAME} !bg-primary/5 !border-primary/25 ring-1 ring-primary/15`
+                : `${SURFACE_CARD_CLASSNAME} hover:!border-primary/40 hover:shadow-sm`
         }`}
     >
         {/* Rank */}
@@ -381,7 +382,7 @@ const TeamRow = ({
         initial={{ opacity: 0, y: 6 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay, duration: 0.25 }}
-        className="flex items-center gap-3 px-3 sm:px-4 py-3 rounded-2xl border bg-gray-100/80 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 hover:border-primary/40 hover:shadow-sm transition-all duration-200"
+        className={`flex items-center gap-3 px-3 sm:px-4 py-3 border ${SURFACE_CARD_CLASSNAME} hover:!border-primary/40 hover:shadow-sm transition-all duration-200`}
     >
         <div className="w-8 shrink-0 flex items-center justify-center">
             <span className="text-xs font-bold text-gray-400 dark:text-gray-500">
@@ -448,7 +449,7 @@ const EmptyState = ({ message }: { message: string }) => (
 )
 
 const PodiumSkeleton = () => (
-    <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-gray-100/80 dark:bg-gray-800/50 px-8 pt-8 pb-0">
+    <div className={`${SURFACE_CARD_CLASSNAME} border px-8 pt-8 pb-0`}>
         <div className="flex items-end gap-6 justify-center" style={{ height: BAR_MAX_H + 120 }}>
             {[0.72, 1.0, 0.55].map((ratio, i) => (
                 <div key={i} className="flex-1 flex flex-col items-center justify-end gap-2">
@@ -470,7 +471,7 @@ const ListSkeleton = () => (
         {Array.from({ length: 4 }).map((_, i) => (
             <div
                 key={i}
-                className="flex items-center gap-3 px-4 py-3 rounded-2xl border border-gray-200 dark:border-gray-700"
+                className={`flex items-center gap-3 px-4 py-3 border ${SURFACE_CARD_CLASSNAME}`}
             >
                 <Skeleton className="w-6 h-4 rounded" />
                 <Skeleton variant="circle" className="w-9 h-9" />
@@ -663,7 +664,7 @@ const Leaderboard = () => {
 
                 {/* ── Main card ────────────────────────────────────── */}
                 <Card
-                    className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 shadow-sm"
+                    className={SURFACE_CARD_CLASSNAME}
                     bodyClass="!p-0"
                 >
                     {loading && !initialized ? (

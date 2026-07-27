@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from 'react'
+import { SURFACE_CARD_CLASSNAME } from '@/constants/surfaceCard.constant'
 import Card from '@/components/ui/Card'
 import Select from '@/components/ui/Select'
 import Chart from '@/components/shared/Chart'
@@ -118,7 +119,7 @@ const PerformanceChart = ({ teamId }: PerformanceChartProps) => {
         : []
 
     return (
-        <Card className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 shadow-md hover:shadow-xl transition-all duration-300">
+        <Card className={`${SURFACE_CARD_CLASSNAME} hover:shadow-md transition-shadow duration-300`}>
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
                 <div className="flex items-center gap-3">

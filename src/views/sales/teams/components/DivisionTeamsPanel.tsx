@@ -31,7 +31,7 @@ type DivisionTeamsPanelProps = {
     formRef: RefObject<HTMLFormElement | null>
 }
 
-/** Team card grid for a division's "Teams" tab — same card UI as the (removed) standalone Teams page, scoped to this division. Stats + the "Create Team" action live in the parent header, above the tabs. */
+/** Team card grid for a division's "Teams" tab. Create Team action lives in the parent, next to the tabs. */
 const DivisionTeamsPanel = ({
     companyId,
     divisionId,

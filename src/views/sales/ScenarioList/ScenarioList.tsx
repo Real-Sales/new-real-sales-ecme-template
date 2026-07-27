@@ -317,23 +317,13 @@ const ScenarioList = () => {
         navigate(`/sessions/${scenario.session_id}/report`)
     }
 
-    const getDivisionName = useCallback(
-        (scenario: Scenario) => {
-            const divisionId = resolveScenarioDivisionId(scenario, assignScenarioById)
-            if (!divisionId) {
-                return (
-                    assignScenarioById[scenario.scenario_id]?.salesDivisionName?.trim() ||
-                    ''
-                )
-            }
-            return (
-                divisionsData.find((d) => d.sales_division_id === divisionId)?.name?.trim() ||
-                assignScenarioById[scenario.scenario_id]?.salesDivisionName?.trim() ||
-                ''
-            )
-        },
-        [assignScenarioById, divisionsData],
-    )
+    const getDivisionName = useCallback((scenario: Scenario) => {
+        return (
+            scenario.sales_division_name?.trim() ||
+            assignScenarioById[scenario.scenario_id]?.salesDivisionName?.trim() ||
+            ''
+        )
+    }, [assignScenarioById])
 
     // Filter scenarios based on search and filters
     const filteredScenarios = useMemo(() => {

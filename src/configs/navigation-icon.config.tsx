@@ -12,7 +12,6 @@ import {
     PiTargetDuotone,
     PiUsersDuotone,
     PiBuildingsDuotone,
-    PiThumbsUpDuotone,
     PiBooksDuotone,
     PiUserCircleDuotone,
     PiTrophyDuotone,
@@ -33,7 +32,6 @@ const navigationIcon: NavigationIcons = {
     company: <PiBuildingsDuotone />,
     teams: <PiUsersDuotone />, // Reusing users icon for teams as well
     members: <PiUserCircleDuotone />,
-    feedback: <PiThumbsUpDuotone />,
     leaderboard: <PiTrophyDuotone />,
     singleMenu: <PiAcornDuotone />,
     collapseMenu: <PiArrowsInDuotone />,

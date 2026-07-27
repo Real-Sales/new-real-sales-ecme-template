@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Card, Badge, Spinner, Input, Button, toast, Notification } from '@/components/ui'
 import Container from '@/components/shared/Container'
 import Avatar from '@/components/ui/Avatar'
 import DataTable from '@/components/shared/DataTable'
-import { TbSearch, TbUsers, TbUserCheck } from 'react-icons/tb'
+import { TbSearch, TbUsers, TbUserCheck, TbUserPlus } from 'react-icons/tb'
 import { HiPencil } from 'react-icons/hi'
 import { injectReducer } from '@/store'
 import { useAppSelector as useAuthSelector } from '@/store/hook'
@@ -16,6 +17,7 @@ import companyMembersReducer, {
 } from './store'
 import salesDivisionsReducer, { resetSalesDivisionsData } from '@/store/slices/salesDivisions'
 import teamsReducer, { resetTeamsData } from '@/store/slices/teams'
+import { setCurrentView } from '@/views/profile/Settings/store/settingsSlice'
 import EditMemberDrawer from './components/EditMemberDrawer'
 import {
     formatMemberDivisions,
@@ -25,6 +27,9 @@ import {
 } from './types'
 import type { ColumnDef } from '@/components/shared/DataTable'
 import { canManageCompanyMembers } from './memberRoleAccess'
+import { canSendTeamInvite } from '@/utils/inviteAccess'
+import { SEARCH_INPUT_CLASSNAME } from '@/constants/searchInput.constant'
+import { SURFACE_CARD_CLASSNAME } from '@/constants/surfaceCard.constant'
 
 injectReducer('companyMembers', companyMembersReducer)
 injectReducer('salesDivisions', salesDivisionsReducer)
@@ -38,9 +43,11 @@ const formatRole = (role?: string) =>
 
 const MemberList = () => {
     const dispatch = useAppDispatch()
+    const navigate = useNavigate()
     const userId = useAuthSelector((state) => state.auth.user.userId)
     const userRole = useAuthSelector((state) => state.auth.user.role)
     const companyIdFromAuth = useAuthSelector((state) => state.auth.user.companyId)
+    const canInvite = canSendTeamInvite(userRole)
 
     const {
         membersData,
@@ -357,15 +364,31 @@ const MemberList = () => {
     return (
         <div className="min-h-full">
             <Container className="pb-6 px-4">
-                <div className="mb-6" data-tour-id="company-members-page">
-                    <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-                        Company Members
-                    </h1>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                        {companyName
-                            ? `All members in ${companyName}`
-                            : 'View everyone linked to your company'}
-                    </p>
+                <div className="mb-6 flex items-start justify-between gap-4" data-tour-id="company-members-page">
+                    <div className="min-w-0">
+                        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+                            Company Members
+                        </h1>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                            {companyName
+                                ? `All members in ${companyName}`
+                                : 'View everyone linked to your company'}
+                        </p>
+                    </div>
+                    {canInvite ? (
+                        <Button
+                            size="sm"
+                            variant="solid"
+                            icon={<TbUserPlus className="text-lg" />}
+                            className="shrink-0 bg-primary hover:bg-primary-deep text-neutral border-none rounded-md"
+                            onClick={() => {
+                                dispatch(setCurrentView('invites'))
+                                navigate('/profile/settings')
+                            }}
+                        >
+                            Invite Member
+                        </Button>
+                    ) : null}
                 </div>
 
                 {loading ? (
@@ -373,7 +396,7 @@ const MemberList = () => {
                         <Spinner size={40} />
                     </div>
                 ) : displayError ? (
-                    <Card className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
+                    <Card className={SURFACE_CARD_CLASSNAME}>
                         <p className="text-sm text-red-500 dark:text-red-400">
                             {displayError}
                         </p>
@@ -382,7 +405,7 @@ const MemberList = () => {
                     <>
                         <div className="grid grid-cols-2 gap-4 mb-6">
                             <Card
-                                className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 shadow-md"
+                                className={SURFACE_CARD_CLASSNAME}
                                 bodyClass="!p-4"
                             >
                                 <div className="flex items-center gap-3">
@@ -400,7 +423,7 @@ const MemberList = () => {
                                 </div>
                             </Card>
                             <Card
-                                className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 shadow-md"
+                                className={SURFACE_CARD_CLASSNAME}
                                 bodyClass="!p-4"
                             >
                                 <div className="flex items-center gap-3">
@@ -419,9 +442,10 @@ const MemberList = () => {
                             </Card>
                         </div>
 
-                        <Card className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 shadow-md">
+                        <Card className={SURFACE_CARD_CLASSNAME}>
                             <div className="mb-4">
                                 <Input
+                                    className={SEARCH_INPUT_CLASSNAME}
                                     prefix={<TbSearch className="text-lg" />}
                                     placeholder="Search by name, email, role, team, or division..."
                                     value={searchTerm}

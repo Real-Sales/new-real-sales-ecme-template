@@ -1,4 +1,8 @@
 import Card from '@/components/ui/Card'
+import {
+    SURFACE_CARD_CLASSNAME,
+    SURFACE_INNER_TILE_CLASSNAME,
+} from '@/constants/surfaceCard.constant'
 import Tag from '@/components/ui/Tag'
 import Alert from '@/components/ui/Alert'
 import { NumericFormat } from 'react-number-format'
@@ -59,7 +63,7 @@ const CurrentPlanUsage = ({
 }: CurrentPlanUsageProps) => {
     if (!hasUserId) {
         return (
-            <Card className="mb-6 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
+            <Card className={`mb-6 ${SURFACE_CARD_CLASSNAME}`}>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
                     Sign in to view your subscription and usage.
                 </p>
@@ -69,7 +73,7 @@ const CurrentPlanUsage = ({
 
     if (loading) {
         return (
-            <Card className="mb-6 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
+            <Card className={`mb-6 ${SURFACE_CARD_CLASSNAME}`}>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
                     Loading your subscription…
                 </p>
@@ -79,7 +83,7 @@ const CurrentPlanUsage = ({
 
     if (error) {
         return (
-            <Card className="mb-6 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
+            <Card className={`mb-6 ${SURFACE_CARD_CLASSNAME}`}>
                 <Alert showIcon type="danger">
                     {error}
                 </Alert>
@@ -89,7 +93,7 @@ const CurrentPlanUsage = ({
 
     if (!activeUserSubscription) {
         return (
-            <Card className="mb-6 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
+            <Card className={`mb-6 ${SURFACE_CARD_CLASSNAME}`}>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
                     No subscription is linked to your account yet.
                 </p>
@@ -100,7 +104,7 @@ const CurrentPlanUsage = ({
     const sub = activeUserSubscription.subscription
     if (!sub) {
         return (
-            <Card className="mb-6 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
+            <Card className={`mb-6 ${SURFACE_CARD_CLASSNAME}`}>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
                     Credit pool loaded, but plan details are unavailable.
                 </p>
@@ -139,7 +143,7 @@ const CurrentPlanUsage = ({
         : 'Your credits'
 
     return (
-        <Card className="mb-6 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
+        <Card className={`mb-6 ${SURFACE_CARD_CLASSNAME}`}>
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6">
                 <div className="flex items-center gap-4">
                     <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-primary/10">
@@ -176,7 +180,7 @@ const CurrentPlanUsage = ({
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-800/50">
+                <div className={`${SURFACE_INNER_TILE_CLASSNAME} p-4`}>
                     <div className="flex items-center gap-3 mb-3">
                         <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-blue-50 dark:bg-blue-500/10">
                             <TbMessageCircle className="text-lg text-blue-500" />
@@ -213,7 +217,7 @@ const CurrentPlanUsage = ({
                     </p>
                 </div>
 
-                <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-800/50">
+                <div className={`${SURFACE_INNER_TILE_CLASSNAME} p-4`}>
                     <div className="flex items-center gap-3 mb-3">
                         <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-amber-50 dark:bg-amber-500/10">
                             <TbCalendarEvent className="text-lg text-amber-500" />
@@ -230,7 +234,7 @@ const CurrentPlanUsage = ({
                     </p>
                 </div>
 
-                <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-800/50">
+                <div className={`${SURFACE_INNER_TILE_CLASSNAME} p-4`}>
                     <div className="flex items-center gap-3 mb-3">
                         <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-emerald-50 dark:bg-emerald-500/10">
                             <TbCreditCard className="text-lg text-emerald-500" />

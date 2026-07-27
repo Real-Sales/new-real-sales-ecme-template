@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { SURFACE_CARD_CLASSNAME } from '@/constants/surfaceCard.constant'
 import { Card, Button, Progress, Spinner, toast, Notification } from '@/components/ui'
 import DataTable from '@/components/shared/DataTable'
 import Avatar from '@/components/ui/Avatar'
@@ -6,7 +7,7 @@ import UserScenariosDrawer from './UserScenariosDrawer'
 import ScenarioUsersDrawer from './ScenarioUsersDrawer'
 import classNames from '@/utils/classNames'
 import { TbUsers, TbListDetails, TbChecks, TbClock, TbPercentage } from 'react-icons/tb'
-import { apiGetTeamScenariosDashboard, apiUnassignScenario, peekTeamScenariosDashboard, type TeamScenariosDashboardResponse } from '@/services/TeamService'
+import { apiGetTeamScenariosDashboard, apiUnassignScenario, invalidateTeamScenariosDashboardCache, peekTeamScenariosDashboard, type TeamScenariosDashboardResponse } from '@/services/TeamService'
 import { apiAdvanceScenario } from '@/services/ScenarioLibraryService'
 import type { ColumnDef } from '@/components/shared/DataTable'
 import { NumericFormat } from 'react-number-format'
@@ -212,18 +213,60 @@ const TeamScenariosSection = ({ teamId, teamMembers }: TeamScenariosSectionProps
     const handleUnassign = async (sessionId: string) => {
         try {
             await apiUnassignScenario(sessionId)
+
+            // Instant UI: drawer lists are snapshotted and won't update from `data` alone
+            setSelectedScenarioUsers((prev) =>
+                prev.filter((u) => u.sessionId !== sessionId),
+            )
+            setSelectedUserScenarios((prev) =>
+                prev.filter(
+                    (s) => (s.sessionId ?? s.session_id) !== sessionId,
+                ),
+            )
+            setData((prev) => {
+                if (!prev) return prev
+                const assigned_scenarios = prev.assigned_scenarios.filter(
+                    (s) => s.session_id !== sessionId,
+                )
+                const removed = prev.assigned_scenarios.find(
+                    (s) => s.session_id === sessionId,
+                )
+                const completed_count = Math.max(
+                    0,
+                    (prev.completed_count ?? 0) - (removed?.is_completed ? 1 : 0),
+                )
+                const total_assigned = assigned_scenarios.length
+                const pending_count = Math.max(0, total_assigned - completed_count)
+                return {
+                    ...prev,
+                    assigned_scenarios,
+                    total_assigned,
+                    completed_count,
+                    pending_count,
+                    completion_rate:
+                        total_assigned > 0
+                            ? Math.round((completed_count / total_assigned) * 100)
+                            : 0,
+                }
+            })
+
             toast.push(
                 <Notification title="Success" type="success">
-                    Scenario unassigned successfully
-                </Notification>
+                    Scenario Unassigned
+                </Notification>,
             )
-            fetchData(true)
+
+            // Reconcile cache in background without full-page loading spinner
+            invalidateTeamScenariosDashboardCache(teamId)
+            void apiGetTeamScenariosDashboard(teamId, { force: true })
+                .then(setData)
+                .catch(() => {})
         } catch (error) {
             console.error('Failed to unassign scenario:', error)
             toast.push(
                 <Notification title="Error" type="danger">
                     Failed to unassign scenario
-                </Notification>
+                </Notification>,
             )
         }
     }
@@ -465,7 +508,7 @@ const TeamScenariosSection = ({ teamId, teamMembers }: TeamScenariosSectionProps
 
     return (
         <>
-        <Card className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 shadow-md hover:shadow-xl transition-all duration-300 mt-6">
+        <Card className={`${SURFACE_CARD_CLASSNAME} hover:shadow-md transition-shadow duration-300 mt-6`}>
             {/* Header with Toggle */}
             <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-3">
@@ -500,7 +543,7 @@ const TeamScenariosSection = ({ teamId, teamMembers }: TeamScenariosSectionProps
 
             {/* Stats Cards */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                <Card className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 shadow-md hover:shadow-xl transition-all duration-300" bodyClass="!p-4">
+                <Card className={`${SURFACE_CARD_CLASSNAME} hover:shadow-md transition-shadow duration-300`} bodyClass="!p-4">
                     <div className="flex items-center gap-3">
                         <div className="bg-primary/10 rounded-xl p-2 text-primary">
                             <div className="text-3xl">
@@ -518,7 +561,7 @@ const TeamScenariosSection = ({ teamId, teamMembers }: TeamScenariosSectionProps
                     </div>
                 </Card>
 
-                <Card className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 shadow-md hover:shadow-xl transition-all duration-300" bodyClass="!p-4">
+                <Card className={`${SURFACE_CARD_CLASSNAME} hover:shadow-md transition-shadow duration-300`} bodyClass="!p-4">
                     <div className="flex items-center gap-3">
                         <div className="bg-green-500/10 rounded-xl p-2 text-green-600 dark:text-green-400">
                             <div className="text-3xl">
@@ -536,7 +579,7 @@ const TeamScenariosSection = ({ teamId, teamMembers }: TeamScenariosSectionProps
                     </div>
                 </Card>
 
-                <Card className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 shadow-md hover:shadow-xl transition-all duration-300" bodyClass="!p-4">
+                <Card className={`${SURFACE_CARD_CLASSNAME} hover:shadow-md transition-shadow duration-300`} bodyClass="!p-4">
                     <div className="flex items-center gap-3">
                         <div className="bg-blue-500/10 rounded-xl p-2 text-blue-600 dark:text-blue-400">
                             <div className="text-3xl">
@@ -554,7 +597,7 @@ const TeamScenariosSection = ({ teamId, teamMembers }: TeamScenariosSectionProps
                     </div>
                 </Card>
 
-                <Card className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 shadow-md hover:shadow-xl transition-all duration-300" bodyClass="!p-4">
+                <Card className={`${SURFACE_CARD_CLASSNAME} hover:shadow-md transition-shadow duration-300`} bodyClass="!p-4">
                     <div className="flex items-center gap-3">
                         <div className="bg-blue-500/10 rounded-xl p-2 text-blue-600 dark:text-blue-400">
                             <div className="text-3xl">

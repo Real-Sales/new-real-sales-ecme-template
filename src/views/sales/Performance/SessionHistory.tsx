@@ -26,6 +26,7 @@ import {
 import toast from '@/components/ui/toast'
 import Notification from '@/components/ui/Notification'
 import Tooltip from '@/components/ui/Tooltip'
+import { SURFACE_CARD_CLASSNAME } from '@/constants/surfaceCard.constant'
 
 type Option = {
     value: string
@@ -403,7 +404,7 @@ const SessionHistorySection = () => {
 
     return (
         <>
-        <Card className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 shadow-md">
+        <Card className={SURFACE_CARD_CLASSNAME}>
             {/* Section Heading */}
             <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-3">

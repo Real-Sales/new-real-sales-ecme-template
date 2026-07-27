@@ -13,6 +13,7 @@ import performanceReducer, {
     resetNotification,
 } from '@/store/slices/performance'
 import type { PerformanceReportResponse } from '@/services/PerformanceService'
+import { SURFACE_CARD_CLASSNAME } from '@/constants/surfaceCard.constant'
 
 // Inject reducer when component mounts (lazy-loaded)
 injectReducer('performance', performanceReducer)
@@ -27,7 +28,10 @@ type AnalyticsCardProps = {
 
 const AnalyticsCard = ({ icon, value, label, iconBg }: AnalyticsCardProps) => {
     return (
-        <Card className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 shadow-md hover:shadow-xl transition-all duration-300" bodyClass="!p-4">
+        <Card
+            className={`${SURFACE_CARD_CLASSNAME} hover:shadow-md transition-shadow duration-300`}
+            bodyClass="!p-4"
+        >
             <div className="flex items-center gap-3">
                 <div className="bg-primary/10 rounded-xl p-2 text-primary">
                     <div className="text-3xl">{icon}</div>

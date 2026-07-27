@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { SURFACE_CARD_CLASSNAME } from '@/constants/surfaceCard.constant'
 import Button from '@/components/ui/Button'
 import Tag from '@/components/ui/Tag'
 import Avatar from '@/components/ui/Avatar'
@@ -145,7 +146,7 @@ const SettingsBilling = () => {
                     {userSubError}
                 </Alert>
             ) : !activeUserSubscription || !subscription ? (
-                <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-6 border border-gray-200 dark:border-gray-700 mb-8">
+                <div className={`${SURFACE_CARD_CLASSNAME} border p-6 mb-8`}>
                     <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
                         No active subscription is linked to your account.
                     </p>
@@ -160,7 +161,7 @@ const SettingsBilling = () => {
                     )}
                 </div>
             ) : (
-                <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+                <div className={`${SURFACE_CARD_CLASSNAME} border p-6`}>
                     <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                         <div className="flex items-center gap-3">
                             <Avatar

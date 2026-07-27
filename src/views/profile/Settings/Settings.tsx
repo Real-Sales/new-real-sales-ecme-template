@@ -7,7 +7,6 @@ import { useAppSelector } from '@/store/hook'
 
 const Profile = lazy(() => import('./components/SettingsProfile'))
 const Security = lazy(() => import('./components/SettingsSecurity'))
-const Notification = lazy(() => import('./components/SettingsNotification'))
 const Billing = lazy(() => import('./components/SettingsBilling'))
 const Invites = lazy(() => import('./components/SettingsInvites'))
 
@@ -33,7 +32,6 @@ const Settings = () => {
                     <Suspense fallback={<></>}>
                         {currentView === 'profile' && <Profile />}
                         {currentView === 'security' && <Security />}
-                        {currentView === 'notification' && <Notification />}
                         {currentView === 'billing' && <Billing />}
                         {currentView === 'invites' && <Invites />}
                     </Suspense>

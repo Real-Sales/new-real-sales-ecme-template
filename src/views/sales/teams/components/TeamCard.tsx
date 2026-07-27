@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { Card, Button, Badge } from '@/components/ui'
 import { HiUserGroup, HiClock, HiPencil, HiTrash } from 'react-icons/hi'
+import { SURFACE_CARD_CLASSNAME } from '@/constants/surfaceCard.constant'
 
 export type TeamStatCardProps = {
     icon: React.ReactNode
@@ -11,7 +12,7 @@ export type TeamStatCardProps = {
 export const TeamStatCard = ({ icon, value, label }: TeamStatCardProps) => {
     return (
         <Card
-            className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 shadow-md hover:shadow-xl transition-all duration-300"
+            className={`${SURFACE_CARD_CLASSNAME} hover:shadow-md transition-shadow duration-300`}
             bodyClass="!p-4"
         >
             <div className="flex items-center gap-3">
@@ -34,7 +35,7 @@ export const TeamStatCard = ({ icon, value, label }: TeamStatCardProps) => {
 export type TeamCardProps = {
     id: string
     name: string
-    company: string
+    company?: string
     members: number
     avgScore: number
     sessions: number
@@ -49,7 +50,6 @@ export type TeamCardProps = {
 export const TeamCard = ({
     id,
     name,
-    company,
     members,
     avgScore,
     sessions,
@@ -67,7 +67,7 @@ export const TeamCard = ({
 
     return (
         <Card
-            className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 shadow-md hover:shadow-xl transition-all duration-300 cursor-pointer overflow-hidden rounded-2xl relative"
+            className={`${SURFACE_CARD_CLASSNAME} hover:shadow-md transition-shadow duration-300 cursor-pointer overflow-hidden relative`}
             bodyClass="!p-2"
             onClick={handleCardClick}
             data-tour-id="team-card"
@@ -146,9 +146,6 @@ export const TeamCard = ({
                     <h3 className="text-base font-bold text-gray-900 dark:text-white">
                         {name}
                     </h3>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {company}
-                    </p>
                 </div>
 
                 {/* Metrics */}

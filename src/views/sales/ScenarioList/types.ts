@@ -33,6 +33,8 @@ export type ScenarioLibraryMode = {
 export type ScenarioLibraryItem = {
     scenario_id: string
     sales_division_id?: string | null
+    /** Display name from GET /scenarios/library — null for older/system scenarios. */
+    sales_division_name?: string | null
     created_by: string
     creator_role: string
     persona: ScenarioLibraryPersona
@@ -225,6 +227,7 @@ export function mapSalesRepDashboardRowToScenario(
 
 export type ScenarioLibraryResponse = {
     scenarios: ScenarioLibraryItem[]
+    total_count?: number
 }
 
 // Alias for scenario library (API)

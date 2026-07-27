@@ -6,10 +6,18 @@ import Avatar from '@/components/ui/Avatar'
 import DataTable from '@/components/shared/DataTable'
 import AddDivisionMemberContent from './components/AddDivisionMemberContent'
 import DivisionTeamsPanel from '../teams/components/DivisionTeamsPanel'
-import { TeamStatCard } from '../teams/components/TeamCard'
 import { useDivisionTeams } from '../teams/components/useDivisionTeams'
-import { HiArrowLeft, HiUser, HiPlus } from 'react-icons/hi'
-import { TbSearch, TbUsers, TbUsersGroup, TbBuildingCommunity, TbUserPlus } from 'react-icons/tb'
+import { HiArrowLeft, HiPlus } from 'react-icons/hi'
+import {
+    TbSearch,
+    TbUsers,
+    TbUsersGroup,
+    TbBuildingCommunity,
+    TbUserPlus,
+    TbCategory,
+    TbTarget,
+    TbPackage,
+} from 'react-icons/tb'
 import {
     useAppSelector,
     useAppDispatch,
@@ -21,9 +29,14 @@ import teamsReducer from '@/store/slices/teams'
 import { useAppSelector as useAuthSelector } from '@/store/hook'
 import { injectReducer } from '@/store'
 import { formatDisplayLabel } from '@/utils/formatDisplayLabel'
+import { SEARCH_INPUT_CLASSNAME } from '@/constants/searchInput.constant'
 import Tag from '@/components/ui/Tag'
 import type { DivisionUser } from '@/services/SalesCompanyService'
 import type { ColumnDef } from '@/components/shared/DataTable'
+import {
+    SURFACE_CARD_CLASSNAME,
+    SURFACE_INNER_TILE_CLASSNAME,
+} from '@/constants/surfaceCard.constant'
 
 injectReducer('salesDivisions', salesDivisionsReducer)
 injectReducer('teams', teamsReducer)
@@ -96,6 +109,22 @@ const CompanyDetail = () => {
             name: formatDisplayLabel(p.name),
         }))
     }, [division, divisionFromList])
+
+    const categoryLabel = useMemo(
+        () =>
+            division?.division_category
+                ? formatDisplayLabel(division.division_category)
+                : '',
+        [division?.division_category],
+    )
+
+    const segmentLabel = useMemo(() => {
+        const raw =
+            division?.customer_segment?.name ||
+            divisionFromList?.customer_segment?.name ||
+            ''
+        return raw ? formatDisplayLabel(raw) : ''
+    }, [division?.customer_segment?.name, divisionFromList?.customer_segment?.name])
 
     const members = division ? deduplicateUsers(division.users) : []
     const isLoading = infoLoading && !division
@@ -273,15 +302,18 @@ const CompanyDetail = () => {
                     </div>
                 ) : (
                     <>
-                        {/* Division Header */}
-                        <div className="flex items-center justify-between gap-4 mb-6">
+                        {/* Division Header — identity only */}
+                        <Card
+                            className={`mb-6 ${SURFACE_CARD_CLASSNAME}`}
+                            bodyClass="!p-5"
+                        >
                             <div className="flex items-center gap-3 min-w-0">
-                                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0">
-                                    <TbBuildingCommunity className="text-xl" />
+                                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                                    <TbBuildingCommunity className="text-2xl" />
                                 </div>
                                 <div className="min-w-0">
                                     <div className="flex items-center gap-2 flex-wrap">
-                                        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                                        <h1 className="text-2xl font-bold text-gray-900 dark:text-white truncate">
                                             {division?.name}
                                         </h1>
                                         <Badge
@@ -293,11 +325,55 @@ const CompanyDetail = () => {
                                             content={division?.is_active ? 'Active' : 'Inactive'}
                                         />
                                     </div>
-                                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                                        {division?.division_category}
+                                    <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-gray-500 dark:text-gray-400">
+                                        <span className="inline-flex items-center gap-1">
+                                            <TbUsersGroup className="text-base" />
+                                            {teamCount} {teamCount === 1 ? 'team' : 'teams'}
+                                        </span>
+                                        <span className="text-gray-300 dark:text-gray-600">·</span>
+                                        <span className="inline-flex items-center gap-1">
+                                            <TbUsers className="text-base" />
+                                            {members.length}{' '}
+                                            {members.length === 1 ? 'member' : 'members'}
+                                        </span>
                                     </p>
+                                </div>
+                            </div>
+
+                            <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                                <div className={`${SURFACE_INNER_TILE_CLASSNAME} p-3.5`}>
+                                    <div className="mb-2 flex items-center gap-2 text-xs font-medium text-gray-500 dark:text-gray-400">
+                                        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                                            <TbCategory className="text-sm" />
+                                        </span>
+                                        Category
+                                    </div>
+                                    <p className="text-sm font-semibold text-gray-900 dark:text-white break-words">
+                                        {categoryLabel || '—'}
+                                    </p>
+                                </div>
+
+                                <div className={`${SURFACE_INNER_TILE_CLASSNAME} p-3.5`}>
+                                    <div className="mb-2 flex items-center gap-2 text-xs font-medium text-gray-500 dark:text-gray-400">
+                                        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                                            <TbTarget className="text-sm" />
+                                        </span>
+                                        Customer segment
+                                    </div>
+                                    <p className="text-sm font-semibold text-gray-900 dark:text-white break-words">
+                                        {segmentLabel || '—'}
+                                    </p>
+                                </div>
+
+                                <div className={`${SURFACE_INNER_TILE_CLASSNAME} p-3.5`}>
+                                    <div className="mb-2 flex items-center gap-2 text-xs font-medium text-gray-500 dark:text-gray-400">
+                                        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                                            <TbPackage className="text-sm" />
+                                        </span>
+                                        Products
+                                    </div>
                                     {divisionProducts.length > 0 ? (
-                                        <div className="mt-2 flex flex-wrap gap-1.5">
+                                        <div className="flex flex-wrap gap-1.5">
                                             {divisionProducts.map((product) => (
                                                 <Tag
                                                     key={product.id || product.name}
@@ -308,117 +384,69 @@ const CompanyDetail = () => {
                                             ))}
                                         </div>
                                     ) : (
-                                        <p className="mt-2 text-xs text-gray-400 dark:text-gray-500">
-                                            No products assigned
+                                        <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                                            —
                                         </p>
                                     )}
                                 </div>
                             </div>
-                            {activeTab === 'members' ? (
-                                <Button
-                                    variant="solid"
-                                    size="sm"
-                                    icon={<TbUserPlus />}
-                                    className="bg-primary hover:bg-primary-deep text-neutral border-none whitespace-nowrap rounded-md shrink-0"
-                                    onClick={openDialog}
-                                >
-                                    Add Members
-                                </Button>
-                            ) : (
-                                <Button
-                                    variant="solid"
-                                    size="sm"
-                                    icon={<HiPlus />}
-                                    className="bg-primary hover:bg-primary-deep text-neutral border-none whitespace-nowrap rounded-md shrink-0"
-                                    onClick={divisionTeams.openDrawer}
-                                >
-                                    Create Team
-                                </Button>
-                            )}
-                        </div>
+                        </Card>
 
-                        {/* Stats — reflect the active tab, shown above the tabs */}
-                        {activeTab === 'members' ? (
-                            <div className="grid grid-cols-2 gap-4 mb-6">
-                                <Card
-                                    className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 shadow-md"
-                                    bodyClass="!p-4"
-                                >
-                                    <div className="flex items-center gap-3">
-                                        <div className="bg-primary/10 rounded-xl p-2 text-primary text-3xl">
-                                            <TbUsers />
-                                        </div>
-                                        <div>
-                                            <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                                                {members.length}
-                                            </p>
-                                            <p className="text-xs text-gray-500 dark:text-gray-400">
-                                                Total Members
-                                            </p>
-                                        </div>
-                                    </div>
-                                </Card>
-                                <Card
-                                    className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 shadow-md"
-                                    bodyClass="!p-4"
-                                >
-                                    <div className="flex items-center gap-3">
-                                        <div className="bg-blue-500/10 rounded-xl p-2 text-blue-500 text-3xl">
-                                            <TbUsersGroup />
-                                        </div>
-                                        <div>
-                                            <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                                                {teamCount}
-                                            </p>
-                                            <p className="text-xs text-gray-500 dark:text-gray-400">
-                                                Teams
-                                            </p>
-                                        </div>
-                                    </div>
-                                </Card>
-                            </div>
-                        ) : (
-                            <div
-                                className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6"
-                                data-tour-id="division-team-performance"
-                            >
-                                {divisionTeams.stats.map((stat, index) => (
-                                    <TeamStatCard key={index} {...stat} />
-                                ))}
-                            </div>
-                        )}
-
-                        {/* Members / Teams tabs */}
+                        {/* Tabs + contextual action, then tab-scoped stats, then content */}
                         <Tabs
                             value={activeTab}
                             onChange={(val) =>
                                 setActiveTab(val === 'teams' ? 'teams' : 'members')
                             }
                         >
-                            <Tabs.TabList>
-                                <Tabs.TabNav value="teams">
-                                    <span className="flex items-center gap-1.5">
-                                        <TbUsersGroup className="text-sm" />
-                                        Teams
-                                        <span className="text-[10px] font-bold bg-primary/10 text-primary rounded-full px-1.5 py-0.5">
-                                            {teamCount}
+                            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                <Tabs.TabList className="mb-0">
+                                    <Tabs.TabNav value="teams">
+                                        <span className="flex items-center gap-1.5">
+                                            <TbUsersGroup className="text-sm" />
+                                            Teams
+                                            <span className="text-[10px] font-bold bg-primary/10 text-primary rounded-full px-1.5 py-0.5">
+                                                {teamCount}
+                                            </span>
                                         </span>
-                                    </span>
-                                </Tabs.TabNav>
-                                <Tabs.TabNav value="members">
-                                    <span className="flex items-center gap-1.5">
-                                        <TbUsers className="text-sm" />
-                                        Members
-                                        <span className="text-[10px] font-bold bg-primary/10 text-primary rounded-full px-1.5 py-0.5">
-                                            {members.length}
+                                    </Tabs.TabNav>
+                                    <Tabs.TabNav value="members">
+                                        <span className="flex items-center gap-1.5">
+                                            <TbUsers className="text-sm" />
+                                            Members
+                                            <span className="text-[10px] font-bold bg-primary/10 text-primary rounded-full px-1.5 py-0.5">
+                                                {members.length}
+                                            </span>
                                         </span>
-                                    </span>
-                                </Tabs.TabNav>
-                            </Tabs.TabList>
+                                    </Tabs.TabNav>
+                                </Tabs.TabList>
+
+                                {activeTab === 'members' ? (
+                                    <Button
+                                        variant="solid"
+                                        size="sm"
+                                        icon={<TbUserPlus />}
+                                        className="bg-primary hover:bg-primary-deep text-neutral border-none whitespace-nowrap rounded-md shrink-0 self-start sm:self-center"
+                                        onClick={openDialog}
+                                    >
+                                        Add Members
+                                    </Button>
+                                ) : (
+                                    <Button
+                                        variant="solid"
+                                        size="sm"
+                                        icon={<HiPlus />}
+                                        className="bg-primary hover:bg-primary-deep text-neutral border-none whitespace-nowrap rounded-md shrink-0 self-start sm:self-center"
+                                        onClick={divisionTeams.openDrawer}
+                                    >
+                                        Create Team
+                                    </Button>
+                                )}
+                            </div>
 
                             {/* ── Teams tab (default) ── */}
                             <Tabs.TabContent value="teams">
-                                <div className="pt-4" data-tour-id="division-teams-panel">
+                                <div data-tour-id="division-teams-panel">
                                     {companyId && id && (
                                         <DivisionTeamsPanel
                                             companyId={companyId}
@@ -448,54 +476,45 @@ const CompanyDetail = () => {
 
                             {/* ── Members tab ── */}
                             <Tabs.TabContent value="members">
-                                <div className="pt-4">
-                                    <Card
-                                        className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 shadow-md"
-                                        bodyClass="!p-5"
-                                    >
-                                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-5">
-                                            <div className="flex items-center gap-2">
-                                                <HiUser className="text-xl text-gray-500 dark:text-gray-400" />
-                                                <h2 className="text-lg font-bold text-gray-900 dark:text-white">
-                                                    Members ({members.length})
-                                                </h2>
-                                            </div>
-                                            <div className="w-full sm:w-64">
-                                                <Input
-                                                    prefix={<TbSearch className="text-gray-400" />}
-                                                    placeholder="Search by name, email or team..."
-                                                    value={searchTerm}
-                                                    onChange={(e) => {
-                                                        setSearchTerm(e.target.value)
-                                                        setCurrentPage(1)
-                                                    }}
-                                                    size="sm"
-                                                />
-                                            </div>
-                                        </div>
-
-                                        <DataTable
-                                            columns={columns}
-                                            data={paginatedData}
-                                            noData={filteredMembers.length === 0}
-                                            hoverable
-                                            pagingData={{
-                                                total: filteredMembers.length,
-                                                pageIndex: currentPage,
-                                                pageSize,
-                                            }}
-                                            onPaginationChange={(page) => setCurrentPage(page)}
-                                            onSelectChange={(val) => {
-                                                setPageSize(val)
+                                <Card
+                                    className={SURFACE_CARD_CLASSNAME}
+                                    bodyClass="!p-5"
+                                >
+                                    <div className="mb-5">
+                                        <Input
+                                            className={SEARCH_INPUT_CLASSNAME}
+                                            prefix={<TbSearch className="text-lg" />}
+                                            placeholder="Search by name, email or team..."
+                                            value={searchTerm}
+                                            onChange={(e) => {
+                                                setSearchTerm(e.target.value)
                                                 setCurrentPage(1)
                                             }}
-                                            onSort={({ key, order }) => {
-                                                setSortConfig({ key: String(key), order })
-                                                setCurrentPage(1)
-                                            }}
+                                            size="sm"
                                         />
-                                    </Card>
-                                </div>
+                                    </div>
+
+                                    <DataTable
+                                        columns={columns}
+                                        data={paginatedData}
+                                        noData={filteredMembers.length === 0}
+                                        hoverable
+                                        pagingData={{
+                                            total: filteredMembers.length,
+                                            pageIndex: currentPage,
+                                            pageSize,
+                                        }}
+                                        onPaginationChange={(page) => setCurrentPage(page)}
+                                        onSelectChange={(val) => {
+                                            setPageSize(val)
+                                            setCurrentPage(1)
+                                        }}
+                                        onSort={({ key, order }) => {
+                                            setSortConfig({ key: String(key), order })
+                                            setCurrentPage(1)
+                                        }}
+                                    />
+                                </Card>
                             </Tabs.TabContent>
                         </Tabs>
                     </>
@@ -506,6 +525,7 @@ const CompanyDetail = () => {
                 isOpen={dialogOpen}
                 onClose={onDialogClose}
                 onRequestClose={onDialogClose}
+                contentClassName="!bg-white dark:!bg-gray-900/60 !border-gray-200 dark:!border-white/10"
             >
                 {division && (
                     <AddDivisionMemberContent
