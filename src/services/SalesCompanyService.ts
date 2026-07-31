@@ -147,6 +147,8 @@ export async function apiDeleteSalesDivision(divisionId: string) {
 export type CompanyMemberTeam = {
     team_id: string
     team_name: string
+    /** Some API responses use company_team_id instead of team_id */
+    company_team_id?: string
     sales_division_id?: string | null
     sales_division_name?: string | null
 }
@@ -212,6 +214,12 @@ export type CompanyMemberResponse = {
     /** Primary division used for sessions / product context */
     sales_division_id?: string | null
     sales_division_name?: string | null
+    /** Direct division assignments (teams optional) */
+    sales_division_ids?: string[]
+    divisions?: Array<{
+        sales_division_id: string
+        sales_division_name: string
+    }>
     /** All team memberships */
     teams?: CompanyMemberTeam[]
     /** Credits this member consumed from the shared company pot */
@@ -239,9 +247,11 @@ export async function apiGetCompanyMembers(salesCompanyId: string) {
 
 export type CompanyMemberAssignmentUpdate = {
     role?: 'sales_person' | 'sales_manager'
-    /** Primary division for sessions; does not remove team memberships */
+    /** Full direct division list (replace). Empty array clears direct assignments. */
+    sales_division_ids?: string[]
+    /** Primary division for sessions / product context */
     sales_division_id?: string | null
-    /** Preferred: set exact teams (replace). Empty array clears all. */
+    /** Set exact teams (replace). Send together with `sales_division_ids`. */
     company_team_ids?: string[]
     /** Legacy single-team assign (still accepted by API) */
     company_team_id?: string | null

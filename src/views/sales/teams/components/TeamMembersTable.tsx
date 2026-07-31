@@ -21,6 +21,7 @@ type TeamMember = {
 type TeamMembersTableProps = {
     members: TeamMember[]
     onRemoveMember: (memberId: string) => void
+    removingMemberId?: string | null
     onRowClick: (member: TeamMember) => void
     pagingData?: {
         total: number
@@ -35,6 +36,7 @@ type TeamMembersTableProps = {
 const TeamMembersTable = ({ 
     members, 
     onRemoveMember,
+    removingMemberId = null,
     onRowClick,
     pagingData,
     onPaginationChange,
@@ -131,12 +133,15 @@ const TeamMembersTable = ({
                 enableSorting: false,
                 cell: (props) => {
                     const row = props.row.original
+                    const isRemoving = removingMemberId === row.id
                     return (
                         <div className="flex items-center gap-2">
                             <Tooltip title="Remove from team">
                                 <Button
                                     size="sm"
                                     variant="plain"
+                                    loading={isRemoving}
+                                    disabled={Boolean(removingMemberId)}
                                     icon={<TbTrash className="text-lg" />}
                                     className="hover:text-red-500"
                                     onClick={(e) => {
@@ -150,7 +155,7 @@ const TeamMembersTable = ({
                 },
             },
         ],
-        [onRemoveMember, onRowClick],
+        [onRemoveMember, onRowClick, removingMemberId],
     )
 
     return (

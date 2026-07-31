@@ -5,6 +5,11 @@ import type {
 
 export type { CompanyMemberTeam }
 
+export type MemberDivisionRef = {
+    sales_division_id: string
+    sales_division_name: string
+}
+
 export type CompanyMemberRow = {
     user_id: string
     first_name: string
@@ -16,6 +21,8 @@ export type CompanyMemberRow = {
     team_name?: string | null
     sales_division_id?: string | null
     sales_division_name?: string | null
+    sales_division_ids?: string[]
+    divisions?: MemberDivisionRef[]
     teams: CompanyMemberTeam[]
     credits_used: number
 }
@@ -26,7 +33,9 @@ export function getMemberTeamIds(member: {
     team_id?: string | null
 }): string[] {
     if (member.teams?.length) {
-        return member.teams.map((t) => t.team_id).filter(Boolean)
+        return member.teams
+            .map((t) => t.team_id || t.company_team_id)
+            .filter(Boolean) as string[]
     }
     return member.team_id ? [member.team_id] : []
 }
@@ -46,34 +55,131 @@ export type MemberDivisionChip = {
     isPrimary: boolean
 }
 
-/** Unique divisions from team memberships + primary (sessions) division. */
+/** Direct division assignments for API payloads / roster direct list. */
+export function getMemberDirectDivisionIds(
+    member: Pick<
+        CompanyMemberRow,
+        'sales_division_ids' | 'divisions' | 'sales_division_id'
+    >,
+): string[] {
+    if (member.sales_division_ids?.length) {
+        return member.sales_division_ids
+            .map((id) => id.trim())
+            .filter(Boolean)
+    }
+    if (member.divisions?.length) {
+        return member.divisions
+            .map((d) => d.sales_division_id.trim())
+            .filter(Boolean)
+    }
+    const primaryId = member.sales_division_id?.trim()
+    return primaryId ? [primaryId] : []
+}
+
+/** Division ids to pre-fill the edit form (direct, else inferred from teams). */
+export function getMemberEditDivisionIds(
+    member: Pick<
+        CompanyMemberRow,
+        | 'sales_division_ids'
+        | 'divisions'
+        | 'sales_division_id'
+        | 'teams'
+    >,
+): string[] {
+    const direct = getMemberDirectDivisionIds(member)
+    if (direct.length) return direct
+
+    const fromTeams = (member.teams ?? [])
+        .map((t) => t.sales_division_id?.trim())
+        .filter(Boolean) as string[]
+    return [...new Set(fromTeams)]
+}
+
+/** Map member team ids to company_team_id values used by the teams picker. */
+export function getMemberEditTeamIds(
+    member: Parameters<typeof getMemberTeamIds>[0],
+    companyTeams: Array<{ company_team_id: string; team_id?: string }>,
+): string[] {
+    const memberTeamIds = getMemberTeamIds(member)
+    if (!memberTeamIds.length) return []
+
+    return memberTeamIds.map((id) => {
+        const match = companyTeams.find(
+            (t) => t.company_team_id === id || t.team_id === id,
+        )
+        return match?.company_team_id ?? id
+    })
+}
+
+/** All division ids the member can access (direct + via teams). */
+export function getMemberDivisionIds(
+    member: Pick<
+        CompanyMemberRow,
+        | 'sales_division_ids'
+        | 'divisions'
+        | 'sales_division_id'
+        | 'teams'
+    >,
+): string[] {
+    const ids = new Set(getMemberDirectDivisionIds(member))
+    for (const team of member.teams ?? []) {
+        const id = team.sales_division_id?.trim()
+        if (id) ids.add(id)
+    }
+    return [...ids]
+}
+
+/** Unique divisions for roster display (direct + teams), with primary flagged. */
 export function getMemberDivisions(
     member: Pick<
         CompanyMemberRow,
-        'teams' | 'sales_division_id' | 'sales_division_name'
+        | 'teams'
+        | 'sales_division_id'
+        | 'sales_division_name'
+        | 'sales_division_ids'
+        | 'divisions'
     >,
 ): MemberDivisionChip[] {
     const byId = new Map<string, MemberDivisionChip>()
+    const primaryId = member.sales_division_id?.trim()
+
+    for (const division of member.divisions ?? []) {
+        const id = division.sales_division_id?.trim()
+        const name = division.sales_division_name?.trim()
+        if (!id || !name) continue
+        byId.set(id, { id, name, isPrimary: id === primaryId })
+    }
+
+    if (!byId.size) {
+        for (const id of getMemberDirectDivisionIds(member)) {
+            const name =
+                id === primaryId
+                    ? member.sales_division_name?.trim() || id
+                    : id
+            byId.set(id, { id, name, isPrimary: id === primaryId })
+        }
+    }
 
     for (const team of member.teams ?? []) {
         const id = team.sales_division_id?.trim()
         const name = team.sales_division_name?.trim()
         if (!id || !name) continue
-        if (!byId.has(id)) {
-            byId.set(id, { id, name, isPrimary: false })
+        const existing = byId.get(id)
+        if (existing) {
+            if (id === primaryId) existing.isPrimary = true
+        } else {
+            byId.set(id, { id, name, isPrimary: id === primaryId })
         }
     }
 
-    const primaryId = member.sales_division_id?.trim()
-    const primaryName = member.sales_division_name?.trim()
-    if (primaryId && primaryName) {
+    if (primaryId && member.sales_division_name?.trim()) {
         const existing = byId.get(primaryId)
         if (existing) {
             existing.isPrimary = true
         } else {
             byId.set(primaryId, {
                 id: primaryId,
-                name: primaryName,
+                name: member.sales_division_name.trim(),
                 isPrimary: true,
             })
         }
@@ -88,26 +194,16 @@ export function getMemberDivisions(
 export function formatMemberDivisions(
     member: Pick<
         CompanyMemberRow,
-        'teams' | 'sales_division_id' | 'sales_division_name'
+        | 'teams'
+        | 'sales_division_id'
+        | 'sales_division_name'
+        | 'sales_division_ids'
+        | 'divisions'
     >,
 ): string {
     return getMemberDivisions(member)
         .map((d) => d.name)
         .join(', ')
-}
-
-export function getMemberDivisionIds(
-    member: Pick<
-        CompanyMemberRow,
-        'teams' | 'sales_division_id'
-    >,
-): string[] {
-    const ids = new Set<string>()
-    for (const team of member.teams ?? []) {
-        if (team.sales_division_id) ids.add(team.sales_division_id)
-    }
-    if (member.sales_division_id) ids.add(member.sales_division_id)
-    return [...ids]
 }
 
 function sameIds(a: string[], b: string[]): boolean {
@@ -120,15 +216,19 @@ function sameIds(a: string[], b: string[]): boolean {
 export function memberTeamIdsChanged(
     member: Parameters<typeof getMemberTeamIds>[0],
     selectedTeamIds: string[],
+    companyTeams?: Array<{ company_team_id: string; team_id?: string }>,
 ): boolean {
-    return !sameIds(getMemberTeamIds(member), selectedTeamIds)
+    const baseline = companyTeams?.length
+        ? getMemberEditTeamIds(member, companyTeams)
+        : getMemberTeamIds(member)
+    return !sameIds(baseline, selectedTeamIds)
 }
 
 export function memberDivisionIdsChanged(
-    member: Parameters<typeof getMemberDivisionIds>[0],
+    member: Parameters<typeof getMemberEditDivisionIds>[0],
     selectedDivisionIds: string[],
 ): boolean {
-    return !sameIds(getMemberDivisionIds(member), selectedDivisionIds)
+    return !sameIds(getMemberEditDivisionIds(member), selectedDivisionIds)
 }
 
 export function mapCompanyMember(member: CompanyMemberResponse): CompanyMemberRow {
@@ -157,6 +257,8 @@ export function mapCompanyMember(member: CompanyMemberResponse): CompanyMemberRo
         team_name: member.team_name ?? teams[0]?.team_name ?? null,
         sales_division_id: member.sales_division_id,
         sales_division_name: member.sales_division_name,
+        sales_division_ids: member.sales_division_ids,
+        divisions: member.divisions,
         teams,
         credits_used: Number(member.credits_used ?? 0),
     }

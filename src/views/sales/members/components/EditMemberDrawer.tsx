@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ComponentProps } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps } from 'react'
 import {
     Button,
     Drawer,
@@ -13,16 +13,15 @@ import {
 import { Option as SelectOptionComponent } from '@/components/ui/Select'
 import classNames from '@/utils/classNames'
 import ConfirmDialog from '@/components/shared/ConfirmDialog'
+import { useAppDispatch, useAppSelector } from '@/store/hook'
+import { fetchSalesDivisions } from '@/store/slices/salesDivisions'
+import { fetchTeams } from '@/store/slices/teams'
 import {
     apiAssignCompanyMember,
-    apiGetSalesDivisions,
     type CompanyMemberAssignmentUpdate,
 } from '@/services/SalesCompanyService'
 import type { SalesDivisionResponse } from '@/services/SalesCompanyService'
-import {
-    apiGetCompanyTeamsBySalesCompany,
-    type CompanyTeamListItem,
-} from '@/services/TeamService'
+import type { CompanyTeamListItem } from '@/services/TeamService'
 import {
     ASSIGNABLE_MEMBER_ROLES,
     canChangeMemberRole,
@@ -32,8 +31,8 @@ import {
     type AssignableMemberRole,
 } from '../memberRoleAccess'
 import {
-    getMemberDivisionIds,
-    getMemberTeamIds,
+    getMemberEditDivisionIds,
+    getMemberEditTeamIds,
     mapCompanyMember,
     memberDivisionIdsChanged,
     memberTeamIdsChanged,
@@ -79,17 +78,57 @@ const EditMemberDrawer = ({
     onClose,
     onUpdated,
 }: EditMemberDrawerProps) => {
-    const [divisions, setDivisions] = useState<SalesDivisionResponse[]>([])
-    const [teams, setTeams] = useState<CompanyTeamListItem[]>([])
-    const [loading, setLoading] = useState(false)
+    const dispatch = useAppDispatch()
+    const {
+        divisionsData,
+        divisionsInitialized,
+        divisionsLoading,
+        divisionsError,
+    } = useAppSelector((state) => ({
+        divisionsData: state.salesDivisions?.data?.divisionsData ?? [],
+        divisionsInitialized: state.salesDivisions?.data?.initialized ?? false,
+        divisionsLoading: state.salesDivisions?.data?.divisionsLoading ?? false,
+        divisionsError: state.salesDivisions?.data?.error ?? null,
+    }))
+    const {
+        teamsData,
+        teamsInitialized,
+        teamsLoading,
+        teamsError,
+    } = useAppSelector((state) => ({
+        teamsData: state.teams?.data?.teamsData ?? [],
+        teamsInitialized: state.teams?.data?.initialized ?? false,
+        teamsLoading: state.teams?.data?.teamsLoading ?? false,
+        teamsError: state.teams?.data?.error ?? null,
+    }))
+
+    const divisions = divisionsData as SalesDivisionResponse[]
+    const teams = useMemo<CompanyTeamListItem[]>(
+        () =>
+            teamsData.map((team) => ({
+                company_team_id: team.company_team_id,
+                name: team.name,
+                sales_company_id: team.sales_company_id,
+                sales_division_id: team.sales_division_id,
+                sales_division_name: team.sales_division_name,
+                manager_id: team.manager_id,
+            })),
+        [teamsData],
+    )
+
     const [saving, setSaving] = useState(false)
-    const [error, setError] = useState<string | null>(null)
+    const prefilledMemberIdRef = useRef<string | null>(null)
 
     const [statusActive, setStatusActive] = useState(true)
     const [selectedDivisionIds, setSelectedDivisionIds] = useState<string[]>([])
     const [selectedTeamIds, setSelectedTeamIds] = useState<string[]>([])
     const [selectedRole, setSelectedRole] = useState<AssignableMemberRole | null>(null)
     const [divisionChangeConfirmOpen, setDivisionChangeConfirmOpen] = useState(false)
+
+    const referenceLoading =
+        (!divisionsInitialized && divisionsLoading) ||
+        (!teamsInitialized && teamsLoading)
+    const referenceError = divisionsError || teamsError
 
     const canChangeRole = canChangeMemberRole(
         currentUserRole,
@@ -100,49 +139,57 @@ const EditMemberDrawer = ({
         ? isMemberRoleEditable(member, companyManagerId, currentUserId, canChangeRole)
         : false
 
+    const applyMemberToForm = useCallback(
+        (nextMember: CompanyMemberRow) => {
+            setStatusActive(nextMember.status_active)
+            setSelectedDivisionIds(getMemberEditDivisionIds(nextMember))
+            setSelectedTeamIds(getMemberEditTeamIds(nextMember, teams))
+            setDivisionChangeConfirmOpen(false)
+            const roleName = getMemberRoleName(nextMember)
+            setSelectedRole(
+                roleName === 'sales_person' || roleName === 'sales_manager'
+                    ? roleName
+                    : null,
+            )
+        },
+        [teams],
+    )
+
     useEffect(() => {
         if (!isOpen || !salesCompanyId) return
-
-        let cancelled = false
-        const loadData = async () => {
-            setLoading(true)
-            setError(null)
-            try {
-                const [divisionsData, teamsData] = await Promise.all([
-                    apiGetSalesDivisions(salesCompanyId),
-                    apiGetCompanyTeamsBySalesCompany(salesCompanyId),
-                ])
-                if (cancelled) return
-                setDivisions(divisionsData ?? [])
-                setTeams(teamsData ?? [])
-            } catch (err) {
-                if (cancelled) return
-                console.error('Failed to load divisions/teams', err)
-                setError('Failed to load divisions and teams.')
-            } finally {
-                if (!cancelled) setLoading(false)
-            }
+        if (!divisionsInitialized && !divisionsLoading) {
+            dispatch(fetchSalesDivisions(salesCompanyId))
         }
-
-        loadData()
-        return () => {
-            cancelled = true
+        if (!teamsInitialized && !teamsLoading) {
+            dispatch(fetchTeams(salesCompanyId))
         }
-    }, [isOpen, salesCompanyId])
+    }, [
+        dispatch,
+        isOpen,
+        salesCompanyId,
+        divisionsInitialized,
+        divisionsLoading,
+        teamsInitialized,
+        teamsLoading,
+    ])
 
     useEffect(() => {
-        if (!isOpen || !member) return
-        setStatusActive(member.status_active)
-        setSelectedDivisionIds(getMemberDivisionIds(member))
-        setSelectedTeamIds(getMemberTeamIds(member))
-        setDivisionChangeConfirmOpen(false)
-        const roleName = getMemberRoleName(member)
-        setSelectedRole(
-            roleName === 'sales_person' || roleName === 'sales_manager'
-                ? roleName
-                : null,
-        )
-    }, [isOpen, member])
+        if (!isOpen) {
+            prefilledMemberIdRef.current = null
+            return
+        }
+        if (!member || !divisionsInitialized || !teamsInitialized) return
+        if (prefilledMemberIdRef.current === member.user_id) return
+
+        applyMemberToForm(member)
+        prefilledMemberIdRef.current = member.user_id
+    }, [
+        isOpen,
+        member,
+        divisionsInitialized,
+        teamsInitialized,
+        applyMemberToForm,
+    ])
 
     const teamsByDivisionId = useMemo(() => {
         const map = new Map<string, CompanyTeamListItem[]>()
@@ -264,7 +311,7 @@ const EditMemberDrawer = ({
             statusActive !== member.status_active ||
             memberDivisionIdsChanged(member, selectedDivisionIds) ||
             resolvedSessionDivisionId !== (member.sales_division_id ?? null) ||
-            memberTeamIdsChanged(member, selectedTeamIds) ||
+            memberTeamIdsChanged(member, selectedTeamIds, teams) ||
             roleChanged
         )
     }, [
@@ -275,9 +322,10 @@ const EditMemberDrawer = ({
         selectedTeamIds,
         selectedRole,
         roleEditable,
+        teams,
     ])
 
-    const canSave = isDirty && !saving && !loading
+    const canSave = isDirty && !saving && !referenceLoading
 
     const previousDivisionId = member?.sales_division_id ?? null
     // Warn only when the previous primary is removed from the member entirely.
@@ -290,35 +338,43 @@ const EditMemberDrawer = ({
     const buildPayload = (): CompanyMemberAssignmentUpdate | null => {
         if (!member) return null
 
-        const payload: CompanyMemberAssignmentUpdate = {}
-        const teamsChanged = memberTeamIdsChanged(member, selectedTeamIds)
+        const teamsChanged = memberTeamIdsChanged(
+            member,
+            selectedTeamIds,
+            teams,
+        )
         const divisionsChanged = memberDivisionIdsChanged(
             member,
             selectedDivisionIds,
         )
         const primaryChanged =
             resolvedSessionDivisionId !== (member.sales_division_id ?? null)
+        const assignmentChanged =
+            teamsChanged || divisionsChanged || primaryChanged
+        const statusChanged = statusActive !== member.status_active
+        const roleChanged =
+            roleEditable &&
+            Boolean(selectedRole) &&
+            selectedRole !== getMemberRoleName(member)
 
-        if (statusActive !== member.status_active) {
+        if (!assignmentChanged && !statusChanged && !roleChanged) return null
+
+        // Backend expects the full assignment snapshot on save — always send
+        // sales_division_ids and company_team_ids together, not one without the other.
+        const payload: CompanyMemberAssignmentUpdate = {
+            sales_division_ids: selectedDivisionIds,
+            company_team_ids: selectedTeamIds,
+            sales_division_id: resolvedSessionDivisionId,
+        }
+
+        if (statusChanged) {
             payload.status_active = statusActive
         }
-        // Sync primary whenever teams/divisions change so a selected division
-        // with no teams is kept via sales_division_id instead of being dropped.
-        if (teamsChanged || divisionsChanged || primaryChanged) {
-            payload.sales_division_id = resolvedSessionDivisionId
-        }
-        if (teamsChanged) {
-            payload.company_team_ids = selectedTeamIds
-        }
-        if (
-            roleEditable &&
-            selectedRole &&
-            selectedRole !== getMemberRoleName(member)
-        ) {
+        if (roleChanged && selectedRole) {
             payload.role = selectedRole
         }
 
-        return Object.keys(payload).length > 0 ? payload : null
+        return payload
     }
 
     const persistChanges = async () => {
@@ -355,7 +411,7 @@ const EditMemberDrawer = ({
     }
 
     const handleSaveClick = () => {
-        if (!member || !salesCompanyId || !buildPayload()) return
+        if (!member || !salesCompanyId || !canSave || !buildPayload()) return
 
         if (isDivisionChanged) {
             setDivisionChangeConfirmOpen(true)
@@ -373,7 +429,7 @@ const EditMemberDrawer = ({
     if (!member) return null
 
     const fullName = `${member.first_name} ${member.last_name}`.trim()
-    const noDivisions = !loading && divisions.length === 0
+    const noDivisions = !referenceLoading && divisions.length === 0
 
     const drawerTitle = (
         <div>
@@ -421,12 +477,12 @@ const EditMemberDrawer = ({
             onRequestClose={onClose}
         >
             <div className="px-2 flex flex-col gap-6">
-                {loading ? (
+                {referenceLoading ? (
                     <div className="flex justify-center py-16">
                         <Spinner size={36} />
                     </div>
-                ) : error ? (
-                    <p className="text-sm text-red-500 py-4">{error}</p>
+                ) : referenceError ? (
+                    <p className="text-sm text-red-500 py-4">{referenceError}</p>
                 ) : (
                     <>
                         <div className="flex items-center justify-between">

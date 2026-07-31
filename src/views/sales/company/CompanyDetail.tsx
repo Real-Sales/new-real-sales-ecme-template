@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Card, Button, Badge, Spinner, Input, Dialog, Tabs } from '@/components/ui'
+import { Card, Button, Badge, Spinner, Input, Dialog, Tabs, Tooltip, toast, Notification } from '@/components/ui'
 import Container from '@/components/shared/Container'
 import Avatar from '@/components/ui/Avatar'
 import DataTable from '@/components/shared/DataTable'
@@ -14,6 +14,7 @@ import {
     TbUsersGroup,
     TbBuildingCommunity,
     TbUserPlus,
+    TbTrash,
     TbCategory,
     TbTarget,
     TbPackage,
@@ -23,11 +24,24 @@ import {
     useAppDispatch,
     fetchDivisionInfo,
     fetchSalesDivisions,
+    removeDivisionMemberLocally,
 } from '@/store/slices/salesDivisions'
 import salesDivisionsReducer from '@/store/slices/salesDivisions'
 import teamsReducer from '@/store/slices/teams'
 import { useAppSelector as useAuthSelector } from '@/store/hook'
 import { injectReducer } from '@/store'
+import store from '@/store'
+import companyMembersReducer from '@/views/sales/members/store'
+import {
+    apiAssignCompanyMember,
+    apiGetCompanyMembers,
+} from '@/services/SalesCompanyService'
+import {
+    getMemberDirectDivisionIds,
+    getMemberEditTeamIds,
+    mapCompanyMember,
+} from '@/views/sales/members/types'
+import { syncAfterDivisionMemberChange } from '@/utils/syncMemberAssignmentStores'
 import { formatDisplayLabel } from '@/utils/formatDisplayLabel'
 import { SEARCH_INPUT_CLASSNAME } from '@/constants/searchInput.constant'
 import Tag from '@/components/ui/Tag'
@@ -40,6 +54,7 @@ import {
 
 injectReducer('salesDivisions', salesDivisionsReducer)
 injectReducer('teams', teamsReducer)
+injectReducer('companyMembers', companyMembersReducer)
 
 const deduplicateUsers = (users: DivisionUser[]): DivisionUser[] => {
     const seen = new Set<string>()
@@ -64,9 +79,16 @@ const CompanyDetail = () => {
     const [dialogOpen, setDialogOpen] = useState(false)
     const [sortConfig, setSortConfig] = useState<{ key: string; order: 'asc' | 'desc' | '' }>({ key: '', order: '' })
     const [activeTab, setActiveTab] = useState<'members' | 'teams'>('teams')
+    const [removingMemberId, setRemovingMemberId] = useState<string | null>(null)
 
     const companyId = useAuthSelector((state) => state.auth.user.companyId)
     const userId = useAuthSelector((state) => state.auth.user.userId)
+    const companyMembers = useAuthSelector(
+        (state) => state.companyMembers?.data?.membersData ?? [],
+    )
+    const teamsData = useAuthSelector(
+        (state) => state.teams?.data?.teamsData ?? [],
+    )
 
     const {
         divisionsData,
@@ -171,9 +193,90 @@ const CompanyDetail = () => {
 
     const divisionMemberIds = members.map((m) => m.user_id)
 
-    const refreshDivision = () => {
-        if (id) {
-            dispatch(fetchDivisionInfo(id))
+    const refreshDivision = async () => {
+        if (!id) return
+        await syncAfterDivisionMemberChange(dispatch, () => store.getState(), {
+            divisionId: id,
+            salesCompanyId: division?.sales_company_id,
+            userId,
+            companyId: typeof companyId === 'string' ? companyId : undefined,
+        })
+    }
+
+    const resolveMemberForAssignment = async (memberUserId: string) => {
+        const cached = companyMembers.find((m) => m.user_id === memberUserId)
+        if (cached) return cached
+
+        if (!division?.sales_company_id) return null
+
+        const data = await apiGetCompanyMembers(division.sales_company_id)
+        const raw = data.members?.find((m) => m.user_id === memberUserId)
+        return raw ? mapCompanyMember(raw) : null
+    }
+
+    const handleRemoveMember = async (memberUserId: string) => {
+        if (!id || !division?.sales_company_id || removingMemberId) return
+
+        setRemovingMemberId(memberUserId)
+        try {
+            const member = await resolveMemberForAssignment(memberUserId)
+            if (!member) {
+                throw new Error('Member not found')
+            }
+
+            const divisionTeamIds = new Set(
+                teamsData
+                    .filter((t) => t.sales_division_id === id)
+                    .map((t) => t.company_team_id),
+            )
+            const nextDivisionIds = getMemberDirectDivisionIds(member).filter(
+                (divisionId) => divisionId !== id,
+            )
+            const nextTeamIds = getMemberEditTeamIds(member, teamsData).filter(
+                (teamId) => !divisionTeamIds.has(teamId),
+            )
+            const primaryWasRemoved = (member.sales_division_id ?? null) === id
+            const nextPrimary = primaryWasRemoved
+                ? nextDivisionIds[0] ?? null
+                : member.sales_division_id ?? nextDivisionIds[0] ?? null
+
+            await apiAssignCompanyMember(
+                division.sales_company_id,
+                memberUserId,
+                {
+                    sales_division_ids: nextDivisionIds,
+                    company_team_ids: nextTeamIds,
+                    sales_division_id: nextPrimary,
+                },
+            )
+
+            // Drop the row immediately; sync other slices in the background.
+            dispatch(
+                removeDivisionMemberLocally({
+                    divisionId: id,
+                    userId: memberUserId,
+                }),
+            )
+            setRemovingMemberId(null)
+            toast.push(
+                <Notification title="Success" type="success">
+                    Member removed from division successfully
+                </Notification>,
+            )
+            // Don't refetch this division list — optimistic update is source of truth.
+            void syncAfterDivisionMemberChange(dispatch, () => store.getState(), {
+                salesCompanyId: division.sales_company_id,
+                userId,
+                companyId: typeof companyId === 'string' ? companyId : undefined,
+            })
+        } catch (error) {
+            console.error('Failed to remove member from division:', error)
+            toast.push(
+                <Notification title="Error" type="danger">
+                    Failed to remove member from division
+                </Notification>,
+            )
+            setRemovingMemberId(null)
         }
     }
 
@@ -275,6 +378,28 @@ const CompanyDetail = () => {
                         }`}
                         content={row.status_active ? 'Active' : 'Inactive'}
                     />
+                )
+            },
+        },
+        {
+            header: 'Action',
+            id: 'action',
+            enableSorting: false,
+            cell: (props) => {
+                const row = props.row.original
+                const isRemoving = removingMemberId === row.user_id
+                return (
+                    <Tooltip title="Remove from division">
+                        <Button
+                            size="sm"
+                            variant="plain"
+                            loading={isRemoving}
+                            disabled={Boolean(removingMemberId)}
+                            icon={<TbTrash className="text-lg" />}
+                            className="hover:text-red-500"
+                            onClick={() => handleRemoveMember(row.user_id)}
+                        />
+                    </Tooltip>
                 )
             },
         },

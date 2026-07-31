@@ -75,6 +75,24 @@ export const fetchMySubscription = createAsyncThunk(
     },
 )
 
+/** Force-refresh credits/subscription (e.g. after a session completes). */
+export const refreshMySubscription = createAsyncThunk(
+    'subscription/refreshMySubscription',
+    async (_, { rejectWithValue }) => {
+        try {
+            return await apiGetMySubscription()
+        } catch (error: unknown) {
+            if (axios.isAxiosError(error) && error.response?.status === 404) {
+                return null
+            }
+            const detail =
+                (error as { response?: { data?: { detail?: string } } })?.response?.data
+                    ?.detail ?? 'Unable to load subscription.'
+            return rejectWithValue(detail)
+        }
+    },
+)
+
 export const fetchSubscriptionPlans = createAsyncThunk(
     'subscription/fetchSubscriptionPlans',
     async (billingCycle: 'monthly' | 'yearly', { rejectWithValue }) => {
@@ -136,6 +154,21 @@ const subscriptionSlice = createSlice({
                 state.userSubscriptionLoading = false
                 state.userSubscriptionInitialized = true
                 state.activeUserSubscription = null
+                state.userSubscriptionError =
+                    (action.payload as string) ?? 'Unable to load subscription.'
+            })
+            .addCase(refreshMySubscription.pending, (state) => {
+                state.userSubscriptionLoading = true
+                state.userSubscriptionError = null
+            })
+            .addCase(refreshMySubscription.fulfilled, (state, action) => {
+                state.userSubscriptionLoading = false
+                state.userSubscriptionInitialized = true
+                state.activeUserSubscription = action.payload
+            })
+            .addCase(refreshMySubscription.rejected, (state, action) => {
+                state.userSubscriptionLoading = false
+                state.userSubscriptionInitialized = true
                 state.userSubscriptionError =
                     (action.payload as string) ?? 'Unable to load subscription.'
             })

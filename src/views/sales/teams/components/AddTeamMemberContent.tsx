@@ -25,7 +25,7 @@ type Member = {
 type AddTeamMemberContentProps = {
     salesCompanyId: string
     companyTeamId: string
-    onUpdate: () => void
+    onUpdate: () => void | Promise<void>
     onClose: () => void
 }
 
@@ -42,6 +42,7 @@ const AddTeamMemberContent = ({
     const [memberList, setMemberList] = useState<Member[]>([])
     const [isLoading, setIsLoading] = useState(false)
     const [searchQuery, setSearchQuery] = useState('')
+    const [addingMemberId, setAddingMemberId] = useState<string | null>(null)
 
     const fetchData = async () => {
         if (!salesCompanyId || !companyTeamId) return
@@ -89,24 +90,28 @@ const AddTeamMemberContent = ({
     }
 
     const onAddMember = async (member: Member) => {
+        if (addingMemberId) return
+        setAddingMemberId(member.id)
         try {
             await apiAddTeamMember({
                 user_id: member.id,
                 company_team_id: companyTeamId
             })
             setTeamMemberIds([...teamMemberIds, member.id])
+            await onUpdate()
             toast.push(
                 <Notification title="Success" type="success">
                     {member.name} added to team
                 </Notification>
             )
-            onUpdate()
         } catch (error) {
             toast.push(
                 <Notification title="Error" type="danger">
                     Failed to add member
                 </Notification>
             )
+        } finally {
+            setAddingMemberId(null)
         }
     }
 
@@ -114,12 +119,12 @@ const AddTeamMemberContent = ({
         try {
             await apiDeleteTeamMember(member.id, companyTeamId)
             setTeamMemberIds(teamMemberIds.filter(id => id !== member.id))
+            await onUpdate()
             toast.push(
                 <Notification title="Success" type="success">
                     {member.name} removed from team
                 </Notification>
             )
-            onUpdate()
         } catch (error) {
             toast.push(
                 <Notification title="Error" type="danger">
@@ -196,6 +201,8 @@ const AddTeamMemberContent = ({
                                         </div>
                                         <Button
                                             size="sm"
+                                            loading={addingMemberId === member.id}
+                                            disabled={Boolean(addingMemberId)}
                                             className="!bg-gray-50 dark:!bg-gray-800/50 !border !border-gray-200 dark:!border-white/10 hover:!bg-gray-100 dark:hover:!bg-gray-800 font-semibold"
                                             onClick={() => onAddMember(member)}
                                         >

@@ -27,7 +27,7 @@ type AddDivisionMemberContentProps = {
     salesCompanyId: string
     salesDivisionId: string
     divisionMemberIds: string[]
-    onUpdate: () => void
+    onUpdate: () => void | Promise<void>
     onClose: () => void
 }
 
@@ -41,21 +41,41 @@ const AddDivisionMemberContent = ({
     const inputRef = useRef(null)
 
     const [allCompanyMembers, setAllCompanyMembers] = useState<Member[]>([])
+    const [memberAssignments, setMemberAssignments] = useState<
+        Record<string, { divisionIds: string[]; primaryDivisionId: string | null }>
+    >({})
     const [assignedMemberIds, setAssignedMemberIds] =
         useState<string[]>(divisionMemberIds)
     const [memberList, setMemberList] = useState<Member[]>([])
     const [isLoading, setIsLoading] = useState(false)
+    const [addingMemberId, setAddingMemberId] = useState<string | null>(null)
 
     const fetchData = async () => {
         if (!salesCompanyId) return
         setIsLoading(true)
         try {
             const data = await apiGetCompanyMembers(salesCompanyId)
-            const members = (data.members ?? []).map((user) => ({
-                id: user.user_id,
-                name: `${user.first_name} ${user.last_name}`,
-                email: user.email,
-            }))
+            const assignments: Record<
+                string,
+                { divisionIds: string[]; primaryDivisionId: string | null }
+            > = {}
+            const members = (data.members ?? []).map((user) => {
+                const divisionIds = user.sales_division_ids?.length
+                    ? user.sales_division_ids
+                    : user.sales_division_id
+                      ? [user.sales_division_id]
+                      : []
+                assignments[user.user_id] = {
+                    divisionIds,
+                    primaryDivisionId: user.sales_division_id?.trim() || null,
+                }
+                return {
+                    id: user.user_id,
+                    name: `${user.first_name} ${user.last_name}`,
+                    email: user.email,
+                }
+            })
+            setMemberAssignments(assignments)
             setAllCompanyMembers(members)
             setMemberList(members)
             setAssignedMemberIds(divisionMemberIds)
@@ -88,17 +108,35 @@ const AddDivisionMemberContent = ({
     const isExistingMember = (id: string) => assignedMemberIds.includes(id)
 
     const onAddMember = async (member: Member) => {
+        if (addingMemberId) return
+        setAddingMemberId(member.id)
         try {
+            const existing = memberAssignments[member.id]
+            const existingDivisionIds = existing?.divisionIds ?? []
+            const nextDivisionIds = [
+                ...new Set([...existingDivisionIds, salesDivisionId]),
+            ]
+
             await apiAssignCompanyMember(salesCompanyId, member.id, {
-                sales_division_id: salesDivisionId,
+                sales_division_ids: nextDivisionIds,
+                sales_division_id:
+                    existing?.primaryDivisionId || salesDivisionId,
             })
+            setMemberAssignments((prev) => ({
+                ...prev,
+                [member.id]: {
+                    divisionIds: nextDivisionIds,
+                    primaryDivisionId:
+                        existing?.primaryDivisionId || salesDivisionId,
+                },
+            }))
             setAssignedMemberIds([...assignedMemberIds, member.id])
+            await onUpdate()
             toast.push(
                 <Notification title="Success" type="success">
                     {member.name} added to division
                 </Notification>,
             )
-            onUpdate()
         } catch (error: unknown) {
             const err = error as { response?: { data?: { detail?: string } } }
             toast.push(
@@ -106,6 +144,8 @@ const AddDivisionMemberContent = ({
                     {err.response?.data?.detail || 'Failed to add member'}
                 </Notification>,
             )
+        } finally {
+            setAddingMemberId(null)
         }
     }
 
@@ -173,6 +213,8 @@ const AddDivisionMemberContent = ({
                                     </div>
                                     <Button
                                         size="sm"
+                                        loading={addingMemberId === member.id}
+                                        disabled={Boolean(addingMemberId)}
                                         className="!bg-gray-50 dark:!bg-gray-800/50 !border !border-gray-200 dark:!border-white/10 hover:!bg-gray-100 dark:hover:!bg-gray-800 font-semibold"
                                         onClick={() => onAddMember(member)}
                                     >

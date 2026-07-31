@@ -12,15 +12,19 @@ import { allSalesReps } from './mockTeamData'
 import { HiArrowLeft } from 'react-icons/hi'
 import { TbUserPlus, TbUsers } from 'react-icons/tb'
 import { injectReducer } from '@/store'
+import store from '@/store'
 import { apiDeleteTeamMember } from '@/services/TeamService'
 import teamsReducer, {
-    useAppSelector,
-    useAppDispatch,
     fetchTeamPerformance,
+    removeTeamMemberLocally,
 } from '@/store/slices/teams'
+import companyMembersReducer from '@/views/sales/members/store'
+import { useAppSelector, useAppDispatch } from '@/store/hook'
+import { syncAfterTeamMemberChange } from '@/utils/syncMemberAssignmentStores'
 import dayjs from 'dayjs'
 
 injectReducer('teams', teamsReducer)
+injectReducer('companyMembers', companyMembersReducer)
 
 type TeamMember = {
     id: string
@@ -62,6 +66,7 @@ const TeamDetail = () => {
     const [currentPage, setCurrentPage] = useState(1)
     const [pageSize, setPageSize] = useState(10)
     const [sortConfig, setSortConfig] = useState<{ key: string; order: 'asc' | 'desc' | '' }>({ key: '', order: '' })
+    const [removingMemberId, setRemovingMemberId] = useState<string | null>(null)
 
     const {
         teamPerformance,
@@ -89,11 +94,23 @@ const TeamDetail = () => {
         }
     }, [id, dispatch])
 
-    const fetchTeamData = () => {
-        if (id) {
-            dispatch(fetchTeamPerformance(id))
-        }
+    const companyId = useAppSelector((state) =>
+        typeof state.auth.user.companyId === 'string'
+            ? state.auth.user.companyId
+            : undefined,
+    )
+    const userId = useAppSelector((state) => state.auth.user.userId)
+
+    const refreshTeamMembers = async () => {
+        await syncAfterTeamMemberChange(dispatch, () => store.getState(), {
+            teamId: id,
+            salesCompanyId: data?.sales_company_id,
+            userId,
+            companyId,
+        })
     }
+
+    const fetchTeamData = () => refreshTeamMembers()
 
     const teamMembers = useMemo(() => {
         if (!data) return []
@@ -168,15 +185,26 @@ const TeamDetail = () => {
     }
 
     const handleRemoveMember = async (memberId: string) => {
-        if (!id) return
+        if (!id || removingMemberId) return
+        setRemovingMemberId(memberId)
         try {
             await apiDeleteTeamMember(memberId, id)
+            // Drop the row immediately; sync other slices in the background.
+            dispatch(
+                removeTeamMemberLocally({ teamId: id, userId: memberId }),
+            )
+            setRemovingMemberId(null)
             toast.push(
                 <Notification title="Success" type="success">
                     Member removed from team successfully
                 </Notification>
             )
-            fetchTeamData()
+            // Don't refetch this team list — optimistic update is source of truth.
+            void syncAfterTeamMemberChange(dispatch, () => store.getState(), {
+                salesCompanyId: data?.sales_company_id,
+                userId,
+                companyId,
+            })
         } catch (error) {
             console.error('Failed to remove member:', error)
             toast.push(
@@ -184,6 +212,7 @@ const TeamDetail = () => {
                     Failed to remove member from team
                 </Notification>
             )
+            setRemovingMemberId(null)
         }
     }
 
@@ -280,6 +309,7 @@ const TeamDetail = () => {
                         <TeamMembersTable 
                             members={paginatedMembers}
                             onRemoveMember={handleRemoveMember}
+                            removingMemberId={removingMemberId}
                             onRowClick={handleRowClick}
                             pagingData={{
                                 total: teamMembers.length,

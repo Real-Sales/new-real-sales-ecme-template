@@ -13,6 +13,8 @@ import { TbArrowLeft, TbArrowRight, TbDownload, TbRefresh } from 'react-icons/tb
 import toast from '@/components/ui/toast'
 import Notification from '@/components/ui/Notification'
 import { injectReducer, useAppDispatch } from '@/store'
+import store from '@/store'
+import { refreshCreditsState } from '@/utils/refreshCreditsState'
 import {
     apiEnsurePerformanceReport,
     apiGetSessionById,
@@ -213,6 +215,11 @@ const SessionReport = () => {
     useEffect(() => {
         loadSession()
     }, [loadSession])
+
+    useEffect(() => {
+        if (state.status !== 'ready') return
+        refreshCreditsState(dispatch, () => store.getState())
+    }, [state.status, dispatch])
 
     useEffect(() => {
         if (state.status !== 'ready' || !sessionId) return

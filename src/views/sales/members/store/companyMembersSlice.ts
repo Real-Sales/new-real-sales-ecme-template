@@ -116,7 +116,10 @@ const companyMembersSlice = createSlice({
     extraReducers: (builder) => {
         builder
             .addCase(fetchCompanyMembers.pending, (state) => {
-                state.membersLoading = true
+                // Only block the page on the first load; revisits refresh in the background.
+                if (!state.initialized) {
+                    state.membersLoading = true
+                }
                 state.error = null
             })
             .addCase(fetchCompanyMembers.fulfilled, (state, action) => {

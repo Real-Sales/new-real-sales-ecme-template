@@ -711,7 +711,7 @@ const PersonaSelection = () => {
                         )}
                     </div>
                 ) : (
-                    <div className="flex flex-wrap gap-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                         {filteredPersonas.map((persona) => {
                             const isBusy = creatingPersonaId === persona.id
 
@@ -721,7 +721,7 @@ const PersonaSelection = () => {
                                     initial={{ opacity: 0, y: 20 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     transition={{ duration: 0.3 }}
-                                    className="flex-1 basis-[260px] min-w-[240px] max-w-full h-full"
+                                    className="h-full"
                                 >
                                     <div
                                         role="button"

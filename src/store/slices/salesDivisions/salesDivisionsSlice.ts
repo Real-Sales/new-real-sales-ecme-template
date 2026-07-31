@@ -1,4 +1,4 @@
-import { createSlice, createAsyncThunk } from '@reduxjs/toolkit'
+import { createSlice, createAsyncThunk, type PayloadAction } from '@reduxjs/toolkit'
 import {
     apiGetSalesDivisions,
     apiGetSalesDivisionInfo,
@@ -135,6 +135,16 @@ const salesDivisionsSlice = createSlice({
             state.infoLoading = false
             state.initialized = false
         },
+        removeDivisionMemberLocally: (
+            state,
+            action: PayloadAction<{ divisionId: string; userId: string }>,
+        ) => {
+            const info = state.divisionInfo[action.payload.divisionId]
+            if (!info?.users) return
+            info.users = info.users.filter(
+                (u) => u.user_id !== action.payload.userId,
+            )
+        },
     },
     extraReducers: (builder) => {
         builder
@@ -230,7 +240,12 @@ const salesDivisionsSlice = createSlice({
     },
 })
 
-export const { resetError, resetNotification, resetSalesDivisionsData } =
+export const {
+    resetError,
+    resetNotification,
+    resetSalesDivisionsData,
+    removeDivisionMemberLocally,
+} =
     salesDivisionsSlice.actions
 
 export default salesDivisionsSlice.reducer

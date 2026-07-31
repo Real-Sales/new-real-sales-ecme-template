@@ -15,8 +15,8 @@ import companyMembersReducer, {
     resetNotification,
     updateMemberRow,
 } from './store'
-import salesDivisionsReducer, { resetSalesDivisionsData } from '@/store/slices/salesDivisions'
-import teamsReducer, { resetTeamsData } from '@/store/slices/teams'
+import salesDivisionsReducer, { fetchSalesDivisions } from '@/store/slices/salesDivisions'
+import teamsReducer, { fetchTeams } from '@/store/slices/teams'
 import { setCurrentView } from '@/views/profile/Settings/store/settingsSlice'
 import EditMemberDrawer from './components/EditMemberDrawer'
 import {
@@ -84,34 +84,70 @@ const MemberList = () => {
         order: 'asc' | 'desc' | ''
     }>({ key: '', order: '' })
     const [editDrawerOpen, setEditDrawerOpen] = useState(false)
-    const [memberToEdit, setMemberToEdit] = useState<CompanyMemberRow | null>(null)
+    const [editMemberId, setEditMemberId] = useState<string | null>(null)
+
+    const divisionsInitialized = useAppSelector(
+        (state) => state.salesDivisions?.data?.initialized ?? false,
+    )
+    const divisionsLoading = useAppSelector(
+        (state) => state.salesDivisions?.data?.divisionsLoading ?? false,
+    )
+    const teamsInitialized = useAppSelector(
+        (state) => state.teams?.data?.initialized ?? false,
+    )
+    const teamsLoading = useAppSelector(
+        (state) => state.teams?.data?.teamsLoading ?? false,
+    )
+
+    const memberToEdit = useMemo(
+        () =>
+            editMemberId
+                ? membersData.find((m) => m.user_id === editMemberId) ?? null
+                : null,
+        [membersData, editMemberId],
+    )
 
     const openEditDrawer = (member: CompanyMemberRow) => {
-        setMemberToEdit(member)
+        setEditMemberId(member.user_id)
         setEditDrawerOpen(true)
     }
 
     const closeEditDrawer = () => {
         setEditDrawerOpen(false)
-        setMemberToEdit(null)
+        setEditMemberId(null)
     }
 
     const handleMemberUpdated = (updated: CompanyMemberRow) => {
         dispatch(updateMemberRow(updated))
-        dispatch(resetSalesDivisionsData())
-        dispatch(resetTeamsData())
     }
 
     useEffect(() => {
-        if ((userId || companyIdFromAuth) && !initialized && !membersLoading) {
-            dispatch(
-                fetchCompanyMembers({
-                    userId,
-                    companyId: companyIdFromAuth,
-                }),
-            )
-        }
+        if (!userId && !companyIdFromAuth) return
+        if (initialized || membersLoading) return
+        dispatch(
+            fetchCompanyMembers({
+                userId,
+                companyId: companyIdFromAuth,
+            }),
+        )
     }, [dispatch, userId, companyIdFromAuth, initialized, membersLoading])
+
+    useEffect(() => {
+        if (!salesCompanyId) return
+        if (!divisionsInitialized && !divisionsLoading) {
+            dispatch(fetchSalesDivisions(salesCompanyId))
+        }
+        if (!teamsInitialized && !teamsLoading) {
+            dispatch(fetchTeams(salesCompanyId))
+        }
+    }, [
+        dispatch,
+        salesCompanyId,
+        divisionsInitialized,
+        divisionsLoading,
+        teamsInitialized,
+        teamsLoading,
+    ])
 
     useEffect(() => {
         if (notification) {
@@ -358,7 +394,7 @@ const MemberList = () => {
         [userId, canManageMembers],
     )
 
-    const loading = membersLoading
+    const loading = membersLoading && !initialized
     const displayError = error
 
     return (
