@@ -1,27 +1,33 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps } from 'react'
-import {
-    Button,
-    Drawer,
-    Input,
-    Notification,
-    Select,
-    Spinner,
-    Switcher,
-    Tag,
-    toast,
-} from '@/components/ui'
-import { Option as SelectOptionComponent } from '@/components/ui/Select'
-import classNames from '@/utils/classNames'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { ReactElement } from 'react'
+import { Notification, Switcher, toast } from '@/components/ui'
+import Avatar from '@/components/ui/Avatar'
+import Skeleton from '@/components/ui/Skeleton'
+import Tooltip from '@/components/ui/Tooltip'
 import ConfirmDialog from '@/components/shared/ConfirmDialog'
+import {
+    EntityPicker,
+    Field,
+    FormDrawer,
+    FormSection,
+    InlineNotice,
+    MetaTag,
+    MetaTagList,
+    OptionCard,
+    OptionCardGroup,
+} from '@/components/shared/form'
+import type { EntityOption } from '@/components/shared/form'
+import classNames from '@/utils/classNames'
 import { useAppDispatch, useAppSelector } from '@/store/hook'
 import { fetchSalesDivisions } from '@/store/slices/salesDivisions'
 import { fetchTeams } from '@/store/slices/teams'
 import {
     apiAssignCompanyMember,
     type CompanyMemberAssignmentUpdate,
+    type SalesDivisionResponse,
 } from '@/services/SalesCompanyService'
-import type { SalesDivisionResponse } from '@/services/SalesCompanyService'
 import type { CompanyTeamListItem } from '@/services/TeamService'
+import { TbBriefcase, TbUser } from 'react-icons/tb'
 import {
     ASSIGNABLE_MEMBER_ROLES,
     canChangeMemberRole,
@@ -39,12 +45,6 @@ import {
     type CompanyMemberRow,
 } from '../types'
 
-type SelectOption = { value: string; label: string }
-type DivisionOption = SelectOption & {
-    segmentName?: string
-    productNames?: string[]
-}
-
 type EditMemberDrawerProps = {
     isOpen: boolean
     member: CompanyMemberRow | null
@@ -54,6 +54,16 @@ type EditMemberDrawerProps = {
     currentUserRole?: string
     onClose: () => void
     onUpdated: (member: CompanyMemberRow) => void
+}
+
+const ROLE_DESCRIPTIONS: Record<AssignableMemberRole, string> = {
+    sales_person: 'Runs assigned scenarios.',
+    sales_manager: 'Also creates scenarios and manages teams.',
+}
+
+const ROLE_ICONS: Record<AssignableMemberRole, ReactElement> = {
+    sales_person: <TbUser />,
+    sales_manager: <TbBriefcase />,
 }
 
 const formatApiError = (err: unknown) => {
@@ -66,6 +76,95 @@ const formatApiError = (err: unknown) => {
         return rawDetail.map((item) => item.msg).filter(Boolean).join(', ')
     }
     return rawDetail || e?.message || 'Failed to update member.'
+}
+
+const getInitials = (first: string, last: string) =>
+    `${first?.[0] ?? ''}${last?.[0] ?? ''}`.toUpperCase()
+
+/** Division panel with its own team checkboxes — teams only exist in a division. */
+const DivisionTeamsCard = ({
+    division,
+    teams,
+    selectedTeamIds,
+    isPrimary,
+    onToggleTeam,
+}: {
+    division: SalesDivisionResponse
+    teams: CompanyTeamListItem[]
+    selectedTeamIds: string[]
+    isPrimary: boolean
+    onToggleTeam: (teamId: string) => void
+}) => {
+    const segmentName = division.customer_segment?.name?.trim()
+    const productNames = (division.products ?? [])
+        .map((product) => product.name?.trim())
+        .filter((name): name is string => Boolean(name))
+    const selectedCount = teams.filter((team) =>
+        selectedTeamIds.includes(team.company_team_id),
+    ).length
+
+    return (
+        <div className="rounded-xl border border-gray-200 bg-white p-3 dark:border-white/10 dark:bg-gray-800/40">
+            <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                        <p className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
+                            {division.name}
+                        </p>
+                        {isPrimary ? (
+                            <Tooltip title="Practice sessions use this division's segment and products.">
+                                <span>
+                                    <MetaTag tone="primary">Primary</MetaTag>
+                                </span>
+                            </Tooltip>
+                        ) : null}
+                    </div>
+                    <div className="mt-1.5 flex flex-wrap items-center gap-1">
+                        {segmentName ? (
+                            <MetaTag tone="segment">{segmentName}</MetaTag>
+                        ) : null}
+                        <MetaTagList
+                            items={productNames}
+                            tone="product"
+                            max={3}
+                            emptyLabel="No products"
+                        />
+                    </div>
+                </div>
+                {teams.length ? (
+                    <span className="shrink-0 text-[11px] tabular-nums text-gray-500 dark:text-gray-400">
+                        {selectedCount}/{teams.length} teams
+                    </span>
+                ) : null}
+            </div>
+
+            <div className="mt-3">
+                {teams.length === 0 ? (
+                    <p className="rounded-lg border border-dashed border-gray-200 px-3 py-2 text-xs text-gray-500 dark:border-white/10 dark:text-gray-400">
+                        No teams yet — the member still gets division access.
+                    </p>
+                ) : (
+                    <OptionCardGroup
+                        label={`Teams in ${division.name}`}
+                        columns={teams.length > 1 ? 2 : 1}
+                    >
+                        {teams.map((team) => (
+                            <OptionCard
+                                key={team.company_team_id}
+                                type="checkbox"
+                                value={team.company_team_id}
+                                title={team.name}
+                                selected={selectedTeamIds.includes(
+                                    team.company_team_id,
+                                )}
+                                onSelect={onToggleTeam}
+                            />
+                        ))}
+                    </OptionCardGroup>
+                )}
+            </div>
+        </div>
+    )
 }
 
 const EditMemberDrawer = ({
@@ -90,17 +189,13 @@ const EditMemberDrawer = ({
         divisionsLoading: state.salesDivisions?.data?.divisionsLoading ?? false,
         divisionsError: state.salesDivisions?.data?.error ?? null,
     }))
-    const {
-        teamsData,
-        teamsInitialized,
-        teamsLoading,
-        teamsError,
-    } = useAppSelector((state) => ({
-        teamsData: state.teams?.data?.teamsData ?? [],
-        teamsInitialized: state.teams?.data?.initialized ?? false,
-        teamsLoading: state.teams?.data?.teamsLoading ?? false,
-        teamsError: state.teams?.data?.error ?? null,
-    }))
+    const { teamsData, teamsInitialized, teamsLoading, teamsError } =
+        useAppSelector((state) => ({
+            teamsData: state.teams?.data?.teamsData ?? [],
+            teamsInitialized: state.teams?.data?.initialized ?? false,
+            teamsLoading: state.teams?.data?.teamsLoading ?? false,
+            teamsError: state.teams?.data?.error ?? null,
+        }))
 
     const divisions = divisionsData as SalesDivisionResponse[]
     const teams = useMemo<CompanyTeamListItem[]>(
@@ -122,8 +217,11 @@ const EditMemberDrawer = ({
     const [statusActive, setStatusActive] = useState(true)
     const [selectedDivisionIds, setSelectedDivisionIds] = useState<string[]>([])
     const [selectedTeamIds, setSelectedTeamIds] = useState<string[]>([])
-    const [selectedRole, setSelectedRole] = useState<AssignableMemberRole | null>(null)
-    const [divisionChangeConfirmOpen, setDivisionChangeConfirmOpen] = useState(false)
+    const [selectedRole, setSelectedRole] = useState<AssignableMemberRole | null>(
+        null,
+    )
+    const [divisionChangeConfirmOpen, setDivisionChangeConfirmOpen] =
+        useState(false)
 
     const referenceLoading =
         (!divisionsInitialized && divisionsLoading) ||
@@ -183,13 +281,7 @@ const EditMemberDrawer = ({
 
         applyMemberToForm(member)
         prefilledMemberIdRef.current = member.user_id
-    }, [
-        isOpen,
-        member,
-        divisionsInitialized,
-        teamsInitialized,
-        applyMemberToForm,
-    ])
+    }, [isOpen, member, divisionsInitialized, teamsInitialized, applyMemberToForm])
 
     const teamsByDivisionId = useMemo(() => {
         const map = new Map<string, CompanyTeamListItem[]>()
@@ -203,23 +295,46 @@ const EditMemberDrawer = ({
         return map
     }, [teams])
 
-    const divisionOptions: DivisionOption[] = useMemo(
+    const sortedDivisions = useMemo(
         () =>
-            [...divisions]
-                .sort((a, b) =>
-                    a.name.localeCompare(b.name, undefined, {
-                        sensitivity: 'base',
-                    }),
-                )
-                .map((d) => ({
-                    value: String(d.sales_division_id).trim(),
-                label: d.name,
-                    segmentName: d.customer_segment?.name?.trim() || undefined,
-                    productNames: (d.products ?? [])
-                        .map((p) => p.name?.trim())
-                        .filter((name): name is string => Boolean(name)),
-            })),
+            [...divisions].sort((a, b) =>
+                a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }),
+            ),
         [divisions],
+    )
+
+    const divisionOptions: EntityOption[] = useMemo(
+        () =>
+            sortedDivisions.map((division) => {
+                const divisionId = String(division.sales_division_id).trim()
+                const teamCount = teamsByDivisionId.get(divisionId)?.length ?? 0
+                const segmentName = division.customer_segment?.name?.trim()
+                const productNames = (division.products ?? [])
+                    .map((product) => product.name?.trim())
+                    .filter((name): name is string => Boolean(name))
+
+                return {
+                    value: divisionId,
+                    label: division.name,
+                    description: `${teamCount} team${teamCount === 1 ? '' : 's'}`,
+                    keywords: [segmentName, ...productNames].filter(
+                        (value): value is string => Boolean(value),
+                    ),
+                    meta: (
+                        <span className="flex flex-wrap items-center gap-1">
+                            {segmentName ? (
+                                <MetaTag tone="segment">{segmentName}</MetaTag>
+                            ) : null}
+                            <MetaTagList
+                                items={productNames}
+                                tone="product"
+                                max={2}
+                            />
+                        </span>
+                    ),
+                }
+            }),
+        [sortedDivisions, teamsByDivisionId],
     )
 
     const selectedDivisions = useMemo(() => {
@@ -233,15 +348,6 @@ const EditMemberDrawer = ({
                 a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }),
             )
     }, [divisions, selectedDivisionIds])
-
-    const roleOptions: SelectOption[] = useMemo(
-        () =>
-            ASSIGNABLE_MEMBER_ROLES.map((r) => ({
-                value: r.value,
-                label: r.label,
-            })),
-        [],
-    )
 
     /** Selected divisions that currently have no team chips selected. */
     const teamlessSelectedDivisionIds = useMemo(() => {
@@ -274,21 +380,21 @@ const EditMemberDrawer = ({
 
         if (previous && selectedDivisionIds.includes(previous)) return previous
         return selectedDivisionIds[0]
-    }, [
-        selectedDivisionIds,
-        teamlessSelectedDivisionIds,
-        member?.sales_division_id,
-    ])
+    }, [selectedDivisionIds, teamlessSelectedDivisionIds, member?.sales_division_id])
 
-    const handleDivisionChange = (options: readonly DivisionOption[] | null) => {
-        const nextIds = (options ?? []).map((o) => String(o.value).trim())
+    const toggleDivision = (divisionId: string) => {
+        const nextIds = selectedDivisionIds.includes(divisionId)
+            ? selectedDivisionIds.filter((id) => id !== divisionId)
+            : [...selectedDivisionIds, divisionId]
         const allowed = new Set(nextIds)
+
         setSelectedDivisionIds(nextIds)
+        // Teams belong to a division — dropping the division drops its teams.
         setSelectedTeamIds((prev) =>
             prev.filter((teamId) => {
                 const team = teams.find((t) => t.company_team_id === teamId)
-                const divisionId = String(team?.sales_division_id ?? '').trim()
-                return Boolean(divisionId) && allowed.has(divisionId)
+                const teamDivisionId = String(team?.sales_division_id ?? '').trim()
+                return Boolean(teamDivisionId) && allowed.has(teamDivisionId)
             }),
         )
     }
@@ -301,30 +407,34 @@ const EditMemberDrawer = ({
         )
     }
 
-    const isDirty = useMemo(() => {
-        if (!member) return false
-        const roleChanged =
+    const roleChanged = Boolean(
+        member &&
             roleEditable &&
             selectedRole &&
-            selectedRole !== getMemberRoleName(member)
-        return (
-            statusActive !== member.status_active ||
-            memberDivisionIdsChanged(member, selectedDivisionIds) ||
-            resolvedSessionDivisionId !== (member.sales_division_id ?? null) ||
-            memberTeamIdsChanged(member, selectedTeamIds, teams) ||
-            roleChanged
-        )
-    }, [
-        member,
-        statusActive,
-        selectedDivisionIds,
-        resolvedSessionDivisionId,
-        selectedTeamIds,
-        selectedRole,
-        roleEditable,
-        teams,
-    ])
+            selectedRole !== getMemberRoleName(member),
+    )
+    const statusChanged = Boolean(member && statusActive !== member.status_active)
+    const divisionsChanged = Boolean(
+        member && memberDivisionIdsChanged(member, selectedDivisionIds),
+    )
+    const primaryChanged = Boolean(
+        member && resolvedSessionDivisionId !== (member.sales_division_id ?? null),
+    )
+    const teamsChanged = Boolean(
+        member && memberTeamIdsChanged(member, selectedTeamIds, teams),
+    )
 
+    /** Human-readable list of pending edits, shown in the footer. */
+    const changeSummary = useMemo(() => {
+        const changes: string[] = []
+        if (roleChanged) changes.push('role')
+        if (divisionsChanged || primaryChanged) changes.push('divisions')
+        if (teamsChanged) changes.push('teams')
+        if (statusChanged) changes.push('status')
+        return changes
+    }, [roleChanged, divisionsChanged, primaryChanged, teamsChanged, statusChanged])
+
+    const isDirty = changeSummary.length > 0
     const canSave = isDirty && !saving && !referenceLoading
 
     const previousDivisionId = member?.sales_division_id ?? null
@@ -338,25 +448,7 @@ const EditMemberDrawer = ({
     const buildPayload = (): CompanyMemberAssignmentUpdate | null => {
         if (!member) return null
 
-        const teamsChanged = memberTeamIdsChanged(
-            member,
-            selectedTeamIds,
-            teams,
-        )
-        const divisionsChanged = memberDivisionIdsChanged(
-            member,
-            selectedDivisionIds,
-        )
-        const primaryChanged =
-            resolvedSessionDivisionId !== (member.sales_division_id ?? null)
-        const assignmentChanged =
-            teamsChanged || divisionsChanged || primaryChanged
-        const statusChanged = statusActive !== member.status_active
-        const roleChanged =
-            roleEditable &&
-            Boolean(selectedRole) &&
-            selectedRole !== getMemberRoleName(member)
-
+        const assignmentChanged = teamsChanged || divisionsChanged || primaryChanged
         if (!assignmentChanged && !statusChanged && !roleChanged) return null
 
         // Backend expects the full assignment snapshot on save — always send
@@ -430,346 +522,255 @@ const EditMemberDrawer = ({
 
     const fullName = `${member.first_name} ${member.last_name}`.trim()
     const noDivisions = !referenceLoading && divisions.length === 0
+    const currentRoleLabel = formatMemberRoleLabel(getMemberRoleName(member))
 
-    const drawerTitle = (
-        <div>
-            <h4 className="mb-1 text-lg font-bold">Edit member</h4>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-                {fullName} · {member.email}
-            </p>
+    const identity = (
+        <div className="flex items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-white/10 dark:bg-gray-800/40">
+            <Avatar
+                shape="circle"
+                size={40}
+                className="shrink-0 bg-primary/15 font-semibold text-primary"
+            >
+                {getInitials(member.first_name, member.last_name)}
+            </Avatar>
+            <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold text-gray-900 dark:text-white">
+                    {fullName}
+                </p>
+                <p className="truncate text-xs text-gray-500 dark:text-gray-400">
+                    {member.email}
+                </p>
+            </div>
+            <div className="flex shrink-0 flex-col items-end gap-1">
+                <MetaTag tone="neutral">{currentRoleLabel}</MetaTag>
+                <span
+                    className={classNames(
+                        'text-[11px] font-medium',
+                        member.status_active
+                            ? 'text-emerald-600 dark:text-emerald-400'
+                            : 'text-gray-400',
+                    )}
+                >
+                    {member.status_active ? 'Active' : 'Inactive'}
+                </span>
+            </div>
         </div>
     )
 
-    const drawerFooter = (
-        <div className="flex justify-between items-center w-full gap-3 px-2">
-            <Button
-                size="sm"
-                variant="default"
-                className="flex-1 dark:!bg-gray-800 dark:!border-gray-600 dark:!text-gray-200 dark:hover:!bg-gray-700"
-                disabled={saving}
-                onClick={onClose}
-            >
-                Cancel
-            </Button>
-            <Button
-                size="sm"
-                variant="solid"
-                className="flex-1 bg-primary hover:bg-primary-deep text-neutral border-none"
-                loading={saving}
-                disabled={!canSave}
-                onClick={handleSaveClick}
-            >
-                Save changes
-            </Button>
-        </div>
+    const footerSummary = referenceLoading ? (
+        'Loading divisions and teams…'
+    ) : isDirty ? (
+        <span className="flex items-center gap-1.5">
+            <span className="h-1.5 w-1.5 rounded-full bg-primary" aria-hidden />
+            Unsaved: {changeSummary.join(', ')}
+        </span>
+    ) : (
+        <span className="hidden sm:inline">
+            Press <kbd className="rounded border border-gray-300 px-1 dark:border-white/20">⌘</kbd>
+            <kbd className="rounded border border-gray-300 px-1 dark:border-white/20">↵</kbd> to save
+        </span>
     )
 
     return (
         <>
-        <Drawer
-            title={drawerTitle}
-            isOpen={isOpen}
-            footer={drawerFooter}
-            headerClass="!items-start !bg-gray-100 dark:!bg-gray-900"
-            footerClass="!bg-gray-100 dark:!bg-gray-900 !p-3"
-            bodyClass="!p-4 !bg-gray-100 dark:!bg-gray-900 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
-            onClose={onClose}
-            onRequestClose={onClose}
-        >
-            <div className="px-2 flex flex-col gap-6">
+            <FormDrawer
+                isOpen={isOpen}
+                width={520}
+                title="Edit member"
+                description="Access, teams and account status."
+                headerSlot={identity}
+                submitLabel="Save changes"
+                submitDisabled={!canSave}
+                submitting={saving}
+                isDirty={isDirty}
+                discardMessage={`Changes to ${fullName} will be lost.`}
+                footerSlot={footerSummary}
+                onSubmit={handleSaveClick}
+                onClose={onClose}
+            >
                 {referenceLoading ? (
-                    <div className="flex justify-center py-16">
-                        <Spinner size={36} />
+                    <div className="space-y-4">
+                        <Skeleton height={18} width="30%" />
+                        <Skeleton height={72} />
+                        <Skeleton height={18} width="40%" />
+                        <Skeleton height={140} />
                     </div>
                 ) : referenceError ? (
-                    <p className="text-sm text-red-500 py-4">{referenceError}</p>
+                    <InlineNotice tone="danger" title="Couldn't load assignments">
+                        {referenceError}
+                    </InlineNotice>
                 ) : (
-                    <>
-                        <div className="flex items-center justify-between">
-                        <div>
-                                <p className="text-sm font-medium text-gray-900 dark:text-white">
-                                Status
-                                </p>
-                                <p className="text-xs text-gray-500 dark:text-gray-400">
-                                    {statusActive ? 'Active' : 'Inactive'}
-                                </p>
-                            </div>
-                                <Switcher
-                                    checked={statusActive}
-                                    onChange={(checked) => setStatusActive(checked)}
-                                />
-                        </div>
+                    <div className="space-y-6">
+                        {canChangeRole ? (
+                            <FormSection
+                                title="Role"
+                            >
+                                {roleEditable ? (
+                                    <OptionCardGroup label="Member role">
+                                        {ASSIGNABLE_MEMBER_ROLES.map((role) => (
+                                            <OptionCard
+                                                key={role.value}
+                                                name="member-role"
+                                                value={role.value}
+                                                icon={ROLE_ICONS[role.value]}
+                                                title={role.label}
+                                                description={
+                                                    ROLE_DESCRIPTIONS[role.value]
+                                                }
+                                                selected={selectedRole === role.value}
+                                                onSelect={(value) =>
+                                                    setSelectedRole(
+                                                        value as AssignableMemberRole,
+                                                    )
+                                                }
+                                            />
+                                        ))}
+                                    </OptionCardGroup>
+                                ) : (
+                                    <InlineNotice tone="info">
+                                        <span className="font-medium">
+                                            {currentRoleLabel}
+                                        </span>{' '}
+                                        — this role can&apos;t be changed here.
+                                        Owner and self-assigned roles are managed
+                                        by your workspace administrator.
+                                    </InlineNotice>
+                                )}
+                            </FormSection>
+                        ) : null}
 
-                        {noDivisions ? (
-                            <div className="rounded-lg border border-amber-200 dark:border-amber-800/50 bg-amber-50 dark:bg-amber-900/20 px-3 py-2.5 text-sm text-amber-700 dark:text-amber-300">
-                                No sales divisions yet. Create one before assigning
-                                members.
-                            </div>
-                        ) : (
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="text-sm font-medium text-gray-900 dark:text-white mb-2 block">
-                                        Divisions
-                                    </label>
-                                    <Select<DivisionOption, true>
-                                        isMulti
-                                        isClearable
-                                        closeMenuOnSelect={false}
-                                        options={divisionOptions}
-                                        value={divisionOptions.filter((o) =>
-                                            selectedDivisionIds.includes(o.value),
-                                        )}
-                                        placeholder="Add divisions…"
-                                        onChange={(options) =>
-                                            handleDivisionChange(options)
-                                        }
-                                        components={{
-                                            Option: (props) => (
-                                                <SelectOptionComponent<DivisionOption>
-                                                    {...(props as ComponentProps<
-                                                        typeof SelectOptionComponent<DivisionOption>
-                                                    >)}
-                                                    customLabel={(data, label) => (
-                                                        <div className="flex flex-col gap-1.5 py-1 min-w-0">
-                                                            <span className="font-medium leading-tight">
-                                                                {label}
-                                                            </span>
-                                                            <div className="flex flex-col gap-0.5">
-                                                                <span className="text-[10px] text-gray-500 dark:text-gray-400">
-                                                                    Customer segment
-                                                                </span>
-                                                                <div className="flex flex-wrap gap-1">
-                                                                    {data.segmentName ? (
-                                                                        <span className="inline-flex items-center rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-medium text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300">
-                                                                            {data.segmentName}
-                                                                        </span>
-                                                                    ) : (
-                                                                        <span className="text-[10px] text-gray-400 dark:text-gray-500">
-                                                                            Not set
-                                                                        </span>
-                                                                    )}
-                                                                </div>
-                                                            </div>
-                                                            <div className="flex flex-col gap-0.5">
-                                                                <span className="text-[10px] text-gray-500 dark:text-gray-400">
-                                                                    Products
-                                                                </span>
-                                                                <div className="flex flex-wrap gap-1">
-                                                                    {(data.productNames
-                                                                        ?.length
-                                                                        ? data.productNames
-                                                                        : []
-                                                                    ).map((name) => (
-                                                                        <span
-                                                                            key={name}
-                                                                            className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary dark:bg-primary/20 dark:text-primary-mild"
-                                                                        >
-                                                                            {name}
-                                                                        </span>
-                                                                    ))}
-                                                                    {!data.productNames
-                                                                        ?.length ? (
-                                                                        <span className="text-[10px] text-gray-400 dark:text-gray-500">
-                                                                            None assigned
-                                                                        </span>
-                                                                    ) : null}
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    )}
-                                                />
-                                            ),
-                                        }}
-                                    />
-                                </div>
+                        <FormSection
+                            title="Divisions & teams"
+                            description="What this member can train on."
+                            divided={canChangeRole}
+                        >
+                            {noDivisions ? (
+                                <InlineNotice
+                                    tone="warning"
+                                    title="No sales divisions yet"
+                                >
+                                    Create a division first.
+                                </InlineNotice>
+                            ) : (
+                                <>
+                                    <Field
+                                        label="Divisions"
+                                        hint={`${selectedDivisionIds.length} selected`}
+                                    >
+                                        <EntityPicker
+                                            multiple
+                                            options={divisionOptions}
+                                            selectedIds={selectedDivisionIds}
+                                            searchPlaceholder="Search divisions…"
+                                            maxHeight={260}
+                                            onSelect={toggleDivision}
+                                        />
+                                    </Field>
 
-                                {selectedDivisions.length > 0 && (
-                                <div>
-                                        <label className="text-sm font-medium text-gray-900 dark:text-white mb-2 block">
-                                            Teams
-                                        </label>
-                                        <div className="rounded-lg border border-gray-200 dark:border-gray-700 divide-y divide-gray-200 dark:divide-gray-700 overflow-hidden">
+                                    {selectedDivisions.length === 0 ? (
+                                        <InlineNotice tone="info">
+                                            Without a division this member
+                                            can&apos;t be assigned scenarios.
+                                        </InlineNotice>
+                                    ) : (
+                                        <div className="space-y-3">
+                                            <div className="flex items-center justify-between">
+                                                <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                                                    Team membership
+                                                </p>
+                                                <p className="text-[11px] text-gray-400 dark:text-gray-500">
+                                                    {selectedTeamIds.length} team
+                                                    {selectedTeamIds.length === 1
+                                                        ? ''
+                                                        : 's'}{' '}
+                                                    selected
+                                                </p>
+                                            </div>
                                             {selectedDivisions.map((division) => {
                                                 const divisionId = String(
                                                     division.sales_division_id,
                                                 ).trim()
-                                                const divisionTeams =
-                                                    teamsByDivisionId.get(
-                                                        divisionId,
-                                                    ) ?? []
-                                                const segmentName =
-                                                    division.customer_segment?.name?.trim()
-                                                const products =
-                                                    division.products ?? []
-
                                                 return (
-                                                    <div
+                                                    <DivisionTeamsCard
                                                         key={divisionId}
-                                                        className="px-3 py-2.5 bg-white dark:bg-gray-800/50"
-                                                    >
-                                                        <p className="text-xs font-semibold text-gray-900 dark:text-gray-100 mb-2">
-                                                            {division.name}
-                                                        </p>
-                                                        <div className="space-y-2 mb-2.5">
-                                                            <div className="flex flex-col gap-1">
-                                                                <span className="text-[10px] font-medium text-gray-500 dark:text-gray-400">
-                                                                    Customer segment
-                                                                </span>
-                                                                <div className="flex flex-wrap gap-1.5">
-                                                                    {segmentName ? (
-                                                                        <Tag className="rounded-full border-0 bg-indigo-100 px-2 py-0.5 text-[10px] font-medium text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300">
-                                                                            {segmentName}
-                                                                        </Tag>
-                                                                    ) : (
-                                                                        <span className="text-[10px] text-gray-400 dark:text-gray-500">
-                                                                            Not set
-                                                                        </span>
-                                                                    )}
-                                                                </div>
-                                                            </div>
-                                                            <div className="flex flex-col gap-1">
-                                                                <span className="text-[10px] font-medium text-gray-500 dark:text-gray-400">
-                                                                    Products
-                                                                </span>
-                                                                <div className="flex flex-wrap gap-1.5">
-                                                                    {products.length >
-                                                                    0 ? (
-                                                                        products.map(
-                                                                            (product) => (
-                                                                                <Tag
-                                                                                    key={
-                                                                                        product.product_id ||
-                                                                                        product.name
-                                                                                    }
-                                                                                    className="rounded-full border-0 bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary dark:bg-primary/20 dark:text-primary-mild"
-                                                                                >
-                                                                                    {
-                                                                                        product.name
-                                                                                    }
-                                                                                </Tag>
-                                                                            ),
-                                                                        )
-                                                                    ) : (
-                                                                        <span className="text-[10px] text-gray-400 dark:text-gray-500">
-                                                                            None assigned
-                                        </span>
-                                                                    )}
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                        <div>
-                                                            <p className="text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-1.5">
-                                                                Teams
-                                                            </p>
-                                                            {divisionTeams.length ===
-                                                            0 ? (
-                                                                <p className="text-xs text-gray-400 dark:text-gray-500">
-                                                                    No teams
-                                                                </p>
-                                                            ) : (
-                                                                <div className="flex flex-wrap gap-1.5">
-                                                                    {divisionTeams.map(
-                                                                        (team) => {
-                                                                            const active =
-                                                                                selectedTeamIds.includes(
-                                                                                    team.company_team_id,
-                                                                                )
-                                                                            return (
-                                                                                <button
-                                                                                    key={
-                                                                                        team.company_team_id
-                                                                                    }
-                                                                                    type="button"
-                                                                                    onClick={() =>
-                                                                                        toggleTeam(
-                                                                                            team.company_team_id,
-                                                                                        )
-                                                                                    }
-                                                                                    className={classNames(
-                                                                                        'px-2.5 py-1 rounded-md text-xs font-medium border transition-colors',
-                                                                                        active
-                                                                                            ? 'border-primary bg-primary text-neutral'
-                                                                                            : 'border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:border-primary/40',
-                                                                                    )}
-                                                                                >
-                                                                                    {
-                                                                                        team.name
-                                                                                    }
-                                                                                </button>
-                                                                            )
-                                                                        },
-                                                                    )}
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    </div>
+                                                        division={division}
+                                                        teams={
+                                                            teamsByDivisionId.get(
+                                                                divisionId,
+                                                            ) ?? []
+                                                        }
+                                                        selectedTeamIds={
+                                                            selectedTeamIds
+                                                        }
+                                                        isPrimary={
+                                                            divisionId ===
+                                                            resolvedSessionDivisionId
+                                                        }
+                                                        onToggleTeam={toggleTeam}
+                                                    />
                                                 )
                                             })}
                                         </div>
-                                    </div>
-                                        )}
+                                    )}
+                                </>
+                            )}
+                        </FormSection>
+
+                        <FormSection
+                            title="Account status"
+                            divided
+                        >
+                            <div className="flex items-center justify-between gap-4 rounded-xl border border-gray-200 bg-white p-3 dark:border-white/10 dark:bg-gray-800/40">
+                                <div className="min-w-0">
+                                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                                        {statusActive
+                                            ? 'Active'
+                                            : 'Inactive'}
+                                    </p>
+                                    <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                                        {statusActive
+                                            ? 'Can sign in and train.'
+                                            : "Can't sign in."}
+                                    </p>
                                 </div>
-                        )}
-
-                        {canChangeRole && (
-                            <div>
-                                <label className="text-sm font-medium text-gray-900 dark:text-white mb-2 block">
-                                    Role
-                                </label>
-                                {roleEditable ? (
-                                    <Select<SelectOption, false>
-                                        options={roleOptions}
-                                        value={
-                                            roleOptions.find(
-                                                (o) => o.value === selectedRole,
-                                            ) || null
-                                        }
-                                        placeholder="Select role"
-                                        onChange={(option) =>
-                                            setSelectedRole(
-                                                (option?.value as AssignableMemberRole) ??
-                                                    null,
-                                            )
-                                        }
-                                    />
-                                ) : (
-                                        <Input
-                                            type="text"
-                                            readOnly
-                                            value={formatMemberRoleLabel(
-                                                getMemberRoleName(member),
-                                            )}
-                                        className="bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 cursor-default"
-                                        />
-                                )}
+                                <Switcher
+                                    checked={statusActive}
+                                    aria-label="Member is active"
+                                    onChange={(checked) => setStatusActive(checked)}
+                                />
                             </div>
-                        )}
-                    </>
+                            {statusChanged && !statusActive ? (
+                                <InlineNotice tone="warning">
+                                    {fullName} will lose access as soon as you
+                                    save.
+                                </InlineNotice>
+                            ) : null}
+                        </FormSection>
+                    </div>
                 )}
-            </div>
-        </Drawer>
+            </FormDrawer>
 
-        <ConfirmDialog
-            isOpen={divisionChangeConfirmOpen}
-            type="warning"
-            title="Update division assignment?"
-            confirmText="Continue"
-            cancelText="Cancel"
-            onClose={closeDivisionChangeConfirm}
-            onRequestClose={closeDivisionChangeConfirm}
-            onCancel={closeDivisionChangeConfirm}
-            onConfirm={() => void persistChanges()}
-            confirmButtonProps={{ loading: saving }}
-        >
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-                Updating{' '}
-                <span className="font-semibold text-gray-900 dark:text-white">
-                    {fullName}
-                </span>
-                &apos;s division assignment may remove active and pending
-                scenarios for this user. This cannot be undone.
-            </p>
-        </ConfirmDialog>
+            <ConfirmDialog
+                isOpen={divisionChangeConfirmOpen}
+                type="warning"
+                title="Update division assignment?"
+                confirmText="Continue"
+                cancelText="Cancel"
+                onClose={closeDivisionChangeConfirm}
+                onRequestClose={closeDivisionChangeConfirm}
+                onCancel={closeDivisionChangeConfirm}
+                onConfirm={() => void persistChanges()}
+                confirmButtonProps={{ loading: saving }}
+            >
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Updating{' '}
+                    <span className="font-semibold text-gray-900 dark:text-white">
+                        {fullName}
+                    </span>
+                    &apos;s division assignment may remove active and pending
+                    scenarios for this user. This cannot be undone.
+                </p>
+            </ConfirmDialog>
         </>
     )
 }

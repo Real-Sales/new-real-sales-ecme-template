@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { SURFACE_CARD_CLASSNAME } from '@/constants/surfaceCard.constant'
 import { useNavigate } from 'react-router-dom'
-import { Card, Button, Badge, Drawer, toast, Notification } from '@/components/ui'
+import { Card, Button, Badge, toast, Notification } from '@/components/ui'
 import Container from '@/components/shared/Container'
 import ConfirmDialog from '@/components/shared/ConfirmDialog'
-import CompanyForm, { type CompanyFormSchema } from './CompanyForm'
+import { FormDrawer } from '@/components/shared/form'
+import DivisionForm, { type CompanyFormSchema } from './DivisionForm'
 import {
     HiOfficeBuilding,
     HiUserGroup,
@@ -33,8 +34,6 @@ import dayjs from 'dayjs'
 // Inject reducer when component mounts (lazy-loaded)
 injectReducer('salesDivisions', salesDivisionsReducer)
 injectReducer('teams', teamsReducer)
-
-console.log('DEBUG: CompanyList.tsx file loaded')
 
 // Stats card component
 type StatsCardProps = {
@@ -228,7 +227,6 @@ const CompanyCard = ({
 }
 
 const CompanyList = () => {
-    console.log('CompanyList component rendering...')
     const dispatch = useAppDispatch()
     const navigate = useNavigate()
     const [isDrawerOpen, setIsDrawerOpen] = useState(false)
@@ -238,11 +236,8 @@ const CompanyList = () => {
     const [divisionToDelete, setDivisionToDelete] = useState<SalesDivision | null>(null)
     const [deletingDivisionId, setDeletingDivisionId] = useState<string | null>(null)
     const [submitting, setSubmitting] = useState(false)
+    const [formDirty, setFormDirty] = useState(false)
     const formRef = useRef<HTMLFormElement>(null)
-
-    useEffect(() => {
-        console.log('CompanyList component mounted')
-    }, [])
 
     const companyIdRaw = useAppSelector((state) => state.auth.user.companyId)
     const profileInitialized = useAppSelector(
@@ -318,6 +313,7 @@ const CompanyList = () => {
 
     const openDrawer = (mode: 'create' | 'edit', division?: SalesDivision) => {
         setDrawerMode(mode)
+        setFormDirty(false)
         if (mode === 'edit' && division) {
             setSelectedDivision(division)
         } else {
@@ -330,11 +326,13 @@ const CompanyList = () => {
         if (submitting) return
         setIsDrawerOpen(false)
         setSelectedDivision(null)
+        setFormDirty(false)
     }
 
     const closeDrawerAfterSubmit = () => {
         setIsDrawerOpen(false)
         setSelectedDivision(null)
+        setFormDirty(false)
     }
 
     const divisions = divisionsData
@@ -427,41 +425,16 @@ const CompanyList = () => {
         }
     }
 
-    const DrawerFooter = (
-        <div className="flex justify-between items-center w-full gap-3 px-2">
-            <Button
-                size="sm"
-                variant="default"
-                className="flex-1 dark:!bg-gray-800 dark:!border-gray-600 dark:!text-gray-200 dark:hover:!bg-gray-700 dark:hover:!border-gray-500"
-                disabled={submitting}
-                onClick={onDrawerClose}
-            >
-                Cancel
-            </Button>
-            <Button
-                size="sm"
-                variant="solid"
-                className="flex-1 bg-primary hover:bg-primary-deep text-neutral border-none"
-                loading={submitting}
-                disabled={submitting}
-                onClick={handleSubmitClick}
-            >
-                {drawerMode === 'create' ? 'Create' : 'Save'}
-            </Button>
-        </div>
-    )
-
-    const DrawerTitle = (
-        <div>
-            <h4 className="mb-2 text-lg font-bold">
-                {drawerMode === 'create' ? 'Create New Sales Division' : 'Edit Sales Division'}
-            </h4>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-                {drawerMode === 'create' 
-                    ? 'Fill in the details to create a new sales division'
-                    : 'Update the details of the sales division'}
-            </p>
-        </div>
+    /** Existing category names, offered as one-tap suggestions in the form. */
+    const categorySuggestions = useMemo(
+        () => [
+            ...new Set(
+                divisionsData
+                    .map((division) => division.division_category?.trim())
+                    .filter((category): category is string => Boolean(category)),
+            ),
+        ],
+        [divisionsData],
     )
 
     const stats = [
@@ -552,44 +525,59 @@ const CompanyList = () => {
                 </div>
             </Container>
 
-            {/* Create Sales Division Drawer */}
-            <Drawer
-                title={DrawerTitle}
+            {/* Create / edit sales division */}
+            <FormDrawer
                 isOpen={isDrawerOpen}
-                footer={DrawerFooter}
-                headerClass="!items-start !bg-gray-100 dark:!bg-gray-900"
-                footerClass="!bg-gray-100 dark:!bg-gray-900 !p-3"
-                bodyClass="!p-4 !bg-gray-100 dark:!bg-gray-900 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+                width={540}
+                title={
+                    drawerMode === 'create'
+                        ? 'New sales division'
+                        : 'Edit sales division'
+                }
+                description={
+                    drawerMode === 'create'
+                        ? 'Products, segment and teams that sell together.'
+                        : 'Applies to every team and scenario in this division.'
+                }
+                submitLabel={
+                    drawerMode === 'create' ? 'Create division' : 'Save changes'
+                }
+                submitting={submitting}
+                isDirty={formDirty}
+                footerSlot={
+                    drawerMode === 'edit' && formDirty
+                        ? 'Unsaved changes'
+                        : undefined
+                }
+                onSubmit={handleSubmitClick}
                 onClose={onDrawerClose}
-                onRequestClose={onDrawerClose}
             >
-                <div className="px-2">
-                    <CompanyForm
-                        key={
-                            selectedDivision?.sales_division_id ??
-                            `create-${drawerMode}`
-                        }
-                        ref={formRef}
-                        salesCompanyId={companyId ?? ''}
-                        onSubmit={onCompanySubmit}
-                        onCancel={onDrawerClose}
-                        defaultValues={
-                            selectedDivision
-                                ? {
-                                      companyName: selectedDivision.name,
-                                      category:
-                                          selectedDivision.division_category,
-                                      customerSegmentId:
-                                          selectedDivision.customer_segment_id ?? '',
-                                      productIds: (selectedDivision.products ?? [])
-                                          .map((p) => p.product_id)
-                                          .filter(Boolean),
-                                  }
-                                : undefined
-                        }
-                    />
-                </div>
-            </Drawer>
+                <DivisionForm
+                    key={
+                        selectedDivision?.sales_division_id ??
+                        `create-${drawerMode}`
+                    }
+                    ref={formRef}
+                    salesCompanyId={companyId ?? ''}
+                    categorySuggestions={categorySuggestions}
+                    onSubmit={onCompanySubmit}
+                    onCancel={onDrawerClose}
+                    onDirtyChange={setFormDirty}
+                    defaultValues={
+                        selectedDivision
+                            ? {
+                                  companyName: selectedDivision.name,
+                                  category: selectedDivision.division_category,
+                                  customerSegmentId:
+                                      selectedDivision.customer_segment_id ?? '',
+                                  productIds: (selectedDivision.products ?? [])
+                                      .map((p) => p.product_id)
+                                      .filter(Boolean),
+                              }
+                            : undefined
+                    }
+                />
+            </FormDrawer>
 
             <ConfirmDialog
                 isOpen={deleteDialogOpen}

@@ -6,17 +6,18 @@ import salesDivisionsReducer, {
 } from '@/store/slices/salesDivisions'
 import Container from '@/components/shared/Container'
 import AdaptiveCard from '@/components/shared/AdaptiveCard'
-import Drawer from '@/components/ui/Drawer'
-import Button from '@/components/ui/Button'
 import ScenarioListTable from './components/ScenarioListTable'
 import ScenarioListActionTools from './components/ScenarioListActionTools'
 import ScenarioListTableTools from './components/ScenarioListTableTools'
 import ScenarioListSelected from './components/ScenarioListSelected'
 import ScenarioForm, {
+    SCENARIO_STEPS,
     type ScenarioFormSchema,
     type ScenarioFormOption,
     type DivisionFormOption,
+    type ScenarioStepId,
 } from './components/ScenarioForm'
+import { FormDrawer } from '@/components/shared/form'
 import ScenarioDetail from './components/ScenarioDetail'
 import ScenarioAssignedUsers from './components/ScenarioAssignedUsers'
 import ShareScenarioDialog from './components/ShareScenarioDialog'
@@ -142,6 +143,8 @@ const ScenarioList = () => {
     const [editingScenario, setEditingScenario] = useState<Scenario | null>(null)
     const [isEditMode, setIsEditMode] = useState(false)
     const [submitting, setSubmitting] = useState(false)
+    const [formDirty, setFormDirty] = useState(false)
+    const [scenarioStep, setScenarioStep] = useState<ScenarioStepId>('context')
     const formRef = useRef<HTMLFormElement>(null)
     const [filters, setFilters] = useState<FilterValues>({
         status: 'all',
@@ -407,12 +410,16 @@ const ScenarioList = () => {
     const handleAddNew = () => {
         setIsEditMode(false)
         setEditingScenario(null)
+        setFormDirty(false)
+        setScenarioStep('context')
         setIsDrawerOpen(true)
     }
 
     const handleEdit = (scenario: Scenario) => {
         setIsEditMode(true)
         setEditingScenario(scenario)
+        setFormDirty(false)
+        setScenarioStep('context')
         setIsDrawerOpen(true)
 
         const divisionId = resolveScenarioDivisionId(scenario, assignScenarioById)
@@ -438,6 +445,7 @@ const ScenarioList = () => {
         setIsEditMode(false)
         setEditingScenario(null)
         setFormCustomerSegmentId(null)
+        setFormDirty(false)
     }
 
     const closeDrawerAfterSubmit = () => {
@@ -445,15 +453,18 @@ const ScenarioList = () => {
         setIsEditMode(false)
         setEditingScenario(null)
         setFormCustomerSegmentId(null)
+        setFormDirty(false)
     }
 
     const handleSubmitClick = () => {
         if (submitting) return
-        if (formRef.current) {
-            formRef.current.dispatchEvent(
-                new Event('submit', { cancelable: true, bubbles: true })
-            )
-        }
+        formRef.current?.requestSubmit()
+    }
+
+    const goToNextStep = () => {
+        const index = SCENARIO_STEPS.findIndex((s) => s.id === scenarioStep)
+        const next = SCENARIO_STEPS[index + 1]
+        if (next) setScenarioStep(next.id)
     }
 
     const onScenarioSubmit = async (values: ScenarioFormSchema) => {
@@ -564,7 +575,11 @@ const ScenarioList = () => {
     const modeOptions: ScenarioFormOption[] = useMemo(() => {
         return modesData
             .filter((m) => m.mode_id && m.name)
-            .map((m) => ({ label: m.name, value: m.mode_id }))
+            .map((m) => ({
+                label: m.name,
+                value: m.mode_id,
+                description: m.description ?? undefined,
+            }))
             .sort((a, b) => a.label.localeCompare(b.label))
     }, [modesData])
 
@@ -674,43 +689,21 @@ const ScenarioList = () => {
         formCustomerSegmentId,
     ])
 
-    const DrawerFooter = (
-        <div className="flex justify-between items-center w-full gap-3 px-2">
-            <Button
-                size="sm"
-                variant="default"
-                className="flex-1 dark:!bg-gray-800 dark:!border-gray-600 dark:!text-gray-200 dark:hover:!bg-gray-700 dark:hover:!border-gray-500"
-                disabled={submitting}
-                onClick={onDrawerClose}
-            >
-                Cancel
-            </Button>
-            <Button
-                size="sm"
-                variant="solid"
-                className="flex-1 bg-primary hover:bg-primary-deep text-neutral border-none rounded-md"
-                loading={submitting}
-                disabled={submitting}
-                onClick={handleSubmitClick}
-            >
-                {isEditMode ? 'Edit' : 'Create'}
-            </Button>
-        </div>
-    )
-
-    const DrawerTitle = (
-        <div>
-            <h4 className="mb-2 text-lg font-bold">
-                {isEditMode ? 'Edit Scenario' : 'Create New Scenario'}
-            </h4>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-                {isEditMode 
-                    ? 'Update the details of this training scenario'
-                    : 'Fill in the details to create a training scenario'
-                }
-            </p>
-        </div>
-    )
+    const isLastScenarioStep =
+        scenarioStep === SCENARIO_STEPS[SCENARIO_STEPS.length - 1].id
+    // Edit mode always offers Save; create mode walks the steps first.
+    const scenarioPrimaryLabel = isEditMode
+        ? 'Save changes'
+        : isLastScenarioStep
+          ? 'Create scenario'
+          : 'Continue'
+    const handleScenarioPrimary = () => {
+        if (isEditMode || isLastScenarioStep) {
+            handleSubmitClick()
+            return
+        }
+        goToNextStep()
+    }
 
     return (
         <>
@@ -812,54 +805,70 @@ const ScenarioList = () => {
                 </AdaptiveCard>
             </Container>
 
-            {/* Create Scenario Drawer */}
-            <Drawer
-                title={DrawerTitle}
+            {/* Create / edit scenario */}
+            <FormDrawer
                 isOpen={isDrawerOpen}
-                footer={DrawerFooter}
-                headerClass="!items-start !bg-gray-100 dark:!bg-gray-900"
-                footerClass="!bg-gray-100 dark:!bg-gray-900 !p-3"
-                bodyClass="!bg-gray-100 dark:!bg-gray-900 !p-4 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+                width={600}
+                title={isEditMode ? 'Edit scenario' : 'New training scenario'}
+                description={
+                    isEditMode
+                        ? 'Changes apply to future assignments.'
+                        : undefined
+                }
+                submitLabel={scenarioPrimaryLabel}
+                submitting={submitting}
+                isDirty={formDirty}
+                secondaryAction={
+                    isEditMode && !isLastScenarioStep
+                        ? { label: 'Continue', onClick: goToNextStep }
+                        : undefined
+                }
+                footerSlot={
+                    isEditMode
+                        ? formDirty
+                            ? 'Unsaved changes'
+                            : undefined
+                        : `Step ${SCENARIO_STEPS.findIndex((s) => s.id === scenarioStep) + 1} of ${SCENARIO_STEPS.length}`
+                }
+                onSubmit={handleScenarioPrimary}
                 onClose={onDrawerClose}
-                onRequestClose={onDrawerClose}
             >
-                <div className="px-2">
-                    <ScenarioForm
-                        key={scenarioFormResetKey}
-                        formRef={formRef}
-                        formResetKey={scenarioFormResetKey}
-                        initialValues={scenarioFormInitialValues}
-                        isEditMode={isEditMode}
-                        modeOptions={modeOptions}
-                        personaOptions={personaOptions}
-                        divisionOptions={divisionOptions}
-                        divisionsData={divisionsData}
-                        divisionsLoading={divisionsLoading}
-                        personasLoading={personasLoading}
-                        onSalesDivisionChange={handleSalesDivisionChange}
-                        personasData={personasData}
-                        onSubmit={onScenarioSubmit}
-                        onCancel={onDrawerClose}
-                    />
-                </div>
-            </Drawer>
+                <ScenarioForm
+                    key={scenarioFormResetKey}
+                    formRef={formRef}
+                    formResetKey={scenarioFormResetKey}
+                    initialValues={scenarioFormInitialValues}
+                    isEditMode={isEditMode}
+                    modeOptions={modeOptions}
+                    personaOptions={personaOptions}
+                    divisionOptions={divisionOptions}
+                    divisionsData={divisionsData}
+                    divisionsLoading={divisionsLoading}
+                    personasLoading={personasLoading}
+                    step={scenarioStep}
+                    onStepChange={setScenarioStep}
+                    onDirtyChange={setFormDirty}
+                    onSalesDivisionChange={handleSalesDivisionChange}
+                    personasData={personasData}
+                    onSubmit={onScenarioSubmit}
+                    onCancel={onDrawerClose}
+                />
+            </FormDrawer>
 
-            {/* View Scenario Drawer */}
-            <Drawer
-                title="Scenario Details"
+            {/* Scenario details (read-only) */}
+            <FormDrawer
+                hideFooter
                 isOpen={isViewDrawerOpen}
-                width={500}
-                headerClass="!items-start !bg-gray-100 dark:!bg-gray-900"
-                bodyClass="!bg-gray-100 dark:!bg-gray-900 !p-6 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+                width={560}
+                title={selectedScenario?.title || 'Scenario details'}
                 onClose={onViewDrawerClose}
-                onRequestClose={onViewDrawerClose}
             >
                 {selectedScenario && (
                     <div className="space-y-8">
                         <ScenarioDetail scenario={selectedScenario} />
                         {canManageLibrary && !isAssignedView && (
                             <>
-                                <div className="border-t border-gray-200 dark:border-gray-700" />
+                                <div className="border-t border-gray-200 dark:border-white/10" />
                                 <ScenarioAssignedUsers
                                     scenarioId={selectedScenario.scenario_id}
                                 />
@@ -867,7 +876,7 @@ const ScenarioList = () => {
                         )}
                     </div>
                 )}
-            </Drawer>
+            </FormDrawer>
 
             <ShareScenarioDialog
                 isOpen={isShareDialogOpen}

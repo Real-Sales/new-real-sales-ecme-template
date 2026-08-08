@@ -14,17 +14,30 @@ import {
     toggleChecklistItem,
     setCelebrated,
 } from '@/store/slices/concierge/conciergeSlice'
-import type { TourStatus } from '@/store/slices/concierge/conciergeSlice'
 import { fetchMySubscription } from '@/views/profile/Subscription/store/subscriptionSlice'
 import { companyOwnerNeedsOnboarding } from '@/utils/onboarding'
 import { useSpotlightTarget } from './useSpotlightTarget'
 import { useTourEvent } from './conciergeBus'
-import { buildTourSteps, buildChecklistItems } from './steps'
+import { buildTourSteps, buildChecklistItems, type TourStep } from './steps'
 import Spotlight from './Spotlight'
 import StepCoachmark from './StepCoachmark'
 import WelcomeModal from './WelcomeModal'
 import Celebration from './Celebration'
 import FloatingCoach from './FloatingCoach'
+
+const isDivisionList = (path: string) => path === '/sales-division'
+const isDivisionDetail = (path: string) => /^\/sales-division\/[^/]+$/.test(path)
+const isTeamDetail = (path: string) => /^\/teams\/[^/]+$/.test(path)
+
+/** True when the browser is already on a page where this step's target can exist. */
+const pathMatchesStep = (step: TourStep, path: string): boolean => {
+    if (step.openFirstTeamDetail) return isTeamDetail(path)
+    if (step.openFirstDivisionDetail) return isDivisionDetail(path)
+    if (!step.route) return true
+    // List-only landmarks (create button, page header) must not stay on /:id.
+    if (step.route === '/sales-division') return isDivisionList(path)
+    return path === step.route || path.startsWith(`${step.route}/`)
+}
 
 const ConciergeProvider = () => {
     const dispatch = useAppDispatch()
@@ -45,14 +58,11 @@ const ConciergeProvider = () => {
     const steps = useMemo(() => buildTourSteps(user.role), [user.role])
     const checklistItems = useMemo(() => buildChecklistItems(user.role), [user.role])
 
-    // Keep tour/celebration progress across logins for the same account; reset only
-    // when a different user signs in on this browser.
     useEffect(() => {
         if (!ready || !user.userId) return
         dispatch(ensureOwner(user.userId))
     }, [ready, user.userId, dispatch])
 
-    // Subscription (credits/sessions_completed) is needed app-wide for the celebration signal.
     useEffect(() => {
         if (ready) dispatch(fetchMySubscription())
     }, [ready, dispatch])
@@ -66,33 +76,33 @@ const ConciergeProvider = () => {
         activeStep ? activeStep.target : null,
     )
 
-    // Auto-pilot: keep the browser on the page this step needs — including when
-    // the user hits Back from a deeper page (team → division → list).
+    /**
+     * Always put the browser on the page the active step needs — Next and Back.
+     * Missing this for steps without navigateOnEnter was the black-screen bug:
+     * spotlight looked for a target that isn't on the current route.
+     */
     useEffect(() => {
         if (!activeStep) return
 
         const path = location.pathname
-        const onDivisionList = path === '/sales-division'
-        const onDivisionDetail = /^\/sales-division\/[^/]+$/.test(path)
-        const onTeamDetail = /^\/teams\/[^/]+$/.test(path)
 
         const openFirstDivision = () => {
-            const firstDivision = document.querySelector(
+            const el = document.querySelector(
                 '[data-tour-id="division-card"]',
             ) as HTMLElement | null
-            const divisionId = firstDivision?.dataset.divisionId
-            if (!divisionId) return false
-            navigate(`/sales-division/${divisionId}`)
+            const id = el?.dataset.divisionId
+            if (!id) return false
+            navigate(`/sales-division/${id}`)
             return true
         }
 
         const openFirstTeam = () => {
-            const firstTeam = document.querySelector(
+            const el = document.querySelector(
                 '[data-tour-id="team-card"]',
             ) as HTMLElement | null
-            const teamId = firstTeam?.dataset.teamId
-            if (!teamId) return false
-            navigate(`/teams/${teamId}`)
+            const id = el?.dataset.teamId
+            if (!id) return false
+            navigate(`/teams/${id}`)
             return true
         }
 
@@ -108,13 +118,14 @@ const ConciergeProvider = () => {
             }
         }
 
-        // --- Team detail steps ---
+        if (pathMatchesStep(activeStep, path)) return
+
+        // Team detail
         if (activeStep.openFirstTeamDetail) {
-            if (onTeamDetail) return
             return pollUntil(() => {
                 if (openFirstTeam()) return true
-                if (onDivisionDetail) return false
-                if (!onDivisionList) {
+                if (isDivisionDetail(path)) return false
+                if (!isDivisionList(path)) {
                     navigate('/sales-division')
                     return true
                 }
@@ -122,58 +133,28 @@ const ConciergeProvider = () => {
             })
         }
 
-        // --- Division detail steps (e.g. "What a team is") ---
+        // Division detail
         if (activeStep.openFirstDivisionDetail) {
-            if (onDivisionDetail) return
-            // Coming back from a team page — return to the list first, then open a division.
-            if (onTeamDetail) {
+            if (isTeamDetail(path)) {
                 navigate('/sales-division')
                 return
             }
             return pollUntil(openFirstDivision)
         }
 
-        // --- Sales-division LIST steps (header / create button) ---
-        // Must not stay on /sales-division/:id or /teams/:id or the target is missing
-        // and the spotlight goes full-black with no coachmark.
-        if (
-            activeStep.route === '/sales-division' &&
-            !activeStep.openFirstDivisionDetail
-        ) {
-            if (!onDivisionList) {
-                navigate('/sales-division')
-            }
-            return
-        }
-
-        // --- Generic route steps ---
-        if (
-            activeStep.navigateOnEnter &&
-            activeStep.route &&
-            path !== activeStep.route &&
-            !path.startsWith(`${activeStep.route}/`)
-        ) {
+        // Any other step with a route — navigate there (covers Back into overview,
+        // scenario library, leaderboard, etc. even when navigateOnEnter was omitted).
+        if (activeStep.route) {
             navigate(activeStep.route)
         }
     }, [activeStep, location.pathname, navigate])
 
-    // Pan the camera to the target as soon as it actually resolves (page may still be loading).
     useEffect(() => {
         if (activeStep && rect) {
             const t = window.setTimeout(panToTarget, 50)
             return () => window.clearTimeout(t)
         }
     }, [activeStep, rect, panToTarget])
-
-    // If the spotlight target never appears (wrong page after Back, missing landmark),
-    // drop the full-black overlay instead of trapping the user.
-    useEffect(() => {
-        if (!activeStep?.target || rect) return
-        const timeout = window.setTimeout(() => {
-            dispatch(pauseTour())
-        }, 8000)
-        return () => window.clearTimeout(timeout)
-    }, [activeStep, rect, dispatch])
 
     const advanceStep = useCallback(
         (stepId: string) => {
@@ -193,14 +174,10 @@ const ConciergeProvider = () => {
         dispatch(goBackStep())
     }, [dispatch, concierge.currentStepIndex])
 
-    // Real-action advancement (guide by doing, not by describing).
     useTourEvent('start-training-opened', () => {
         if (activeStep?.id === 'start-training-cta') advanceStep('start-training-cta')
     })
 
-    // Clicking the real, spotlighted element (e.g. "Add Scenario") marks this step done and
-    // steps out of the way - the user is about to use a real drawer/dialog, the tour should
-    // not yank them to the next page mid-task. They resume via the floating coach when ready.
     useEffect(() => {
         if (!activeStep?.advanceOnClick || !element) return
         const handler = () => {
@@ -211,7 +188,6 @@ const ConciergeProvider = () => {
         return () => element.removeEventListener('click', handler)
     }, [element, activeStep, advanceStep, dispatch])
 
-    // Checklist signals that don't depend on the tour being active.
     useEffect(() => {
         const routeToChecklistId: Record<string, string> = {
             '/performance': 'visit-performance',
@@ -228,7 +204,6 @@ const ConciergeProvider = () => {
         }
     }, [location.pathname, dispatch])
 
-    // Celebration: first completed session, detected from real subscription usage data.
     useEffect(() => {
         if (!ready) return
         const sessionsCompleted = subscription?.sessions_completed ?? 0
@@ -257,8 +232,6 @@ const ConciergeProvider = () => {
     }
 
     const handleResumeTour = () => {
-        // Paused / mid-tour → pick up where they left off.
-        // Completed / skipped / not started → manual restart from the beginning.
         if (
             concierge.tourStatus === 'paused' ||
             concierge.tourStatus === 'in_progress'
@@ -274,17 +247,7 @@ const ConciergeProvider = () => {
         [ready, concierge.tourStatus],
     )
 
-    // Hold the coachmark until the route has settled and the spotlight target
-    // exists. Showing it early falls back to the viewport center for one frame
-    // while the next page mounts — the flash the user was seeing.
-    const onDivisionDetail = /^\/sales-division\/[^/]+$/.test(location.pathname)
-    const onTeamDetail = /^\/teams\/[^/]+$/.test(location.pathname)
-    const routeReady =
-        !activeStep?.route ||
-        location.pathname === activeStep.route ||
-        location.pathname.startsWith(`${activeStep.route}/`) ||
-        (activeStep.openFirstDivisionDetail && onDivisionDetail) ||
-        (activeStep.openFirstTeamDetail && onTeamDetail)
+    const routeReady = Boolean(activeStep && pathMatchesStep(activeStep, location.pathname))
     const targetReady = !activeStep?.target || rect !== null
     const showCoachmark = Boolean(activeStep && routeReady && targetReady)
 
@@ -301,7 +264,8 @@ const ConciergeProvider = () => {
 
             {activeStep && (
                 <>
-                    <Spotlight rect={rect} />
+                    {/* Only dim once we have a real cutout — never trap on full-black. */}
+                    {rect && <Spotlight rect={rect} />}
                     {showCoachmark && (
                         <StepCoachmark
                             step={activeStep}
