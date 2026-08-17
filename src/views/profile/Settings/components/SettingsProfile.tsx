@@ -83,7 +83,12 @@ const SettingsProfile = () => {
     const industriesError = useAppSelector((state) => state.industriesCatalog.error)
 
     const isCompanyOwner = authUser.role === 'company_owner'
-    const hasCompany = data.hasCompany ?? Boolean(data.companyName)
+    const hasCompany = Boolean(
+        data.hasCompany ||
+            data.companyName ||
+            data.salesCompanyId ||
+            authUser.companyId,
+    )
 
     const [companyName, setCompanyName] = useState('')
     const [companyIndustry, setCompanyIndustry] = useState('')
@@ -100,6 +105,7 @@ const SettingsProfile = () => {
     const personalFormSyncedRef = useRef('')
     const savedIndustryRef = useRef('')
     const skipNextFormSyncRef = useRef(false)
+    const companyProfileRefreshRef = useRef(false)
 
     const salesCompanyId = data.salesCompanyId || authUser.companyId || ''
 
@@ -168,11 +174,30 @@ const SettingsProfile = () => {
 
         if (!profileInitialized && !profileLoading) {
             dispatch(fetchUserProfile())
+            return
+        }
+
+        const profileMissingCompany =
+            !data.hasCompany && !data.salesCompanyId && !data.companyName
+
+        if (
+            profileInitialized &&
+            !profileLoading &&
+            Boolean(authUser.companyId) &&
+            profileMissingCompany &&
+            !companyProfileRefreshRef.current
+        ) {
+            companyProfileRefreshRef.current = true
+            dispatch(fetchUserProfile())
         }
     }, [
         dispatch,
         authUser.userId,
+        authUser.companyId,
         data.id,
+        data.hasCompany,
+        data.salesCompanyId,
+        data.companyName,
         profileInitialized,
         profileLoading,
     ])
@@ -203,13 +228,21 @@ const SettingsProfile = () => {
         if (!industriesInitialized && industries.length === 0) return
 
         const rawIndustry =
-            data.companyIndustry ?? data.industryLabel ?? data.industry ?? ''
+            data.companyIndustry ??
+            data.industryLabel ??
+            data.industry ??
+            authUser.industry ??
+            ''
         const matched = findIndustryMatch(rawIndustry, industries)
-        const savedProductIds = (data.selectedProductIds ?? []).filter(Boolean)
+        const savedProductIds = (
+            data.selectedProductIds?.length
+                ? data.selectedProductIds
+                : authUser.industryProducts ?? []
+        ).filter(Boolean)
 
         const syncKey = [
-            data.salesCompanyId,
-            data.companyName,
+            data.salesCompanyId || authUser.companyId,
+            data.companyName || authUser.companyName,
             rawIndustry,
             data.address,
             data.location,
@@ -218,7 +251,7 @@ const SettingsProfile = () => {
 
         if (companyFormSyncedRef.current === syncKey) return
 
-        setCompanyName(data.companyName ?? '')
+        setCompanyName(data.companyName || authUser.companyName || '')
         setCompanyPhone(data.companyPhone ?? '')
         setCompanyAddress((data.address || data.location || '').trim())
         setProductIds(savedProductIds)
@@ -241,6 +274,10 @@ const SettingsProfile = () => {
         data.location,
         data.selectedProductIds,
         data.companyProducts,
+        authUser.companyId,
+        authUser.companyName,
+        authUser.industry,
+        authUser.industryProducts,
         industries,
         industriesInitialized,
     ])

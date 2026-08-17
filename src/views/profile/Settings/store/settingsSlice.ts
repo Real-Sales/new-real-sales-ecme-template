@@ -108,8 +108,8 @@ export function mapUserProfileToSettings(
         companyEmail: company?.email ?? '',
         companyPhone: normalizePhone(company?.phone_number),
         companyProducts,
-        hasCompany: Boolean(company),
-        salesCompanyId: company?.sales_company_id ?? '',
+        hasCompany: Boolean(company || profile.company_id),
+        salesCompanyId: company?.sales_company_id ?? profile.company_id ?? '',
         companyIndustry: company?.industry
             ? normalizeIndustryName(company.industry)
             : '',
@@ -147,21 +147,75 @@ export function mapUserProfileToAuthUser(
     }
 }
 
+function profileHasCompany(profile: GetSettingsProfileResponse) {
+    return Boolean(profile.hasCompany || profile.salesCompanyId || profile.companyName)
+}
+
+/** Keep company fields if a stale GET (pre-onboarding) arrives after the company was created. */
+function mergeFetchedSettingsProfile(
+    current: GetSettingsProfileResponse,
+    incoming: GetSettingsProfileResponse,
+): GetSettingsProfileResponse {
+    const incomingHasCompany = profileHasCompany(incoming)
+    const currentHasCompany = profileHasCompany(current)
+
+    if (!incomingHasCompany && currentHasCompany) {
+        return {
+            ...incoming,
+            hasCompany: true,
+            salesCompanyId: incoming.salesCompanyId || current.salesCompanyId,
+            companyName: incoming.companyName || current.companyName,
+            companyEmail: incoming.companyEmail || current.companyEmail,
+            companyPhone: incoming.companyPhone || current.companyPhone,
+            companyIndustry: incoming.companyIndustry || current.companyIndustry,
+            companyIndustryId: incoming.companyIndustryId || current.companyIndustryId,
+            companyProducts: incoming.companyProducts?.length
+                ? incoming.companyProducts
+                : current.companyProducts,
+            selectedProductIds: incoming.selectedProductIds?.length
+                ? incoming.selectedProductIds
+                : current.selectedProductIds,
+            products: incoming.products?.length ? incoming.products : current.products,
+            address: incoming.address || current.address,
+            location: incoming.location || current.location,
+            industry: incoming.industry || current.industry,
+            industryLabel: incoming.industryLabel || current.industryLabel,
+            img: incoming.img || current.img,
+        }
+    }
+
+    return {
+        ...incoming,
+        img: incoming.img || current.img,
+    }
+}
+
 function syncAuthUserFromProfile(
     profile: UserProfile,
     getState: () => RootState,
     dispatch: ThunkDispatch<RootState, unknown, UnknownAction>,
 ) {
     const authUser = getState().auth.user
-    dispatch(
-        setUser(
-            mapUserProfileToAuthUser(profile, {
-                avatar: authUser.avatar,
-                authority: authUser.authority,
-                isNewUser: authUser.isNewUser,
-            }),
-        ),
-    )
+    const mapped = mapUserProfileToAuthUser(profile, {
+        avatar: authUser.avatar,
+        authority: authUser.authority,
+        isNewUser: authUser.isNewUser,
+    })
+
+    // A GET that started before onboarding can return without company_id after
+    // the company was already linked in this session — do not wipe it.
+    if (!mapped.companyId && authUser.companyId) {
+        mapped.companyId = authUser.companyId
+        mapped.companyName = mapped.companyName || authUser.companyName
+        mapped.industry = mapped.industry || authUser.industry
+        mapped.industryId = mapped.industryId || authUser.industryId
+        mapped.industryProducts = mapped.industryProducts?.length
+            ? mapped.industryProducts
+            : authUser.industryProducts
+        mapped.isNewUser = false
+    }
+
+    dispatch(setUser(mapped))
     dispatch(
         setActiveUserSubscription(subscriptionRowsFromProfile(profile.user_subscriptions)),
     )
@@ -380,11 +434,10 @@ const settingsSlice = createSlice({
             .addCase(fetchUserProfile.fulfilled, (state, action) => {
                 state.profileLoading = false
                 state.profileInitialized = true
-                const previousImg = state.profile.img
-                state.profile = {
-                    ...mapUserProfileToSettings(action.payload),
-                    img: previousImg || state.profile.img,
-                }
+                state.profile = mergeFetchedSettingsProfile(
+                    state.profile,
+                    mapUserProfileToSettings(action.payload),
+                )
             })
             .addCase(fetchUserProfile.rejected, (state, action) => {
                 state.profileLoading = false

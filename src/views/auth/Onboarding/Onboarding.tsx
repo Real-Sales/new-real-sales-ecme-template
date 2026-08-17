@@ -9,6 +9,11 @@ import { setOnboardingComplete } from '@/store/slices/auth/userSlice'
 import { apiCreateSalesCompany } from '@/services/SalesCompanyService'
 import { apiGetManagerMe } from '@/services/ManagerService'
 import { apiPatchCompanyProfile } from '@/services/AuthService'
+import {
+    fetchUserProfile,
+    mapUserProfileToSettings,
+    setProfile,
+} from '@/views/profile/Settings/store/settingsSlice'
 import { useAuth } from '@/auth'
 import { HiArrowLeft } from 'react-icons/hi'
 import type { OnboardingFormSchema } from './components/OnboardingForm'
@@ -39,7 +44,7 @@ const Onboarding = () => {
             })
 
             if (resp) {
-                await apiPatchCompanyProfile({
+                const patchedProfile = await apiPatchCompanyProfile({
                     sales_company_id: resp.sales_company_id,
                     industry: data.industry,
                     product_ids: data.industryProducts,
@@ -48,17 +53,46 @@ const Onboarding = () => {
                 // Fetch the updated user data to get the linked company_id
                 const authResp = await apiGetManagerMe()
 
-                if (authResp) {
-                    dispatch(
-                        setOnboardingComplete({
-                            companyId: authResp.company_id || resp.sales_company_id,
-                            companyName: resp.name,
-                            industry: resp.industry,
-                            industryProducts: data.industryProducts,
-                        }),
-                    )
-                    navigate('/overview')
-                }
+                const companyId =
+                    patchedProfile?.company_id ||
+                    patchedProfile?.company?.sales_company_id ||
+                    authResp?.company_id ||
+                    resp.sales_company_id
+
+                dispatch(
+                    setOnboardingComplete({
+                        companyId,
+                        companyName: patchedProfile?.company?.name || resp.name,
+                        industry:
+                            patchedProfile?.company?.industry || resp.industry,
+                        industryProducts: data.industryProducts,
+                    }),
+                )
+
+                // Sign-in fetched the profile before a company existed. Replace
+                // that snapshot so Settings shows Company information immediately.
+                const mapped = mapUserProfileToSettings(patchedProfile)
+                dispatch(
+                    setProfile({
+                        ...(patchedProfile?.user_id ? mapped : {}),
+                        hasCompany: true,
+                        salesCompanyId: mapped.salesCompanyId || companyId,
+                        companyName: mapped.companyName || resp.name,
+                        companyIndustry:
+                            mapped.companyIndustry || resp.industry,
+                        companyEmail: mapped.companyEmail || resp.email,
+                        companyPhone:
+                            mapped.companyPhone || resp.phone_number,
+                        address: mapped.address || resp.location,
+                        location: mapped.location || resp.location,
+                        selectedProductIds: mapped.selectedProductIds?.length
+                            ? mapped.selectedProductIds
+                            : data.industryProducts,
+                    }),
+                )
+
+                void dispatch(fetchUserProfile())
+                navigate('/overview')
             }
         } catch (err: any) {
             console.error('Onboarding error:', err)
