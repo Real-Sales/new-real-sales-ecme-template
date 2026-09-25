@@ -476,7 +476,7 @@ export class GdmLiveAudio extends LitElement {
 		this.nextStartTime = this.outputAudioContext.currentTime;
 	}
 
-	private async fetchEphemeralToken(): Promise<{ token: string } | null> {
+	private async fetchEphemeralToken(): Promise<{ token: string; model: string; voice_name?: string } | null> {
 		if (!this.sessionId) {
 			this.updateError('No session ID available. Cannot fetch token.');
 			return null;
@@ -506,8 +506,6 @@ export class GdmLiveAudio extends LitElement {
 	}
 
 	private async initSession() {
-		const model = 'gemini-3.1-flash-live-preview';
-
 		this.isSessionOpen = false;
 		try { this.session?.close(); } catch { /* ignore */ }
 		this.session = undefined;
@@ -521,6 +519,9 @@ export class GdmLiveAudio extends LitElement {
 			return;
 		}
 		const apiToken = tokenData.token;
+		// The backend locks the token to this model, so always connect with it.
+		const model = tokenData.model;
+		const voiceName = tokenData.voice_name ?? 'Orus';
 		console.log('[LiveAudio] Fresh token fetched');
 
 		this.client = new GoogleGenAI({ apiKey: apiToken, httpOptions: { apiVersion: 'v1alpha' } });
@@ -661,7 +662,7 @@ export class GdmLiveAudio extends LitElement {
 		config: {
 			responseModalities: [Modality.AUDIO],
 			speechConfig: {
-				voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Orus' } },
+				voiceConfig: { prebuiltVoiceConfig: { voiceName } },
 			},
 			contextWindowCompression: { slidingWindow: {} },
 			inputAudioTranscription: {},
