@@ -1,10 +1,11 @@
-import { useRef, useImperativeHandle, useEffect } from 'react'
+import { useRef, useImperativeHandle, useEffect, useState, useMemo } from 'react'
 import AuthContext from './AuthContext'
 import appConfig from '@/configs/app.config'
 import { useAppSelector, useAppDispatch } from '@/store/hook'
 import { signInSuccess, signOutSuccess } from '@/store/slices/auth/sessionSlice'
 import { setUser } from '@/store/slices/auth/userSlice'
-import { setProfile } from '@/views/profile/Settings/store/settingsSlice'
+import { setProfile, resetProfileData, fetchUserProfile } from '@/views/profile/Settings/store/settingsSlice'
+import { resetSubscriptionData } from '@/views/profile/Subscription/store/subscriptionSlice'
 import {
     apiSignIn,
     apiSignOut,
@@ -16,11 +17,16 @@ import { REDIRECT_URL_KEY } from '@/constants/app.constant'
 import { useNavigate } from 'react-router-dom'
 import Cookies from 'js-cookie'
 import { apiGetSalesCompanyByManager } from '@/services/SalesCompanyService'
+import { resetLeaderboardData } from '@/views/sales/Leaderboard/store/leaderboardSlice'
 import { resetPerformanceData } from '@/store/slices/performance'
 import { resetScenarioLibraryData } from '@/views/sales/ScenarioList/store/scenarioLibrarySlice'
 import { resetCompanyMembersData } from '@/views/sales/members/store/companyMembersSlice'
 import { resetTeamsData } from '@/store/slices/teams'
 import { resetSalesDivisionsData } from '@/store/slices/salesDivisions'
+import {
+    companyOwnerNeedsOnboarding,
+    roleMayResolveCompanyViaManager,
+} from '@/utils/onboarding'
 
 const AUTH_TOKEN_COOKIE = 'auth_token'
 const useCookies = appConfig.accessTokenPersistStrategy === 'cookies'
@@ -74,13 +80,19 @@ function AuthProvider({ children }: AuthProviderProps) {
     // To update user: dispatch(setUser(userData))
     // To sign in: dispatch(signInSuccess(token))
     // To sign out: dispatch(signOutSuccess())
+    const profileInitialized = useAppSelector(
+        (state) => state.settings.profileInitialized,
+    )
+    const profileLoading = useAppSelector((state) => state.settings.profileLoading)
     // When using cookies strategy, the cookie is the source of truth for authentication.
-    // localStorage auth.user still persists profile data (name, email, avatar).
+    // Company profile fields are kept in Redux only and loaded from the API.
     const authenticated = useCookies
         ? Boolean(Cookies.get(AUTH_TOKEN_COOKIE))
         : Boolean(token && signedIn)
 
     const navigatorRef = useRef<IsolatedNavigatorRef>(null)
+    /** Tracks manager-company fallback after profile restore (companyId is not persisted). */
+    const [companyLookupDone, setCompanyLookupDone] = useState(false)
 
     // On app startup with cookies strategy, restore auth session from cookie
     useEffect(() => {
@@ -93,30 +105,102 @@ function AuthProvider({ children }: AuthProviderProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
 
-    // Ensure companyId is fetched if missing but user is authenticated.
+    // Load company/profile from API on session restore — never from localStorage.
+    useEffect(() => {
+        if (!authenticated || profileLoading || profileInitialized) return
+        dispatch(fetchUserProfile())
+    }, [authenticated, profileInitialized, profileLoading, dispatch])
+
+    // Fallback when profile lacks company_id for manager/owner onboarding flows.
     // Only managers/owners need this call — sales_person gets company_id from auth/me.
     useEffect(() => {
-        const managerRoles = ['sales_manager', 'company_owner', 'admin', 'super_admin']
-        if (authenticated && user.userId && !user.companyId && managerRoles.includes(user.role ?? '')) {
-            const fetchCompanyId = async () => {
-                try {
-                    const companyResp = await apiGetSalesCompanyByManager(user.userId as string)
-                    let companyId = ''
-                    if (Array.isArray(companyResp) && companyResp.length > 0) {
-                        companyId = companyResp[0].sales_company_id
-                    } else if (companyResp && (companyResp as any).sales_company_id) {
-                        companyId = (companyResp as any).sales_company_id
-                    }
-                    if (companyId) {
-                        dispatch(setUser({ ...user, companyId }))
-                    }
-                } catch (error) {
-                    console.error('AuthProvider: Background fetch companyId failed:', error)
-                }
-            }
-            fetchCompanyId()
+        if (!authenticated) {
+            setCompanyLookupDone(false)
+            return
         }
-    }, [authenticated, user.userId, user.companyId, user.role, dispatch])
+
+        if (!profileInitialized) {
+            setCompanyLookupDone(false)
+            return
+        }
+
+        if (
+            user.companyId ||
+            !user.userId ||
+            !roleMayResolveCompanyViaManager(user.role)
+        ) {
+            setCompanyLookupDone(true)
+            return
+        }
+
+        let cancelled = false
+        setCompanyLookupDone(false)
+
+        const fetchCompanyId = async () => {
+            try {
+                const companyResp = await apiGetSalesCompanyByManager(
+                    user.userId as string,
+                )
+                let companyId = ''
+                if (Array.isArray(companyResp) && companyResp.length > 0) {
+                    companyId = companyResp[0].sales_company_id
+                } else if (
+                    companyResp &&
+                    (companyResp as { sales_company_id?: string }).sales_company_id
+                ) {
+                    companyId = (companyResp as { sales_company_id: string })
+                        .sales_company_id
+                }
+                if (cancelled) return
+                if (companyId) {
+                    dispatch(setUser({ ...user, companyId, isNewUser: false }))
+                } else if (companyOwnerNeedsOnboarding(user.role, companyId)) {
+                    dispatch(setUser({ ...user, isNewUser: true }))
+                }
+            } catch (error) {
+                console.error('AuthProvider: Background fetch companyId failed:', error)
+                if (!cancelled && companyOwnerNeedsOnboarding(user.role, '')) {
+                    dispatch(setUser({ ...user, isNewUser: true }))
+                }
+            } finally {
+                if (!cancelled) setCompanyLookupDone(true)
+            }
+        }
+
+        void fetchCompanyId()
+        return () => {
+            cancelled = true
+        }
+        // Intentionally omit full `user` to avoid re-fetch loops; companyId/role/userId matter.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [
+        authenticated,
+        profileInitialized,
+        user.userId,
+        user.companyId,
+        user.role,
+        dispatch,
+    ])
+
+    const isSessionReady = useMemo(() => {
+        if (!authenticated) return true
+        if (!profileInitialized || profileLoading) return false
+        if (
+            !user.companyId &&
+            roleMayResolveCompanyViaManager(user.role) &&
+            !companyLookupDone
+        ) {
+            return false
+        }
+        return true
+    }, [
+        authenticated,
+        profileInitialized,
+        profileLoading,
+        user.companyId,
+        user.role,
+        companyLookupDone,
+    ])
 
     const redirect = () => {
         const search = window.location.search
@@ -128,63 +212,80 @@ function AuthProvider({ children }: AuthProviderProps) {
         )
     }
 
-    const handleSignIn = async (tokens: Token, user?: User) => {
+    const handleSignIn = async (tokens: Token, user?: User): Promise<boolean> => {
         dispatch(signInSuccess(tokens.accessToken))
         setAuthCookie(tokens.accessToken)
 
-        if (user) {
-            let companyId = user.companyId ?? ''
-
-            // Only fetch company from the manager endpoint for roles that are allowed to call it.
-            // sales_person gets company_id directly from the auth/me response — calling
-            // sales-companies/manager/{id} returns 403 for that role.
-            const canFetchCompany = ['sales_manager', 'company_owner', 'admin', 'super_admin'].includes(user.role ?? '')
-            if (!companyId && user.userId && canFetchCompany) {
-                try {
-                    const companyResp = await apiGetSalesCompanyByManager(user.userId)
-                    if (Array.isArray(companyResp) && companyResp.length > 0) {
-                        companyId = companyResp[0].sales_company_id
-                    } else if (companyResp && (companyResp as any).sales_company_id) {
-                        companyId = (companyResp as any).sales_company_id
-                    }
-                } catch (error) {
-                    console.error('AuthProvider: Failed to fetch company ID:', error)
-                }
-            }
-
-            const userData = {
-                userId: user.userId ?? '',
-                avatar: user.avatar ?? '',
-                userName: user.userName ?? `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim(),
-                firstName: user.firstName ?? '',
-                lastName: user.lastName ?? '',
-                email: user.email ?? '',
-                phoneNumber: user.phoneNumber ?? '',
-                role: user.role ?? '',
-                authority: user.authority ?? (user.role ? [user.role] : []),
-                companyId: companyId,
-                isNewUser: (user as User & { isNewUser?: boolean }).isNewUser ?? false,
-            }
-            
-            dispatch(setUser(userData))
-            
-            // Sync auth.user data to settings.profile so the profile page shows correct data
-            dispatch(setProfile({
-                firstName: userData.firstName,
-                lastName: userData.lastName,
-                email: userData.email,
-                phoneNumber: userData.phoneNumber,
-                img: userData.avatar,
-            }))
+        if (!user) {
+            return false
         }
+
+        let companyId = user.companyId ?? ''
+
+        // Only fetch company from the manager endpoint for roles that are allowed to call it.
+        // sales_person gets company_id directly from the auth/me response — calling
+        // sales-companies/manager/{id} returns 403 for that role.
+        const canFetchCompany = ['sales_manager', 'company_owner', 'admin', 'super_admin'].includes(
+            user.role ?? '',
+        )
+        if (!companyId && user.userId && canFetchCompany) {
+            try {
+                const companyResp = await apiGetSalesCompanyByManager(user.userId)
+                if (Array.isArray(companyResp) && companyResp.length > 0) {
+                    companyId = companyResp[0].sales_company_id
+                } else if (companyResp && (companyResp as { sales_company_id?: string }).sales_company_id) {
+                    companyId = (companyResp as { sales_company_id: string }).sales_company_id
+                }
+            } catch (error) {
+                console.error('AuthProvider: Failed to fetch company ID:', error)
+            }
+        }
+
+        const needsOnboarding = companyOwnerNeedsOnboarding(user.role, companyId)
+
+        dispatch(resetProfileData())
+
+        const userData = {
+            userId: user.userId ?? '',
+            avatar: user.avatar ?? '',
+            userName: user.userName ?? `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim(),
+            firstName: user.firstName ?? '',
+            lastName: user.lastName ?? '',
+            email: user.email ?? '',
+            phoneNumber: user.phoneNumber ?? '',
+            role: user.role ?? '',
+            authority: user.authority ?? (user.role ? [user.role] : []),
+            companyId: companyId,
+            isNewUser: needsOnboarding,
+        }
+
+        dispatch(setUser(userData))
+
+        // Sync auth.user data to settings.profile so the profile page shows correct data
+        dispatch(setProfile({
+            firstName: userData.firstName,
+            lastName: userData.lastName,
+            email: userData.email,
+            phoneNumber: userData.phoneNumber,
+            img: userData.avatar,
+        }))
+
+        dispatch(fetchUserProfile())
+
+        return needsOnboarding
     }
 
     const handleSignOut = () => {
         dispatch(resetPerformanceData())
         dispatch(resetScenarioLibraryData())
+        dispatch(resetLeaderboardData())
         dispatch(resetCompanyMembersData())
         dispatch(resetTeamsData())
         dispatch(resetSalesDivisionsData())
+        dispatch(resetProfileData())
+        dispatch(resetSubscriptionData())
+        // Concierge progress is persisted per user (ownerUserId) — do not wipe on logout
+        // or the welcome tour would reappear on every sign-in.
         dispatch(signOutSuccess())
         dispatch(setUser({}))
         clearAuthCookie()
@@ -194,16 +295,21 @@ function AuthProvider({ children }: AuthProviderProps) {
         try {
             const resp = await apiSignIn(values)
             if (resp) {
-                await handleSignIn({ accessToken: resp.token }, {
+                const needsOnboarding = await handleSignIn({ accessToken: resp.token }, {
                     userId: resp.user.user_id,
                     firstName: resp.user.first_name,
                     lastName: resp.user.last_name,
                     email: resp.user.email,
                     phoneNumber: resp.user.phone_number,
                     role: resp.user.role,
-                    companyId: (resp.user as any).sales_company_id || (resp.user as any).company_id,
+                    companyId: (resp.user as { sales_company_id?: string; company_id?: string }).sales_company_id ||
+                        (resp.user as { company_id?: string }).company_id,
                 })
-                redirect()
+                if (needsOnboarding) {
+                    navigatorRef.current?.navigate('/onboarding')
+                } else {
+                    redirect()
+                }
                 return {
                     status: 'success',
                     message: '',
@@ -270,9 +376,22 @@ function AuthProvider({ children }: AuthProviderProps) {
             }
             // eslint-disable-next-line  @typescript-eslint/no-explicit-any
         } catch (errors: any) {
+            const detail = errors?.response?.data?.detail
+            if (detail === 'Number already registered') {
+                return {
+                    status: 'failed',
+                    message: 'This phone number is already registered',
+                }
+            }
+            if (detail === 'Email already registered') {
+                return {
+                    status: 'failed',
+                    message: 'This email is already registered',
+                }
+            }
             return {
                 status: 'failed',
-                message: errors?.response?.data?.message || errors?.response?.data?.error || errors?.response?.data?.detail || errors.toString(),
+                message: errors?.response?.data?.message || errors?.response?.data?.error || detail || errors.toString(),
             }
         }
     }
@@ -310,30 +429,26 @@ function AuthProvider({ children }: AuthProviderProps) {
         try {
             const resp = await apiVerifyOtp(values)
             if (resp?.token) {
-                // Decide onboarding gate BEFORE handleSignIn so isNewUser stays in sync with the
-                // navigation target. Otherwise ProtectedRoute would re-redirect invite/joined users
-                // to /onboarding even after we navigate them to /overview.
-                const hasCompanyContext = Boolean(
-                    (resp.user as any).sales_company_id || (resp.user as any).company_id,
-                )
                 const flow = new URLSearchParams(window.location.search).get('flow')
-                const shouldSkipOnboarding =
-                    flow === 'invite' ||
-                    hasCompanyContext ||
-                    resp.user.role !== 'company_owner'
-
-                await handleSignIn({ accessToken: resp.token }, {
+                const needsOnboarding = await handleSignIn({ accessToken: resp.token }, {
                     userId: resp.user.user_id,
                     firstName: resp.user.first_name,
                     lastName: resp.user.last_name,
                     email: resp.user.email,
                     phoneNumber: resp.user.phone_number,
                     role: resp.user.role,
-                    companyId: (resp.user as any).sales_company_id || (resp.user as any).company_id,
-                    isNewUser: !shouldSkipOnboarding,
-                } as User)
+                    companyId:
+                        (resp.user as { sales_company_id?: string; company_id?: string }).sales_company_id ||
+                        (resp.user as { company_id?: string }).company_id,
+                })
 
-                navigatorRef.current?.navigate(shouldSkipOnboarding ? '/overview' : '/onboarding')
+                if (flow === 'invite') {
+                    navigatorRef.current?.navigate('/overview')
+                } else {
+                    navigatorRef.current?.navigate(
+                        needsOnboarding ? '/onboarding' : '/overview',
+                    )
+                }
                 return {
                     status: 'success',
                     message: '',
@@ -367,6 +482,7 @@ function AuthProvider({ children }: AuthProviderProps) {
         callback({
             onSignIn: handleSignIn,
             redirect,
+            navigateToOnboarding: () => navigatorRef.current?.navigate('/onboarding'),
         })
     }
 
@@ -374,6 +490,7 @@ function AuthProvider({ children }: AuthProviderProps) {
         <AuthContext.Provider
             value={{
                 authenticated,
+                isSessionReady,
                 user,
                 signIn,
                 signUp,

@@ -8,6 +8,7 @@ import {
     LAYOUT_BLANK,
 } from '@/constants/theme.constant'
 import Loading from '@/components/shared/Loading'
+import ConciergeProvider from '@/components/concierge/ConciergeProvider'
 import type { CommonProps } from '@/@types/common'
 import type { LazyExoticComponent, JSX } from 'react'
 import type { LayoutType } from '@/@types/theme'
@@ -44,6 +45,7 @@ const PostLoginLayout = ({ layoutType, children }: PostLoginLayoutProps) => {
             }
         >
             <AppLayout>{children}</AppLayout>
+            <ConciergeProvider />
         </Suspense>
     )
 }

@@ -20,3 +20,50 @@
 .animate-aurora:after {
     animation: aurora 60s linear infinite;
 }
+
+@keyframes marquee {
+    from {
+        transform: translateX(0);
+    }
+    to {
+        transform: translateX(calc(-100% - var(--gap, 1rem)));
+    }
+}
+
+@keyframes marquee-vertical {
+    from {
+        transform: translateY(0);
+    }
+    to {
+        transform: translateY(calc(-100% - var(--gap, 1rem)));
+    }
+}
+
+.animate-marquee {
+    animation: marquee var(--duration, 40s) linear infinite;
+}
+
+.animate-marquee-reverse {
+    animation: marquee var(--duration, 40s) linear infinite reverse;
+}
+
+.animate-marquee-vertical {
+    animation: marquee-vertical var(--duration, 40s) linear infinite;
+}
+
+.marquee-track {
+    will-change: transform;
+}
+
+/* Pause the row when hovering anywhere on the marquee (including cards). */
+.marquee-pause-on-hover:hover .marquee-track {
+    animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .animate-marquee,
+    .animate-marquee-reverse,
+    .animate-marquee-vertical {
+        animation: none;
+    }
+}

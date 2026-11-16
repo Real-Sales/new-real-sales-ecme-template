@@ -41,6 +41,12 @@ export type SessionResponse = {
     status: string
     performance_report: SessionPerformanceReport
     created_at: string
+    /** Groups sessions across prospecting -> discovering -> closing. */
+    journey_id?: string | null
+    /** Persona-continuity summary; only set once the session has completed. */
+    session_memory?: Record<string, unknown> | null
+    /** Mode names whose memory was injected into this session's prompt. */
+    prior_modes_injected?: string[] | null
 }
 
 export type CreateSessionManagerRequest = {
@@ -50,6 +56,25 @@ export type CreateSessionManagerRequest = {
     scenario_id?: string
     scenario_text?: string
     document_content?: string
+    /** Prior mode's session_id, to continue the same journey with inherited memory. */
+    continue_from_session_id?: string
+}
+
+/** One entry in a cross-mode journey (GET /sessions/{session_id}/journey). */
+export type SessionJourneyEntry = {
+    session_id: string
+    mode_name: string
+    mode_order: number | null
+    status: string
+    has_session_memory: boolean
+    start_time: string | null
+    end_time: string | null
+    created_at: string
+}
+
+export type SessionJourneyResponse = {
+    journey_id: string
+    sessions: SessionJourneyEntry[]
 }
 
 export type PersonaDetails = {
@@ -75,6 +100,8 @@ export type CreateSessionPayload = {
     persona_id: string
     mode_id: string
     scenario_id?: string
+    /** Prior mode's session_id, to continue the same journey with inherited memory. */
+    continue_from_session_id?: string
 }
 
 export async function apiCreateSession(payload: CreateSessionPayload) {
@@ -82,6 +109,34 @@ export async function apiCreateSession(payload: CreateSessionPayload) {
         url: endpointConfig.createSession,
         method: 'post',
         data: payload,
+    })
+}
+
+export async function apiGetSessionById(sessionId: string) {
+    return ApiService.fetchDataWithAxios<SessionResponse>({
+        url: endpointConfig.sessionById(sessionId),
+        method: 'get',
+    })
+}
+
+/** GET /sessions/{session_id}/journey — all sessions sharing this session's journey_id. */
+export async function apiGetSessionJourney(sessionId: string) {
+    return ApiService.fetchDataWithAxios<SessionJourneyResponse>({
+        url: endpointConfig.sessionJourney(sessionId),
+        method: 'get',
+    })
+}
+
+/**
+ * Retry session_memory generation for a completed session whose memory
+ * generation failed at completion time (performance_report exists, but
+ * session_memory is null) — required before it can be used as
+ * continue_from_session_id.
+ */
+export async function apiRegenerateSessionMemory(sessionId: string) {
+    return ApiService.fetchDataWithAxios<Record<string, unknown>>({
+        url: endpointConfig.regenerateSessionMemory(sessionId),
+        method: 'post',
     })
 }
 
@@ -209,11 +264,40 @@ export async function apiDownloadPerformanceReportPdf(sessionId: string) {
     })
 }
 
+export function getPerformanceReportPdfErrorMessage(err: unknown): string {
+    const ax = err as { response?: { status?: number; data?: { detail?: string } } }
+    const status = ax?.response?.status
+    const detail = ax?.response?.data?.detail ?? ''
+    if (status === 404) {
+        return detail || 'Report not found. Generate the report before downloading the PDF.'
+    }
+    if (status === 500) {
+        return detail || 'PDF generation failed. Please try again later.'
+    }
+    return detail || 'Failed to download PDF.'
+}
+
+/** GET /performance-reports/{session_id}/pdf — trigger browser download. */
+export async function downloadPerformanceReportPdf(sessionId: string): Promise<void> {
+    const blob = await apiDownloadPerformanceReportPdf(sessionId)
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `performance_report_${sessionId}.pdf`
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(url)
+}
+
 /** In-flight ensure per session — dedupes React Strict Mode dev double-mount and parallel navigations. */
 const ensurePerformanceReportPromises = new Map<
     string,
     Promise<PerformanceReportPayload>
 >()
+
+/** Cached reports for the current browser tab — avoids refetch when revisiting a report. */
+const performanceReportCache = new Map<string, PerformanceReportPayload>()
 
 /**
  * Fetch the saved report for `sessionId`, generating it only if the DB doesn't have one yet.
@@ -226,6 +310,11 @@ const ensurePerformanceReportPromises = new Map<
 export function apiEnsurePerformanceReport(
     sessionId: string,
 ): Promise<PerformanceReportPayload> {
+    const cached = performanceReportCache.get(sessionId)
+    if (cached) {
+        return Promise.resolve(cached)
+    }
+
     let pending = ensurePerformanceReportPromises.get(sessionId)
     if (!pending) {
         pending = (async () => {
@@ -250,9 +339,14 @@ export function apiEnsurePerformanceReport(
                 }
                 throw err
             }
-        })().finally(() => {
-            ensurePerformanceReportPromises.delete(sessionId)
-        })
+        })()
+            .then((report) => {
+                performanceReportCache.set(sessionId, report)
+                return report
+            })
+            .finally(() => {
+                ensurePerformanceReportPromises.delete(sessionId)
+            })
         ensurePerformanceReportPromises.set(sessionId, pending)
     }
     return pending

@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
+import { SURFACE_CARD_CLASSNAME } from '@/constants/surfaceCard.constant'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { injectReducer } from '@/store'
@@ -11,23 +12,91 @@ import {
     HiOutlineBriefcase,
     HiArrowLeft,
 } from 'react-icons/hi'
-import { useAppSelector } from '@/store'
-import type { AIPersona } from '@/components/shared/SessionSetupPanel'
+import { useAppSelector, useAppDispatch } from '@/store'
+import { fetchIndustries } from '@/store/slices/industriesCatalogSlice'
+import { fetchUserProfile } from '@/views/profile/Settings/store/settingsSlice'
+import type {
+    AIPersona,
+    ConversationMode,
+} from '@/components/shared/SessionSetupPanel'
+import ModeSelectDialog from '@/views/sales/components/ModeSelectDialog'
 import { apiCreateSession } from '@/services/SessionService'
+import {
+    apiGetCreditsRemaining,
+    apiGetMySubscription,
+    isCompanyCreditPool,
+} from '@/services/SubscriptionService'
+import { setActiveUserSubscription } from '@/views/profile/Subscription/store/subscriptionSlice'
+import { getApiErrorMessage, isSegmentMismatchError } from '@/utils/getApiErrorMessage'
 import type { AiPersonaListItem, InteractionModeListItem } from '@/views/sales/ScenarioList/types'
 import scenarioLibraryReducer, {
     useAppSelector as useScenarioSelector,
-    useAppDispatch,
     fetchPersonas,
     fetchModes,
+    type FetchPersonasParams,
 } from '@/views/sales/ScenarioList/store'
+import { useUserDivisionSegment } from '@/utils/hooks/useUserDivisionSegment'
+import { canLoadAllPersonas } from '@/utils/inviteAccess'
+import { SEARCH_NATIVE_INPUT_CLASSNAME } from '@/constants/searchInput.constant'
 
 injectReducer('scenarioLibrary', scenarioLibraryReducer)
+
+const formatLabel = (value: string) =>
+    value
+        .replace(/_/g, ' ')
+        .split(' ')
+        .map((w) => {
+            const letters = w.replace(/[^a-zA-Z0-9]/g, '')
+            // preserve short all-caps acronyms like B2B, CPG, IT, HR, etc.
+            if (letters.length <= 5 && letters === letters.toUpperCase() && /[A-Z]/.test(letters)) {
+                return w
+            }
+            return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()
+        })
+        .join(' ')
+
+const normalizeIndustryKey = (value: string) =>
+    value.trim().toLowerCase().replace(/\s+/g, '_')
+
+const normalizeForMatch = (value: string) =>
+    value.toLowerCase().replace(/[^a-z0-9]/g, '')
+
+function personaMatchesUserIndustry(personaIndustry: string, userIndustry: string): boolean {
+    if (!userIndustry) return true
+
+    const personaLower = personaIndustry.toLowerCase().trim()
+    const userLower = userIndustry.toLowerCase().trim()
+    const userKey = normalizeIndustryKey(userIndustry)
+
+    if (personaLower === userLower) return true
+    if (personaLower === userKey.replace(/_/g, ' ')) return true
+
+    const personaNorm = normalizeForMatch(personaIndustry)
+    const userNorm = normalizeForMatch(userIndustry)
+    if (personaNorm && userNorm && (personaNorm.includes(userNorm) || userNorm.includes(personaNorm))) {
+        return true
+    }
+
+    const userTokens = userIndustry
+        .toLowerCase()
+        .split(/[_\s()]+/)
+        .map((t) => normalizeForMatch(t))
+        .filter((t) => t.length > 2)
+    if (userTokens.some((token) => personaNorm.includes(token))) {
+        return true
+    }
+
+    const mapped = industryToPersonaIndustries[userKey]
+    if (mapped?.some((m) => m.toLowerCase() === personaLower)) return true
+
+    return false
+}
 
 // Map user's profile industry to persona industries (strict matching)
 const industryToPersonaIndustries: Record<string, string[]> = {
     technology: ['Technology', 'Software'],
-    healthcare: ['Technology', 'Software'],
+    healthcare: ['Technology', 'Software', 'Healthcare'],
+    health: ['Healthcare', 'Technology', 'Software'],
     finance: ['Finance'],
     retail: ['Retail'],
     manufacturing: ['Manufacturing', 'Industrial'],
@@ -47,49 +116,6 @@ const industryToPersonaIndustries: Record<string, string[]> = {
     other: ['Manufacturing', 'Technology', 'Industrial', 'Finance', 'Software', 'Retail', 'Marketing'],
 }
 
-// Map product types to persona industries (for category filtering)
-const productToPersonaIndustries: Record<string, string[]> = {
-    saas: ['Technology', 'Software'],
-    cloud: ['Technology', 'Software'],
-    ai_ml: ['Technology', 'Software'],
-    cybersecurity: ['Technology', 'Software'],
-    devtools: ['Technology', 'Software'],
-    data_analytics: ['Technology', 'Software', 'Finance'],
-    ehr: ['Technology', 'Software'],
-    telehealth: ['Technology', 'Software'],
-    medical_devices: ['Manufacturing', 'Technology'],
-    pharma: ['Manufacturing', 'Finance'],
-    health_analytics: ['Technology', 'Software'],
-    fintech: ['Finance', 'Technology'],
-    payments: ['Finance', 'Technology'],
-    lending: ['Finance'],
-    wealth_mgmt: ['Finance'],
-    regtech: ['Finance', 'Technology'],
-    ecommerce: ['Retail', 'Technology'],
-    pos: ['Retail', 'Technology'],
-    inventory: ['Manufacturing', 'Retail'],
-    crm: ['Technology', 'Software'],
-    crm_general: ['Technology', 'Software'],
-    loyalty: ['Retail', 'Marketing'],
-    erp: ['Manufacturing', 'Technology'],
-    supply_chain: ['Manufacturing', 'Industrial'],
-    quality: ['Manufacturing', 'Industrial'],
-    iot: ['Technology', 'Industrial'],
-    proptech: ['Technology', 'Finance'],
-    property_mgmt: ['Technology', 'Finance'],
-    crm_re: ['Technology', 'Software'],
-    listings: ['Technology', 'Retail'],
-    lms: ['Technology', 'Software'],
-    edtech: ['Technology', 'Software'],
-    assessment: ['Technology', 'Software'],
-    tutoring: ['Technology', 'Marketing'],
-    marketing: ['Marketing'],
-    project_mgmt: ['Technology', 'Manufacturing'],
-    communication: ['Technology'],
-    hr_tools: ['Technology', 'Marketing'],
-    accounting: ['Finance', 'Technology'],
-}
-
 function mapPersona(p: AiPersonaListItem): AIPersona {
     return {
         id: p.persona_id,
@@ -103,19 +129,41 @@ function mapPersona(p: AiPersonaListItem): AIPersona {
     }
 }
 
-const difficultyOptions = [
-    { value: '', label: 'All Levels' },
-    { value: 'Easy', label: 'Easy' },
-    { value: 'Medium', label: 'Medium' },
-    { value: 'Hard', label: 'Hard' },
-]
-
 const PersonaSelection = () => {
     const navigate = useNavigate()
     const location = useLocation()
     const dispatch = useAppDispatch()
     const authUser = useAppSelector((state) => state.auth.user)
     const settingsProfile = useAppSelector((state) => state.settings.profile)
+    const profileInitialized = useAppSelector(
+        (state) => state.settings.profileInitialized,
+    )
+    const profileLoading = useAppSelector((state) => state.settings.profileLoading)
+    const industriesCatalog = useAppSelector(
+        (state) => state.industriesCatalog.industries,
+    )
+    const industriesInitialized = useAppSelector(
+        (state) => state.industriesCatalog.initialized,
+    )
+    const industriesLoading = useAppSelector(
+        (state) => state.industriesCatalog.loading,
+    )
+
+    const {
+        customerSegmentId,
+        customerSegments,
+        salesDivisionId,
+        loading: divisionSegmentLoading,
+    } = useUserDivisionSegment()
+
+    const customerSegmentIds = useMemo(
+        () => customerSegments.map((s) => s.id),
+        [customerSegments],
+    )
+    const customerSegmentNames = useMemo(
+        () => customerSegments.map((s) => s.name),
+        [customerSegments],
+    )
 
     const storePersonas = useScenarioSelector(
         (state) => state.scenarioLibrary?.data?.personasData,
@@ -129,42 +177,110 @@ const PersonaSelection = () => {
     const modesLoading = useScenarioSelector(
         (state) => state.scenarioLibrary?.data?.modesLoading,
     )
+    const companyIndustryId = useAppSelector(
+        (state) =>
+            state.auth.user.industryId || state.settings.profile?.companyIndustryId,
+    )
+    const activeUserSubscription = useAppSelector(
+        (state) => state.subscription.activeUserSubscription,
+    )
 
-    const userIndustry = settingsProfile?.industry || authUser?.industry || ''
-    const userProducts: string[] = (settingsProfile?.products?.map((p) => p.value) ?? authUser?.industryProducts ?? []).filter(Boolean)
+    const userIndustry =
+        settingsProfile?.companyIndustry ||
+        authUser?.industry ||
+        settingsProfile?.industryLabel ||
+        settingsProfile?.industry ||
+        ''
 
+    const resolvedIndustryId = useMemo(() => {
+        if (companyIndustryId) return companyIndustryId
+        if (!userIndustry || !industriesCatalog.length) return ''
+        const match = industriesCatalog.find(
+            (item) =>
+                item.name === userIndustry ||
+                normalizeIndustryKey(item.name) === normalizeIndustryKey(userIndustry),
+        )
+        return match?.industry_id ?? ''
+    }, [companyIndustryId, userIndustry, industriesCatalog])
     const sessionData = location.state as {
-        mode: string
+        mode?: string
         scenarios?: string[]
         files?: File[]
-    }
+        /** Prior mode's session_id — set when arriving via "Continue to next mode" from SessionReport. */
+        continueFromSessionId?: string
+        /** Persona to auto-continue with, so the rep isn't asked to re-pick who they were talking to. */
+        prefillPersonaId?: string
+    } | null
+    const autoContinueTriggeredRef = useRef(false)
 
     const [creatingPersonaId, setCreatingPersonaId] = useState<string | null>(
         null,
     )
+    const [pendingPersona, setPendingPersona] = useState<AIPersona | null>(null)
+    const [modeDialogOpen, setModeDialogOpen] = useState(false)
     const [searchQuery, setSearchQuery] = useState('')
     const [selectedRole, setSelectedRole] = useState('')
     const [selectedIndustry, setSelectedIndustry] = useState('')
-    const [selectedDifficulty, setSelectedDifficulty] = useState('')
 
-    /** After a failed fetch, loading is false and data stays empty — avoid re-dispatching forever. */
-    const personasFetchDispatchedRef = useRef(false)
+    const lastPersonasFetchKeyRef = useRef<string | null>(null)
     const modesFetchDispatchedRef = useRef(false)
 
     useEffect(() => {
-        if (
-            !storePersonas?.length &&
-            !personasLoading &&
-            !personasFetchDispatchedRef.current
-        ) {
-            personasFetchDispatchedRef.current = true
-            dispatch(fetchPersonas())
+        if (!profileInitialized && !profileLoading) {
+            dispatch(fetchUserProfile())
         }
+    }, [dispatch, profileInitialized, profileLoading])
+
+    useEffect(() => {
+        if (
+            userIndustry &&
+            !industriesInitialized &&
+            !industriesLoading
+        ) {
+            dispatch(fetchIndustries())
+        }
+    }, [dispatch, userIndustry, industriesInitialized, industriesLoading])
+
+    useEffect(() => {
+        if (divisionSegmentLoading || customerSegmentIds.length === 0) return
+
+        if (
+            !resolvedIndustryId &&
+            !canLoadAllPersonas(authUser.role) &&
+            !profileInitialized
+        ) {
+            dispatch(fetchUserProfile())
+            return
+        }
+
+        const segmentKey = [...customerSegmentIds].sort().join(',')
+        const fetchKey = `${segmentKey}|${resolvedIndustryId || 'all'}`
+        if (lastPersonasFetchKeyRef.current === fetchKey) return
+
+        const params: FetchPersonasParams = {
+            customerSegmentIds,
+        }
+        if (!canLoadAllPersonas(authUser.role) && resolvedIndustryId) {
+            params.industryId = resolvedIndustryId
+        }
+
+        lastPersonasFetchKeyRef.current = fetchKey
+        dispatch(fetchPersonas(params))
+    }, [
+        dispatch,
+        divisionSegmentLoading,
+        customerSegmentIds,
+        resolvedIndustryId,
+        profileInitialized,
+        authUser.role,
+    ])
+
+    useEffect(() => {
         if (!storeModes?.length && !modesLoading && !modesFetchDispatchedRef.current) {
             modesFetchDispatchedRef.current = true
             dispatch(fetchModes())
         }
-    }, [dispatch, storePersonas?.length, personasLoading, storeModes?.length, modesLoading])
+    }, [dispatch, storeModes?.length, modesLoading])
 
     const aiPersonas = useMemo(() => {
         if (!storePersonas?.length) return []
@@ -176,44 +292,106 @@ const PersonaSelection = () => {
         return storeModes.filter((m) => m.status_active)
     }, [storeModes])
 
-    const isLoading = (personasLoading ?? false) || (modesLoading ?? false)
+    const isLoading =
+        (personasLoading ?? false) || (modesLoading ?? false) || divisionSegmentLoading
+    const divisionSetupIncomplete =
+        !divisionSegmentLoading &&
+        Boolean(salesDivisionId) &&
+        customerSegmentIds.length === 0
+    const noDivisionAssigned =
+        !divisionSegmentLoading && !salesDivisionId
 
-    const roleOptions = useMemo(() => {
-        const roles = [...new Set(aiPersonas.map((p) => p.role))].sort()
-        return [{ value: '', label: 'All Roles' }, ...roles.map((r) => ({ value: r, label: r }))]
-    }, [aiPersonas])
-
-    const allIndustryOptions = useMemo(() => {
-        const industries = [...new Set(aiPersonas.map((p) => p.industry))].sort()
-        return [{ value: '', label: 'All Industries' }, ...industries.map((i) => ({ value: i, label: i }))]
-    }, [aiPersonas])
-
-    const relatedPersonas = useMemo(() => {
-        if (!userIndustry && userProducts.length === 0) {
-            return aiPersonas
-        }
-        const allowedIndustries = new Set<string>()
-        if (userIndustry && industryToPersonaIndustries[userIndustry]) {
-            industryToPersonaIndustries[userIndustry].forEach((i) =>
-                allowedIndustries.add(i)
+    const catalogIndustry = useMemo(() => {
+        if (resolvedIndustryId) {
+            return industriesCatalog.find(
+                (item) => item.industry_id === resolvedIndustryId,
             )
         }
-        userProducts.forEach((product) => {
-            const industries = productToPersonaIndustries[product]
-            if (industries) {
-                industries.forEach((i) => allowedIndustries.add(i))
-            }
-        })
-        if (allowedIndustries.size === 0) return aiPersonas
-        const filtered = aiPersonas.filter((persona) =>
-            allowedIndustries.has(persona.industry)
+        if (!userIndustry) return undefined
+        return industriesCatalog.find(
+            (item) =>
+                item.name === userIndustry ||
+                normalizeIndustryKey(item.name) === normalizeIndustryKey(userIndustry),
         )
-        return filtered.length > 0 ? filtered : aiPersonas
-    }, [userIndustry, userProducts, aiPersonas])
+    }, [resolvedIndustryId, industriesCatalog, userIndustry])
 
-    // Filter and search personas (within related personas only)
+    const relatedPersonas = useMemo(() => {
+        if (!userIndustry && !resolvedIndustryId) {
+            return aiPersonas
+        }
+
+        const industryFiltered = aiPersonas.filter((persona) => {
+            const rawPersona = storePersonas?.find((p) => p.persona_id === persona.id)
+            if (catalogIndustry && rawPersona?.industry?.industry_id) {
+                return rawPersona.industry.industry_id === catalogIndustry.industry_id
+            }
+            return personaMatchesUserIndustry(persona.industry, userIndustry)
+        })
+
+        return industryFiltered.length > 0 ? industryFiltered : aiPersonas
+    }, [userIndustry, resolvedIndustryId, aiPersonas, storePersonas, catalogIndustry])
+
+    const profilePersonaIndustry = useMemo(() => {
+        if ((!userIndustry && !resolvedIndustryId) || !aiPersonas.length) return ''
+
+        if (catalogIndustry) {
+            const match = aiPersonas.find((persona) => {
+                const raw = storePersonas?.find((p) => p.persona_id === persona.id)
+                return raw?.industry?.industry_id === catalogIndustry.industry_id
+            })
+            if (match) return match.industry
+        }
+
+        const fromRelated = relatedPersonas.find((persona) =>
+            personaMatchesUserIndustry(persona.industry, userIndustry),
+        )
+        if (fromRelated) return fromRelated.industry
+
+        return relatedPersonas[0]?.industry ?? ''
+    }, [
+        userIndustry,
+        resolvedIndustryId,
+        aiPersonas,
+        storePersonas,
+        catalogIndustry,
+        relatedPersonas,
+    ])
+
+    useEffect(() => {
+        if (!profilePersonaIndustry || !aiPersonas.length) {
+            return
+        }
+        setSelectedIndustry(profilePersonaIndustry)
+    }, [profilePersonaIndustry, aiPersonas.length, profileInitialized])
+
+    const isProfileIndustryFilter =
+        Boolean(userIndustry) &&
+        Boolean(profilePersonaIndustry) &&
+        selectedIndustry === profilePersonaIndustry
+
+    const personaPool = useMemo(() => {
+        if (isProfileIndustryFilter) {
+            return relatedPersonas
+        }
+        if (selectedIndustry) {
+            return aiPersonas.filter((persona) => persona.industry === selectedIndustry)
+        }
+        return aiPersonas
+    }, [
+        isProfileIndustryFilter,
+        selectedIndustry,
+        relatedPersonas,
+        aiPersonas,
+    ])
+
+    const roleOptions = useMemo(() => {
+        const roles = [...new Set(personaPool.map((p) => p.role))].sort()
+        return [{ value: '', label: 'All Roles' }, ...roles.map((r) => ({ value: r, label: formatLabel(r) }))]
+    }, [personaPool])
+
+    // Filter and search personas (profile industry applied automatically)
     const filteredPersonas = useMemo(() => {
-        return relatedPersonas.filter((persona) => {
+        return personaPool.filter((persona) => {
             const matchesSearch =
                 searchQuery === '' ||
                 persona.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -227,74 +405,141 @@ const PersonaSelection = () => {
 
             const matchesRole =
                 selectedRole === '' || persona.role === selectedRole
-            const matchesIndustry =
-                selectedIndustry === '' || persona.industry === selectedIndustry
-            const matchesDifficulty =
-                selectedDifficulty === '' ||
-                persona.difficulty === selectedDifficulty
 
-            return (
-                matchesSearch &&
-                matchesRole &&
-                matchesIndustry &&
-                matchesDifficulty
-            )
+            return matchesSearch && matchesRole
         })
-    }, [relatedPersonas, searchQuery, selectedRole, selectedIndustry, selectedDifficulty])
+    }, [personaPool, searchQuery, selectedRole])
 
-    const handleStartSession = async (persona: AIPersona) => {
+    const handleStartSession = async (
+        persona: AIPersona,
+        modeOverride?: ConversationMode | string,
+    ) => {
         if (creatingPersonaId) return
 
+        const modeName = (modeOverride || sessionData?.mode || '').toLowerCase()
         const matchedMode = interactionModes.find(
-            (m) => m.name.toLowerCase() === sessionData?.mode?.toLowerCase(),
+            (m) => m.name.toLowerCase() === modeName,
         )
         if (!matchedMode) {
             toast.push(
                 <Notification title="Error" type="danger">
-                    Interaction mode not found. Please go back and try again.
+                    Interaction mode not found. Please try again.
                 </Notification>,
             )
             return
         }
 
         setCreatingPersonaId(persona.id)
+        setModeDialogOpen(false)
         try {
+            let remaining =
+                activeUserSubscription?.credits_remaining != null
+                    ? Number(activeUserSubscription.credits_remaining)
+                    : null
+            if (remaining == null) {
+                try {
+                    const credits = await apiGetCreditsRemaining()
+                    remaining = Number(credits.credits_remaining ?? 0)
+                } catch {
+                    remaining = null
+                }
+            }
+            if (remaining != null && remaining <= 0) {
+                const poolHint = isCompanyCreditPool(activeUserSubscription)
+                    ? ' Ask your company owner to upgrade shared credits.'
+                    : ' Upgrade your plan to continue.'
+                toast.push(
+                    <Notification title="No credits remaining" type="warning">
+                        No credits remaining.{poolHint}
+                    </Notification>,
+                )
+                return
+            }
+
             const session = await apiCreateSession({
                 persona_id: persona.id,
                 mode_id: matchedMode.mode_id,
                 scenario_id: sessionData?.scenarios?.[0],
+                continue_from_session_id: sessionData?.continueFromSessionId,
             })
+
+            try {
+                const refreshed = await apiGetMySubscription()
+                dispatch(setActiveUserSubscription(refreshed))
+            } catch {
+                /* badge refresh is best-effort */
+            }
+
             navigate(`/audio-visualizer/${session.session_id}`, {
                 state: {
                     ...sessionData,
+                    mode: matchedMode.name,
                     persona,
                 },
             })
         } catch (err: unknown) {
             console.error('Failed to create session:', err)
-            const detail =
-                err &&
-                typeof err === 'object' &&
-                'response' in err &&
-                err.response &&
-                typeof err.response === 'object' &&
-                'data' in err.response &&
-                err.response.data &&
-                typeof err.response.data === 'object' &&
-                'detail' in err.response.data
-                    ? String(
-                          (err.response.data as { detail?: string }).detail,
-                      )
-                    : null
+            const message = getApiErrorMessage(
+                err,
+                'Failed to create session. Please try again.',
+            )
+            const isCreditsError = /credit/i.test(message)
             toast.push(
-                <Notification title="Error" type="danger">
-                    {detail || 'Failed to create session. Please try again.'}
+                <Notification
+                    title={isCreditsError ? 'No credits remaining' : 'Error'}
+                    type={isCreditsError ? 'warning' : 'danger'}
+                >
+                    {isCreditsError
+                        ? `${message}${
+                              isCompanyCreditPool(activeUserSubscription)
+                                  ? ' Ask your company owner to upgrade.'
+                                  : ''
+                          }`
+                        : message}
                 </Notification>,
             )
         } finally {
             setCreatingPersonaId(null)
+            setPendingPersona(null)
         }
     }
+
+    const handlePersonaSelect = (persona: AIPersona) => {
+        if (creatingPersonaId) return
+        // Continue-to-next-mode already knows the target mode — skip the picker.
+        if (sessionData?.continueFromSessionId && sessionData?.mode) {
+            void handleStartSession(persona)
+            return
+        }
+        setPendingPersona(persona)
+        setModeDialogOpen(true)
+    }
+
+    const handleModeSelected = (mode: ConversationMode) => {
+        if (!pendingPersona) return
+        void handleStartSession(pendingPersona, mode)
+    }
+
+    // Arriving from SessionReport's "Continue to next mode" CTA: skip the
+    // persona-picker click and immediately resume with the same persona.
+    useEffect(() => {
+        if (
+            autoContinueTriggeredRef.current ||
+            !sessionData?.continueFromSessionId ||
+            !sessionData?.prefillPersonaId ||
+            !aiPersonas.length ||
+            !interactionModes.length
+        ) {
+            return
+        }
+        const prefillPersona = aiPersonas.find(
+            (p) => p.id === sessionData.prefillPersonaId,
+        )
+        if (!prefillPersona) return
+        autoContinueTriggeredRef.current = true
+        void handleStartSession(prefillPersona)
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [aiPersonas, interactionModes, sessionData?.continueFromSessionId, sessionData?.prefillPersonaId])
 
     const handleBack = () => {
         navigate(-1)
@@ -303,8 +548,7 @@ const PersonaSelection = () => {
     const handleClearFilters = () => {
         setSearchQuery('')
         setSelectedRole('')
-        setSelectedIndustry('')
-        setSelectedDifficulty('')
+        setSelectedIndustry(profilePersonaIndustry || '')
     }
 
     const getDifficultyColor = (difficulty: string) => {
@@ -324,18 +568,30 @@ const PersonaSelection = () => {
         <div className="min-h-screen bg-gray-50 dark:bg-gray-900 font-sans">
             {/* Header */}
             <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border-b border-gray-200/80 dark:border-gray-800 sticky top-0 z-30 shadow-sm">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
+                <div className="w-full mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 2xl:px-16 py-4 sm:py-6">
                     <div className="flex items-start justify-between gap-4 mb-4">
                         <div className="min-w-0 flex-1 pr-2">
                             <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight mb-1">
                                 Select Your AI Persona
                             </h1>
                             <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 max-w-2xl">
-                                Choose who you'd like to practice with for your{' '}
-                                <span className="font-semibold text-primary dark:text-blue-400 bg-blue-50 dark:bg-blue-500/10 px-2 py-0.5 rounded-md">
-                                    {sessionData?.mode}
-                                </span>{' '}
-                                session. Tap a persona to start.
+                                {sessionData?.continueFromSessionId &&
+                                sessionData?.mode ? (
+                                    <>
+                                        Continuing your{' '}
+                                        <span className="font-semibold text-primary bg-primary/10 dark:bg-primary/15 px-2 py-0.5 rounded-md">
+                                            {sessionData.mode}
+                                        </span>{' '}
+                                        session. Tap a persona to start.
+                                    </>
+                                ) : (
+                                    <>
+                                        Choose who you&apos;d like to practice
+                                        with. After you pick a persona,
+                                        you&apos;ll choose prospecting, discovery,
+                                        or closing.
+                                    </>
+                                )}
                             </p>
                         </div>
                         <Button
@@ -358,7 +614,7 @@ const PersonaSelection = () => {
                                 </div>
                                 <input
                                     type="text"
-                                    className="block w-full pl-10 pr-3 py-2 bg-gray-100/50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-900 dark:text-gray-100 placeholder-gray-500 focus:ring-2 focus:ring-primary focus:border-transparent transition-all text-sm shadow-sm"
+                                    className={`block w-full pl-10 pr-3 py-2 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all text-sm ${SEARCH_NATIVE_INPUT_CLASSNAME}`}
                                     placeholder="Search by name, role, company..."
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
@@ -372,24 +628,10 @@ const PersonaSelection = () => {
                                     value={roleOptions.find((opt) => opt.value === selectedRole)}
                                     onChange={(option) => setSelectedRole(option?.value as string || '')}
                                     className="w-[calc(50%-0.25rem)] sm:w-36"
+                                    menuPlacement="auto"
+                                    styles={{ menu: (base) => ({ ...base, minWidth: '200px' }), option: (base) => ({ ...base, whiteSpace: 'normal', wordBreak: 'break-word' }) }}
                                 />
-                                <Select
-                                    size="sm"
-                                    placeholder="Industry"
-                                    options={allIndustryOptions}
-                                    value={allIndustryOptions.find((opt) => opt.value === selectedIndustry)}
-                                    onChange={(option) => setSelectedIndustry(option?.value as string || '')}
-                                    className="w-[calc(50%-0.25rem)] sm:w-40"
-                                />
-                                <Select
-                                    size="sm"
-                                    placeholder="Difficulty"
-                                    options={difficultyOptions}
-                                    value={difficultyOptions.find((opt) => opt.value === selectedDifficulty)}
-                                    onChange={(option) => setSelectedDifficulty(option?.value as string || '')}
-                                    className="w-[calc(50%-0.25rem)] sm:w-32"
-                                />
-                                {(searchQuery || selectedRole || selectedIndustry || selectedDifficulty) && (
+                                {(searchQuery || selectedRole) && (
                                     <Button
                                         variant="plain"
                                         size="sm"
@@ -404,21 +646,47 @@ const PersonaSelection = () => {
 
                         <div className="flex items-center gap-2 whitespace-nowrap self-end xl:self-auto">
                             <p className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300">
-                                {filteredPersonas.length} of {relatedPersonas.length} personas
+                                {filteredPersonas.length} of {aiPersonas.length} personas
                             </p>
-                            {(userIndustry || userProducts.length > 0) && (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded border border-blue-200 dark:border-blue-800/30 text-[10px] sm:text-xs font-medium bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400">
+                            {userIndustry && isProfileIndustryFilter && (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded border border-primary/20 dark:border-primary/30 text-[10px] sm:text-xs font-medium bg-primary/10 text-primary dark:bg-primary/15 dark:text-primary">
                                     Filtered by profile
                                 </span>
                             )}
+                            {customerSegmentNames.map((name) => (
+                                <span
+                                    key={name}
+                                    className="inline-flex items-center px-2 py-0.5 rounded border border-indigo-200 dark:border-indigo-800/30 text-[10px] sm:text-xs font-medium bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300"
+                                >
+                                    {name}
+                                </span>
+                            ))}
                         </div>
                     </div>
                 </div>
             </div>
 
             {/* Personas Grid */}
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-                {isLoading ? (
+            <div className="w-full mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 2xl:px-16 py-10">
+                {noDivisionAssigned ? (
+                    <div className="flex flex-col items-center justify-center py-32 bg-white dark:bg-gray-800 rounded-3xl border border-gray-200 dark:border-gray-700 shadow-sm">
+                        <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">
+                            Division assignment required
+                        </h3>
+                        <p className="text-gray-500 dark:text-gray-400 max-w-md text-center text-lg">
+                            You need to be assigned to a sales division and team before starting a session. Please contact your manager or company owner.
+                        </p>
+                    </div>
+                ) : divisionSetupIncomplete ? (
+                    <div className="flex flex-col items-center justify-center py-32 bg-white dark:bg-gray-800 rounded-3xl border border-gray-200 dark:border-gray-700 shadow-sm">
+                        <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">
+                            Division setup incomplete
+                        </h3>
+                        <p className="text-gray-500 dark:text-gray-400 max-w-md text-center text-lg">
+                            Your division is missing a customer segment. Contact your manager.
+                        </p>
+                    </div>
+                ) : isLoading ? (
                     <div className="flex flex-col items-center justify-center py-32">
                         <Spinner size={48} className="text-primary mb-4" />
                         <p className="text-gray-500 dark:text-gray-400 font-medium animate-pulse">Loading personas...</p>
@@ -432,11 +700,11 @@ const PersonaSelection = () => {
                             No personas found
                         </h3>
                         <p className="text-gray-500 dark:text-gray-400 max-w-md text-center text-lg">
-                            {relatedPersonas.length === 0
+                            {relatedPersonas.length === 0 && isProfileIndustryFilter
                                 ? "No personas match your industry and product category. Try updating your company profile in Settings."
                                 : "We couldn't find any personas matching your current filters. Try adjusting your search."}
                         </p>
-                        {(searchQuery || selectedRole || selectedIndustry || selectedDifficulty) && (
+                        {(searchQuery || selectedRole) && (
                             <Button variant="default" className="mt-8" onClick={handleClearFilters}>
                                 Clear all filters
                             </Button>
@@ -459,9 +727,7 @@ const PersonaSelection = () => {
                                         role="button"
                                         tabIndex={0}
                                         onClick={() => {
-                                            if (!creatingPersonaId) {
-                                                void handleStartSession(persona)
-                                            }
+                                            handlePersonaSelect(persona)
                                         }}
                                         onKeyDown={(e) => {
                                             if (
@@ -470,15 +736,13 @@ const PersonaSelection = () => {
                                                 !creatingPersonaId
                                             ) {
                                                 e.preventDefault()
-                                                void handleStartSession(
-                                                    persona,
-                                                )
+                                                handlePersonaSelect(persona)
                                             }
                                         }}
                                         aria-busy={isBusy}
-                                        aria-label={`Start session with ${persona.name}`}
+                                        aria-label={`Select persona ${persona.name}`}
                                         className={`
-                                            group relative h-full flex flex-col bg-white dark:bg-gray-800 rounded-3xl transition-all duration-300 overflow-hidden border-2
+                                            group relative h-full flex flex-col ${SURFACE_CARD_CLASSNAME} transition-all duration-300 overflow-hidden border
                                             ${
                                                 creatingPersonaId
                                                     ? 'cursor-wait opacity-90'
@@ -486,13 +750,13 @@ const PersonaSelection = () => {
                                             }
                                             ${
                                                 isBusy
-                                                    ? 'border-primary shadow-xl shadow-primary/10'
-                                                    : 'border-transparent hover:border-gray-300 dark:hover:border-gray-600 shadow-md hover:shadow-xl hover:translate-y-[-4px]'
+                                                    ? '!border-primary shadow-xl shadow-primary/10'
+                                                    : 'hover:shadow-md hover:translate-y-[-4px]'
                                             }
                                         `}
                                     >
                                         {/* Decorative Header Background */}
-                                        <div className="h-24 w-full bg-gradient-to-r from-gray-100 to-gray-200 dark:from-gray-700/50 dark:to-gray-800 absolute top-0 left-0 transition-opacity duration-300 group-hover:opacity-80" />
+                                        <div className="h-24 w-full bg-gradient-to-br from-slate-100 via-primary/5 to-slate-200 dark:from-gray-800 dark:via-gray-900 dark:to-gray-800 absolute top-0 left-0 transition-opacity duration-300 group-hover:opacity-80" />
 
                                         {isBusy && (
                                             <div className="absolute top-4 right-4 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-primary/90 shadow-lg">
@@ -510,8 +774,8 @@ const PersonaSelection = () => {
                                                 src={persona.avatar}
                                                 shape="circle"
                                                 className={`
-                                                    mb-5 mx-auto ring-4 shadow-lg transition-all duration-300 bg-white dark:bg-gray-800
-                                                    ring-white dark:ring-gray-800 group-hover:ring-primary/10
+                                                    mb-5 mx-auto ring-4 shadow-lg transition-all duration-300 bg-white dark:bg-gray-900
+                                                    ring-white dark:ring-gray-800/50 group-hover:ring-primary/10
                                                 `}
                                             />
                                             
@@ -519,14 +783,14 @@ const PersonaSelection = () => {
                                                 <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-1 tracking-tight">
                                                     {persona.name}
                                                 </h3>
-                                                <p className="text-sm font-semibold text-primary dark:text-blue-400">
-                                                    {persona.role}
+                                                <p className="text-sm font-semibold text-primary">
+                                                    {formatLabel(persona.role)}
                                                 </p>
                                             </div>
 
-                                            <div className="w-full bg-gray-50 dark:bg-gray-900/50 rounded-2xl p-4 space-y-4 mb-6 border border-gray-100 dark:border-gray-700/50 flex-grow">
+                                            <div className="w-full bg-white dark:bg-gray-900 rounded-2xl p-4 space-y-4 mb-6 border border-gray-200 dark:border-gray-700 flex-grow">
                                                 <div className="flex items-start gap-3">
-                                                    <div className="mt-0.5 bg-white dark:bg-gray-800 p-2 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400">
+                                                    <div className="mt-0.5 bg-gray-100 dark:bg-gray-800 p-2 rounded-xl shadow-sm border border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400">
                                                         <HiOutlineOfficeBuilding className="w-4 h-4" />
                                                     </div>
                                                     <div className="flex flex-col text-left overflow-hidden">
@@ -537,13 +801,13 @@ const PersonaSelection = () => {
                                                     </div>
                                                 </div>
                                                 <div className="flex items-start gap-3">
-                                                    <div className="mt-0.5 bg-white dark:bg-gray-800 p-2 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400">
+                                                    <div className="mt-0.5 bg-gray-100 dark:bg-gray-800 p-2 rounded-xl shadow-sm border border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400">
                                                         <HiOutlineBriefcase className="w-4 h-4" />
                                                     </div>
                                                     <div className="flex flex-col text-left overflow-hidden">
                                                         <span className="text-[10px] uppercase tracking-wider text-gray-500 dark:text-gray-400 font-bold mb-0.5">Industry</span>
-                                                        <span className="text-sm text-gray-800 dark:text-gray-200 font-medium truncate" title={persona.industry}>
-                                                            {persona.industry}
+                                                        <span className="text-sm text-gray-800 dark:text-gray-200 font-medium truncate" title={formatLabel(persona.industry)}>
+                                                            {formatLabel(persona.industry)}
                                                         </span>
                                                     </div>
                                                 </div>
@@ -555,7 +819,7 @@ const PersonaSelection = () => {
                                                 </p>
                                             )}
 
-                                            <div className="flex items-center justify-between w-full mt-auto pt-4 border-t border-gray-100 dark:border-gray-700/50">
+                                            <div className="flex items-center justify-between w-full mt-auto pt-4 border-t border-gray-200 dark:border-gray-700">
                                                 <span
                                                     className={`text-xs px-3 py-1.5 rounded-lg font-bold uppercase tracking-wide border ${
                                                         getDifficultyColor(persona.difficulty)
@@ -577,7 +841,10 @@ const PersonaSelection = () => {
                                                 >
                                                     {isBusy
                                                         ? 'Starting…'
-                                                        : 'Start session'}
+                                                        : pendingPersona?.id ===
+                                                            persona.id
+                                                          ? 'Choose mode…'
+                                                          : 'Select persona'}
                                                     {!isBusy && (
                                                         <span className="text-lg opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all duration-300">
                                                             →
@@ -594,6 +861,17 @@ const PersonaSelection = () => {
                 )}
             </div>
 
+            <ModeSelectDialog
+                isOpen={modeDialogOpen}
+                persona={pendingPersona}
+                recommendedModeName="Prospecting"
+                onClose={() => {
+                    if (creatingPersonaId) return
+                    setModeDialogOpen(false)
+                    setPendingPersona(null)
+                }}
+                onSelectMode={handleModeSelected}
+            />
         </div>
     )
 }

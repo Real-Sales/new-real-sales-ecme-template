@@ -1,5 +1,6 @@
 @layer components {
   .toast {
-    @apply fixed z-40;
+    /* Above drawer (200) and dialog (210); below full-screen overlays (e.g. 9999) */
+    @apply fixed z-[220];
   }
 }

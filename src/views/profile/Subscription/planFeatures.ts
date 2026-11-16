@@ -1,8 +1,21 @@
-import type { ApiSubscription } from '@/services/SubscriptionService'
+import type {
+    ApiSubscription,
+    SubscriptionFeatureFlags,
+} from '@/services/SubscriptionService'
 
 type PlanKind = 'free' | 'starter' | 'manager' | 'enterprise'
 
 const PLAN_ORDER: PlanKind[] = ['free', 'starter', 'manager', 'enterprise']
+
+const FEATURE_ROWS: { key: keyof SubscriptionFeatureFlags; label: string }[] = [
+    { key: 'unlimited_buyers_persona', label: 'Unlimited Buyers Persona' },
+    { key: 'unlimited_industries', label: 'Unlimited Industries' },
+    { key: 'coaching_reporting', label: 'Coaching & Session Reporting' },
+    { key: 'document_uploading', label: 'Document Uploading' },
+    { key: 'team_dashboard', label: 'Team Dashboard' },
+    { key: 'custom_scenario_development', label: 'Custom Scenario Development' },
+    { key: 'custom_persona_development', label: 'Custom Persona Development' },
+]
 
 const STATIC_ROWS: {
     label: string
@@ -73,6 +86,16 @@ const STATIC_ROWS: {
     },
 ]
 
+function hasBooleanFeatureFlags(
+    features: ApiSubscription['features'],
+): features is SubscriptionFeatureFlags {
+    if (!features || typeof features !== 'object') {
+        return false
+    }
+    const first = Object.values(features)[0]
+    return typeof first === 'boolean'
+}
+
 function normalizePlanKind(plan: ApiSubscription): PlanKind {
     const t = plan.plan_type.toLowerCase()
     if (t === 'free' || t === 'starter' || t === 'manager' || t === 'enterprise') {
@@ -109,6 +132,17 @@ export function planRowsForSubscription(plan: ApiSubscription) {
     const rows: { label: string; included: boolean }[] = [
         { label: usersFeatureLabel(plan), included: true },
     ]
+
+    if (hasBooleanFeatureFlags(plan.features)) {
+        for (const row of FEATURE_ROWS) {
+            rows.push({
+                label: row.label,
+                included: Boolean(plan.features[row.key]),
+            })
+        }
+        return rows
+    }
+
     for (const row of STATIC_ROWS) {
         rows.push({ label: row.label, included: row.included[kind] })
     }

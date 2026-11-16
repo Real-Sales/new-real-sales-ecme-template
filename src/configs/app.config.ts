@@ -17,7 +17,7 @@ const appConfig: AppConfig = {
     baseUrl,
     apiPrefix: `${baseUrl}${apiPath}`,
     authenticatedEntryPath: '/overview',
-    unAuthenticatedEntryPath: '/landing',
+    unAuthenticatedEntryPath: '/',
     locale: 'en',
     accessTokenPersistStrategy: 'cookies',
     enableMock: false,

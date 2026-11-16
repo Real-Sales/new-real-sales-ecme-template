@@ -5,6 +5,7 @@ import { COLORS } from '@/constants/chart.constant'
 import { TbTargetArrow } from 'react-icons/tb'
 import classNames from '@/utils/classNames'
 import type { PerformanceReportResponse } from '@/services/PerformanceService'
+import { SURFACE_CARD_CLASSNAME } from '@/constants/surfaceCard.constant'
 
 type SkillBreakdownKey = 'prospecting' | 'discovering' | 'closing'
 
@@ -72,7 +73,7 @@ const SkillBreakdown = ({ data, loading }: SkillBreakdownProps) => {
 
     if (loading) {
         return (
-            <Card className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 shadow-md">
+            <Card className={SURFACE_CARD_CLASSNAME}>
                 <div className="h-[400px] flex items-center justify-center">
                     <span className="text-gray-500">Loading skill breakdown...</span>
                 </div>
@@ -80,8 +81,34 @@ const SkillBreakdown = ({ data, loading }: SkillBreakdownProps) => {
         )
     }
 
+    if (!data?.mode_averages?.length) {
+        return (
+            <Card className={SURFACE_CARD_CLASSNAME}>
+                <div className="flex items-center gap-3 mb-6">
+                    <div className="w-10 h-10 rounded-full bg-gray-50 dark:bg-gray-800/50 flex items-center justify-center">
+                        <TbTargetArrow className="text-xl text-gray-700 dark:text-gray-300" />
+                    </div>
+                    <div>
+                        <h4 className="text-xl font-bold text-gray-900 dark:text-white">
+                            Skill Breakdown
+                        </h4>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                            Select a skill to view detailed breakdown
+                        </p>
+                    </div>
+                </div>
+                <div className="h-[300px] flex flex-col items-center justify-center gap-2">
+                    <TbTargetArrow className="text-3xl text-gray-300 dark:text-gray-600" />
+                    <span className="text-sm text-gray-500 dark:text-gray-400">
+                        No performance data yet
+                    </span>
+                </div>
+            </Card>
+        )
+    }
+
     return (
-        <Card className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 shadow-md">
+        <Card className={SURFACE_CARD_CLASSNAME}>
             {/* Section Heading */}
             <div className="flex items-center gap-3 mb-8">
                 <div className="w-10 h-10 rounded-full bg-gray-50 dark:bg-gray-800/50 flex items-center justify-center">
@@ -114,7 +141,7 @@ const SkillBreakdown = ({ data, loading }: SkillBreakdownProps) => {
                                 'rounded-xl cursor-pointer transition-all duration-300 p-4 shadow-md',
                                 isActive
                                     ? `ring-2 ${accent.ring} shadow-lg ${accent.bgLight}`
-                                    : 'ring-1 ring-gray-200 dark:ring-gray-700 hover:ring-gray-300 dark:hover:ring-gray-600 bg-gray-50 dark:bg-gray-800/50 hover:shadow-lg',
+                                    : 'ring-1 ring-gray-200 dark:ring-white/10 hover:ring-gray-300 dark:hover:ring-white/20 bg-white dark:bg-gray-900/60 hover:shadow-md',
                             )}
                         >
                             <div className="flex items-center gap-3">

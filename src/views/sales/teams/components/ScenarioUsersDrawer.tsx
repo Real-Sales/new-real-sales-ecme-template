@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { SURFACE_INNER_TILE_CLASSNAME } from '@/constants/surfaceCard.constant'
 import Drawer from '@/components/ui/Drawer'
 import Avatar from '@/components/ui/Avatar'
 import Button from '@/components/ui/Button'
@@ -7,6 +8,12 @@ import classNames from '@/utils/classNames'
 import { TbChevronDown, TbAlertCircle, TbChecks, TbTrash, TbDownload, TbClock, TbCalendar } from 'react-icons/tb'
 import { motion, AnimatePresence } from 'framer-motion'
 import dayjs from 'dayjs'
+import toast from '@/components/ui/toast'
+import Notification from '@/components/ui/Notification'
+import {
+    downloadPerformanceReportPdf,
+    getPerformanceReportPdfErrorMessage,
+} from '@/services/SessionService'
 import type { ScenarioSession } from '@/views/sales/ScenarioList/types'
 
 type UserAssignment = {
@@ -69,7 +76,7 @@ const AccordionItem = ({
     }
 
     return (
-        <div className={`border-l-4 ${borderColor} border-t border-t-gray-200 dark:border-t-gray-700 border-b border-b-gray-200 dark:border-b-gray-700 border-r border-r-gray-200 dark:border-r-gray-700 rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-all bg-gray-50 dark:bg-gray-800/50`}>
+        <div className={`border-l-4 ${borderColor} ${SURFACE_INNER_TILE_CLASSNAME} overflow-hidden shadow-sm hover:shadow-md transition-all`}>
             <button
                 className="w-full flex items-center justify-between p-4 hover:opacity-90 transition-all cursor-pointer"
                 onClick={() => setIsOpen(!isOpen)}
@@ -189,7 +196,7 @@ const AccordionItem = ({
                                                             variant="solid"
                                                             icon={<TbDownload />}
                                                             className="bg-primary hover:bg-primary-deep text-white border-0"
-                                                            onClick={() => onDownloadReport(user.userId)}
+                                                            onClick={() => onDownloadReport(user.sessionId)}
                                                         >
                                                             Download Report
                                                         </Button>
@@ -220,8 +227,16 @@ const ScenarioUsersDrawer = ({ isOpen, onClose, scenario, users, onUnassignScena
         }
     }
 
-    const handleDownloadReport = (sessionId: string) => {
-        console.log('Download performance report for session:', sessionId)
+    const handleDownloadReport = async (sessionId: string) => {
+        try {
+            await downloadPerformanceReportPdf(sessionId)
+        } catch (err: unknown) {
+            toast.push(
+                <Notification title="Error" type="danger">
+                    {getPerformanceReportPdfErrorMessage(err)}
+                </Notification>,
+            )
+        }
     }
 
     const DrawerTitle = scenario ? (
@@ -255,7 +270,7 @@ const ScenarioUsersDrawer = ({ isOpen, onClose, scenario, users, onUnassignScena
                         <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                             Complete information about this scenario
                         </p>
-                        <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                        <div className={`${SURFACE_INNER_TILE_CLASSNAME} p-4`}>
                             <ScenarioDetail scenario={scenario} />
                         </div>
                     </div>

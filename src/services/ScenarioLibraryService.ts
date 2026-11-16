@@ -1,5 +1,7 @@
 import ApiService from './ApiService'
 import endpointConfig from '@/configs/endpoint.config'
+import type { ProfileProduct } from '@/@types/auth'
+import type { SessionResponse } from './SessionService'
 import type {
     ScenarioLibraryResponse,
     DocumentUploadResponse,
@@ -63,9 +65,26 @@ export async function apiGetInteractionModes() {
     })
 }
 
-export async function apiGetAiPersonas() {
+export type FetchAiPersonasParams = {
+    industryId?: string
+    customerSegmentId?: string
+    includePersonaId?: string
+}
+
+export async function apiGetAiPersonas(params?: FetchAiPersonasParams) {
+    const searchParams = new URLSearchParams()
+    if (params?.industryId) {
+        searchParams.set('industry_id', params.industryId)
+    }
+    if (params?.customerSegmentId) {
+        searchParams.set('customer_segment_id', params.customerSegmentId)
+    }
+    if (params?.includePersonaId) {
+        searchParams.set('include_persona_id', params.includePersonaId)
+    }
+    const query = searchParams.toString()
     return ApiService.fetchDataWithAxios<AiPersonaListItem[]>({
-        url: endpointConfig.aiPersonas,
+        url: query ? `${endpointConfig.aiPersonas}?${query}` : endpointConfig.aiPersonas,
         method: 'get',
     })
 }
@@ -77,23 +96,50 @@ export async function apiAssignScenario(scenarioId: string, sessionId: string) {
     })
 }
 
-export type AssignmentStatusResponse = {
-    scenario_id: string
-    team_id: string
-    members: Array<{
-        user_id: string
-        first_name: string
-        last_name: string
-        email: string
-        is_assigned: boolean
-        session_id: string | null
-        session_status: string | null
-    }>
+export async function apiUnassignScenario(sessionId: string) {
+    return ApiService.fetchDataWithAxios<unknown>({
+        url: endpointConfig.unassignScenario(sessionId),
+        method: 'post',
+    })
 }
 
-export async function apiGetScenarioAssignmentStatus(scenarioId: string, teamId: string) {
+/**
+ * Advance a rep's completed session to the next mode configured for this
+ * scenario (e.g. prospecting -> discovering, when the manager selected
+ * both). `sessionId` is the just-completed session for that rep. Returns
+ * the newly created session, continuing the same journey with memory
+ * carried forward.
+ */
+export async function apiAdvanceScenario(scenarioId: string, sessionId: string) {
+    return ApiService.fetchDataWithAxios<SessionResponse>({
+        url: endpointConfig.scenarioAdvance(scenarioId, sessionId),
+        method: 'post',
+    })
+}
+
+export type AssignmentStatusMember = {
+    user_id: string
+    first_name: string
+    last_name: string
+    email: string
+    sales_division_id?: string | null
+    sales_division_name?: string | null
+    products?: ProfileProduct[]
+    can_assign: boolean
+    session_id: string | null
+    session_status: string | null
+}
+
+export type AssignmentStatusResponse = {
+    scenario_id: string
+    sales_division_id?: string | null
+    sales_division_name?: string | null
+    members: AssignmentStatusMember[]
+}
+
+export async function apiGetScenarioAssignmentStatus(scenarioId: string) {
     return ApiService.fetchDataWithAxios<AssignmentStatusResponse>({
-        url: endpointConfig.scenarioAssignmentStatus(scenarioId, teamId),
+        url: endpointConfig.scenarioAssignmentStatus(scenarioId),
         method: 'get',
     })
 }

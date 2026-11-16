@@ -1,8 +1,11 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
+import { SURFACE_CARD_CLASSNAME } from '@/constants/surfaceCard.constant'
 import { useNavigate } from 'react-router-dom'
-import { Card, Button, Badge, Drawer, toast, Notification } from '@/components/ui'
+import { Card, Button, Badge, toast, Notification } from '@/components/ui'
 import Container from '@/components/shared/Container'
-import CompanyForm, { type CompanyFormSchema } from './CompanyForm'
+import ConfirmDialog from '@/components/shared/ConfirmDialog'
+import { FormDrawer } from '@/components/shared/form'
+import DivisionForm, { type CompanyFormSchema } from './DivisionForm'
 import {
     HiOfficeBuilding,
     HiUserGroup,
@@ -21,13 +24,16 @@ import salesDivisionsReducer, {
     deleteDivision,
     resetNotification,
 } from '@/store/slices/salesDivisions'
+import teamsReducer, { fetchTeams } from '@/store/slices/teams'
+import { fetchUserProfile } from '@/views/profile/Settings/store/settingsSlice'
 import type { SalesDivision } from '@/services/SalesDivisionsService'
+import { formatDisplayLabel } from '@/utils/formatDisplayLabel'
+import Tag from '@/components/ui/Tag'
 import dayjs from 'dayjs'
 
 // Inject reducer when component mounts (lazy-loaded)
 injectReducer('salesDivisions', salesDivisionsReducer)
-
-console.log('DEBUG: CompanyList.tsx file loaded')
+injectReducer('teams', teamsReducer)
 
 // Stats card component
 type StatsCardProps = {
@@ -38,7 +44,7 @@ type StatsCardProps = {
 
 const StatsCard = ({ icon, value, label }: StatsCardProps) => {
     return (
-        <Card className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 shadow-md hover:shadow-xl transition-all duration-300"
+        <Card className={`${SURFACE_CARD_CLASSNAME} hover:shadow-md transition-shadow duration-300`}
             bodyClass="!p-4"
         >
             <div className="flex items-center gap-3">
@@ -63,6 +69,8 @@ type CompanyCardProps = {
     id: string
     name: string
     category: string
+    customerSegmentName?: string
+    products: { id: string; name: string }[]
     createdDate: string
     teams: number
     status: 'Active' | 'Inactive'
@@ -72,8 +80,11 @@ type CompanyCardProps = {
 }
 
 const CompanyCard = ({
+    id,
     name,
     category,
+    customerSegmentName,
+    products,
     createdDate,
     teams,
     status,
@@ -83,9 +94,11 @@ const CompanyCard = ({
 }: CompanyCardProps) => {
     return (
         <Card
-            className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 shadow-md hover:shadow-xl transition-all duration-300 cursor-pointer overflow-hidden rounded-2xl relative"
+            className={`${SURFACE_CARD_CLASSNAME} hover:shadow-md transition-shadow duration-300 cursor-pointer overflow-hidden rounded-2xl relative`}
             bodyClass="!p-2"
             onClick={onClick}
+            data-tour-id="division-card"
+            data-division-id={id}
         >
             {/* Header image removed for brevity in search, will replace carefully */}
             <div className="relative h-23 rounded-2xl bg-slate-100 dark:bg-gray-900 overflow-hidden">
@@ -150,6 +163,27 @@ const CompanyCard = ({
                     <p className="text-sm text-gray-600 dark:text-gray-400">
                         {category}
                     </p>
+                    {customerSegmentName && (
+                        <Tag className="mt-1.5 rounded-full border-0 bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300">
+                            {customerSegmentName}
+                        </Tag>
+                    )}
+                    {products.length > 0 ? (
+                        <div className="mt-2 flex flex-wrap justify-center gap-1.5">
+                            {products.map((product) => (
+                                <Tag
+                                    key={product.id || product.name}
+                                    className="rounded-full border-0 bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary dark:bg-primary/20 dark:text-primary-mild"
+                                >
+                                    {product.name}
+                                </Tag>
+                            ))}
+                        </div>
+                    ) : (
+                        <p className="mt-2 text-xs text-gray-400 dark:text-gray-500">
+                            No products assigned
+                        </p>
+                    )}
                 </div>
 
                 {/* Details */}
@@ -193,19 +227,22 @@ const CompanyCard = ({
 }
 
 const CompanyList = () => {
-    console.log('CompanyList component rendering...')
     const dispatch = useAppDispatch()
     const navigate = useNavigate()
     const [isDrawerOpen, setIsDrawerOpen] = useState(false)
     const [drawerMode, setDrawerMode] = useState<'create' | 'edit'>('create')
     const [selectedDivision, setSelectedDivision] = useState<SalesDivision | null>(null)
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+    const [divisionToDelete, setDivisionToDelete] = useState<SalesDivision | null>(null)
+    const [deletingDivisionId, setDeletingDivisionId] = useState<string | null>(null)
+    const [submitting, setSubmitting] = useState(false)
+    const [formDirty, setFormDirty] = useState(false)
     const formRef = useRef<HTMLFormElement>(null)
 
-    useEffect(() => {
-        console.log('CompanyList component mounted')
-    }, [])
-
     const companyIdRaw = useAppSelector((state) => state.auth.user.companyId)
+    const profileInitialized = useAppSelector(
+        (state) => state.settings.profileInitialized,
+    )
     const companyId =
         typeof companyIdRaw === 'string' ? companyIdRaw.trim() : companyIdRaw
 
@@ -227,12 +264,40 @@ const CompanyList = () => {
             }
     )
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { teamsData, teamsInitialized } = useAppSelector((state: any) => ({
+        teamsData: state.teams?.data?.teamsData ?? [],
+        teamsInitialized: state.teams?.data?.initialized ?? false,
+    }))
+
+    useEffect(() => {
+        if (!profileInitialized) {
+            dispatch(fetchUserProfile())
+        }
+    }, [dispatch, profileInitialized])
+
     useEffect(() => {
         if (!companyId || initialized || divisionsLoading) {
             return
         }
         dispatch(fetchSalesDivisions(companyId))
     }, [dispatch, companyId, initialized, divisionsLoading])
+
+    useEffect(() => {
+        if (!companyId || teamsInitialized) return
+        dispatch(fetchTeams(companyId))
+    }, [dispatch, companyId, teamsInitialized])
+
+    const teamCountByDivision = useMemo(() => {
+        const counts: Record<string, number> = {}
+        for (const team of teamsData) {
+            const divId = team.sales_division_id
+            if (divId) {
+                counts[divId] = (counts[divId] ?? 0) + 1
+            }
+        }
+        return counts
+    }, [teamsData])
 
     useEffect(() => {
         if (notification) {
@@ -248,6 +313,7 @@ const CompanyList = () => {
 
     const openDrawer = (mode: 'create' | 'edit', division?: SalesDivision) => {
         setDrawerMode(mode)
+        setFormDirty(false)
         if (mode === 'edit' && division) {
             setSelectedDivision(division)
         } else {
@@ -257,8 +323,16 @@ const CompanyList = () => {
     }
 
     const onDrawerClose = () => {
+        if (submitting) return
         setIsDrawerOpen(false)
         setSelectedDivision(null)
+        setFormDirty(false)
+    }
+
+    const closeDrawerAfterSubmit = () => {
+        setIsDrawerOpen(false)
+        setSelectedDivision(null)
+        setFormDirty(false)
     }
 
     const divisions = divisionsData
@@ -269,14 +343,13 @@ const CompanyList = () => {
     }
 
     const handleSubmitClick = () => {
-        console.log('handleSubmitClick called, formRef.current:', formRef.current)
+        if (submitting) return
         if (formRef.current) {
             formRef.current.requestSubmit()
         }
     }
 
     const onCompanySubmit = async (values: CompanyFormSchema) => {
-        console.log('Company form submitted:', values)
         if (!companyId) {
             toast.push(
                 <Notification title="Error" type="danger">
@@ -286,73 +359,82 @@ const CompanyList = () => {
             return
         }
 
+        setSubmitting(true)
         try {
             if (drawerMode === 'create') {
-                await dispatch(createDivision({
+                const result = await dispatch(createDivision({
                     name: values.companyName,
                     division_category: values.category,
                     sales_company_id: companyId,
-                    is_active: true
+                    is_active: true,
+                    product_ids: values.productIds,
+                    customer_segment_id: values.customerSegmentId,
                 }))
+                if (createDivision.fulfilled.match(result)) {
+                    closeDrawerAfterSubmit()
+                }
             } else if (drawerMode === 'edit' && selectedDivision) {
-                await dispatch(updateDivision({
+                const result = await dispatch(updateDivision({
                     divisionId: selectedDivision.sales_division_id,
                     payload: {
                         name: values.companyName,
                         division_category: values.category,
                         sales_company_id: companyId,
-                        is_active: selectedDivision.is_active
+                        is_active: selectedDivision.is_active,
+                        product_ids: values.productIds,
+                        customer_segment_id: values.customerSegmentId,
                     }
                 }))
+                if (updateDivision.fulfilled.match(result)) {
+                    closeDrawerAfterSubmit()
+                }
             }
-            onDrawerClose()
         } catch (error) {
             console.error('Failed to save division:', error)
+        } finally {
+            setSubmitting(false)
         }
     }
 
-    const handleDelete = async (division: SalesDivision) => {
-        if (confirm(`Are you sure you want to delete "${division.name}"?`)) {
-            try {
-                await dispatch(deleteDivision(division.sales_division_id))
-            } catch (error) {
-                console.error('Failed to delete division:', error)
+    const openDeleteDialog = (division: SalesDivision) => {
+        setDivisionToDelete(division)
+        setDeleteDialogOpen(true)
+    }
+
+    const closeDeleteDialog = () => {
+        if (deletingDivisionId) return
+        setDeleteDialogOpen(false)
+        setDivisionToDelete(null)
+    }
+
+    const handleDeleteDivision = async () => {
+        if (!divisionToDelete) return
+
+        const divisionId = divisionToDelete.sales_division_id
+        setDeletingDivisionId(divisionId)
+        try {
+            const result = await dispatch(deleteDivision(divisionId))
+            if (deleteDivision.fulfilled.match(result)) {
+                setDeleteDialogOpen(false)
+                setDivisionToDelete(null)
             }
+        } catch (error) {
+            console.error('Failed to delete division:', error)
+        } finally {
+            setDeletingDivisionId(null)
         }
     }
 
-    const DrawerFooter = (
-        <div className="flex justify-between items-center w-full gap-3 px-2">
-            <Button
-                size="sm"
-                variant="default"
-                className="flex-1 dark:!bg-gray-800 dark:!border-gray-600 dark:!text-gray-200 dark:hover:!bg-gray-700 dark:hover:!border-gray-500"
-                onClick={onDrawerClose}
-            >
-                Cancel
-            </Button>
-            <Button
-                size="sm"
-                variant="solid"
-                className="flex-1 bg-primary hover:bg-primary-deep text-neutral border-none"
-                onClick={handleSubmitClick}
-            >
-                {drawerMode === 'create' ? 'Create' : 'Save'}
-            </Button>
-        </div>
-    )
-
-    const DrawerTitle = (
-        <div>
-            <h4 className="mb-2 text-lg font-bold">
-                {drawerMode === 'create' ? 'Create New Sales Division' : 'Edit Sales Division'}
-            </h4>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-                {drawerMode === 'create' 
-                    ? 'Fill in the details to create a new sales division'
-                    : 'Update the details of the sales division'}
-            </p>
-        </div>
+    /** Existing category names, offered as one-tap suggestions in the form. */
+    const categorySuggestions = useMemo(
+        () => [
+            ...new Set(
+                divisionsData
+                    .map((division) => division.division_category?.trim())
+                    .filter((category): category is string => Boolean(category)),
+            ),
+        ],
+        [divisionsData],
     )
 
     const stats = [
@@ -363,7 +445,7 @@ const CompanyList = () => {
         },
         {
             icon: <HiUserGroup />,
-            value: 0, // Teams count not available from this endpoint
+            value: teamsData.length,
             label: 'Total Teams',
         },
         {
@@ -377,8 +459,13 @@ const CompanyList = () => {
         id: d.sales_division_id,
         name: d.name,
         category: d.division_category,
+        customerSegmentName: d.customer_segment?.name,
+        products: (d.products ?? []).map((p) => ({
+            id: p.product_id,
+            name: formatDisplayLabel(p.name),
+        })),
         createdDate: dayjs(d.created_at).format('MMM DD, YYYY'),
-        teams: 0, // Teams count not available from this endpoint
+        teams: teamCountByDivision[d.sales_division_id] ?? 0,
         status: (d.is_active ? 'Active' : 'Inactive') as 'Active' | 'Inactive',
         original: d
     }))
@@ -387,7 +474,10 @@ const CompanyList = () => {
         <div className="min-h-full">
             {/* Header Section */}
             <Container className="pb-6 px-4">
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+                <div
+                    className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6"
+                    data-tour-id="sales-division-page"
+                >
                     <div>
                         <h1 className="text-3xl font-bold mb-1 text-gray-900 dark:text-white">
                             Sales Division Management
@@ -402,6 +492,7 @@ const CompanyList = () => {
                         icon={<HiPlus />}
                         className="bg-primary hover:bg-primary-deep text-neutral border-none whitespace-nowrap rounded-md"
                         onClick={() => openDrawer('create')}
+                        data-tour-id="add-division-button"
                     >
                         Create Sales Division
                     </Button>
@@ -427,45 +518,103 @@ const CompanyList = () => {
                             }}
                             onDelete={(e) => {
                                 e.stopPropagation()
-                                handleDelete(company.original)
+                                openDeleteDialog(company.original)
                             }}
                         />
                     ))}
                 </div>
             </Container>
 
-            {/* Create Sales Division Drawer */}
-            <Drawer
-                title={DrawerTitle}
+            {/* Create / edit sales division */}
+            <FormDrawer
                 isOpen={isDrawerOpen}
-                footer={DrawerFooter}
-                headerClass="!items-start !bg-gray-100 dark:!bg-gray-900"
-                footerClass="!bg-gray-100 dark:!bg-gray-900 !p-3"
-                bodyClass="!p-4 !bg-gray-100 dark:!bg-gray-900 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+                width={540}
+                title={
+                    drawerMode === 'create'
+                        ? 'New sales division'
+                        : 'Edit sales division'
+                }
+                description={
+                    drawerMode === 'create'
+                        ? 'Products, segment and teams that sell together.'
+                        : 'Applies to every team and scenario in this division.'
+                }
+                submitLabel={
+                    drawerMode === 'create' ? 'Create division' : 'Save changes'
+                }
+                submitting={submitting}
+                isDirty={formDirty}
+                footerSlot={
+                    drawerMode === 'edit' && formDirty
+                        ? 'Unsaved changes'
+                        : undefined
+                }
+                onSubmit={handleSubmitClick}
                 onClose={onDrawerClose}
-                onRequestClose={onDrawerClose}
             >
-                <div className="px-2">
-                    <CompanyForm
-                        key={
-                            selectedDivision?.sales_division_id ??
-                            `create-${drawerMode}`
-                        }
-                        ref={formRef}
-                        onSubmit={onCompanySubmit}
-                        onCancel={onDrawerClose}
-                        defaultValues={
-                            selectedDivision
-                                ? {
-                                      companyName: selectedDivision.name,
-                                      category:
-                                          selectedDivision.division_category,
-                                  }
-                                : undefined
-                        }
-                    />
-                </div>
-            </Drawer>
+                <DivisionForm
+                    key={
+                        selectedDivision?.sales_division_id ??
+                        `create-${drawerMode}`
+                    }
+                    ref={formRef}
+                    salesCompanyId={companyId ?? ''}
+                    categorySuggestions={categorySuggestions}
+                    onSubmit={onCompanySubmit}
+                    onCancel={onDrawerClose}
+                    onDirtyChange={setFormDirty}
+                    defaultValues={
+                        selectedDivision
+                            ? {
+                                  companyName: selectedDivision.name,
+                                  category: selectedDivision.division_category,
+                                  customerSegmentId:
+                                      selectedDivision.customer_segment_id ?? '',
+                                  productIds: (selectedDivision.products ?? [])
+                                      .map((p) => p.product_id)
+                                      .filter(Boolean),
+                              }
+                            : undefined
+                    }
+                />
+            </FormDrawer>
+
+            <ConfirmDialog
+                isOpen={deleteDialogOpen}
+                type="danger"
+                title="Delete sales division"
+                confirmText="Delete"
+                cancelText="Cancel"
+                onClose={closeDeleteDialog}
+                onRequestClose={closeDeleteDialog}
+                onCancel={closeDeleteDialog}
+                onConfirm={handleDeleteDivision}
+                confirmButtonProps={{ loading: !!deletingDivisionId }}
+            >
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Are you sure you want to delete{' '}
+                    <span className="font-semibold text-gray-900 dark:text-white">
+                        {divisionToDelete?.name}
+                    </span>
+                    ?
+                    {divisionToDelete &&
+                    (teamCountByDivision[divisionToDelete.sales_division_id] ?? 0) >
+                        0 ? (
+                        <>
+                            {' '}
+                            This will also remove the{' '}
+                            {teamCountByDivision[divisionToDelete.sales_division_id]}{' '}
+                            team
+                            {teamCountByDivision[
+                                divisionToDelete.sales_division_id
+                            ] === 1
+                                ? ''
+                                : 's'}{' '}
+                            under this division.
+                        </>
+                    ) : null}
+                </p>
+            </ConfirmDialog>
         </div>
     )
 }

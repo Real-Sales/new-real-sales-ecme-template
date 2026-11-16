@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
 import Select from '@/components/ui/Select'
+import Alert from '@/components/ui/Alert'
 import { FormItem, Form } from '@/components/ui/Form'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -9,7 +10,9 @@ import { z } from 'zod'
 import type { ZodType } from 'zod'
 import type { CommonProps } from '@/@types/common'
 import type { MultiValue, ActionMeta } from 'react-select'
-import { useAppSelector } from '@/store'
+import { useAppSelector, useAppDispatch } from '@/store'
+import { fetchIndustries } from '@/store/slices/industriesCatalogSlice'
+import { formatDisplayLabel } from '@/utils/formatDisplayLabel'
 
 interface OnboardingFormProps extends CommonProps {
     onComplete: (data: OnboardingFormSchema) => void
@@ -50,87 +53,6 @@ const validationSchema: ZodType<OnboardingFormSchema> = z.object({
     phone_number: z.string().min(1, { message: 'Phone number is required' }),
 })
 
-const industryOptions: IndustryOption[] = [
-    { value: 'technology', label: 'Technology & Software' },
-    { value: 'healthcare', label: 'Healthcare & Life Sciences' },
-    { value: 'finance', label: 'Finance & Banking' },
-    { value: 'retail', label: 'Retail & E-Commerce' },
-    { value: 'manufacturing', label: 'Manufacturing' },
-    { value: 'real_estate', label: 'Real Estate' },
-    { value: 'education', label: 'Education & EdTech' },
-    { value: 'media', label: 'Media & Entertainment' },
-    { value: 'telecom', label: 'Telecommunications' },
-    { value: 'energy', label: 'Energy & Utilities' },
-    { value: 'automotive', label: 'Automotive' },
-    { value: 'logistics', label: 'Logistics & Supply Chain' },
-    { value: 'consulting', label: 'Consulting & Professional Services' },
-    { value: 'insurance', label: 'Insurance' },
-    { value: 'food', label: 'Food & Beverage' },
-    { value: 'travel', label: 'Travel & Hospitality' },
-    { value: 'agriculture', label: 'Agriculture' },
-    { value: 'construction', label: 'Construction' },
-    { value: 'other', label: 'Other' },
-]
-
-const productSuggestions: Record<string, ProductOption[]> = {
-    technology: [
-        { value: 'saas', label: 'SaaS Platform' },
-        { value: 'cloud', label: 'Cloud Services' },
-        { value: 'ai_ml', label: 'AI / ML Solutions' },
-        { value: 'cybersecurity', label: 'Cybersecurity' },
-        { value: 'devtools', label: 'Developer Tools' },
-        { value: 'data_analytics', label: 'Data Analytics' },
-    ],
-    healthcare: [
-        { value: 'ehr', label: 'EHR Systems' },
-        { value: 'telehealth', label: 'Telehealth' },
-        { value: 'medical_devices', label: 'Medical Devices' },
-        { value: 'pharma', label: 'Pharmaceuticals' },
-        { value: 'health_analytics', label: 'Health Analytics' },
-    ],
-    finance: [
-        { value: 'fintech', label: 'FinTech Solutions' },
-        { value: 'payments', label: 'Payment Processing' },
-        { value: 'lending', label: 'Lending Platform' },
-        { value: 'wealth_mgmt', label: 'Wealth Management' },
-        { value: 'regtech', label: 'RegTech' },
-    ],
-    retail: [
-        { value: 'ecommerce', label: 'E-Commerce Platform' },
-        { value: 'pos', label: 'POS Systems' },
-        { value: 'inventory', label: 'Inventory Management' },
-        { value: 'crm', label: 'Retail CRM' },
-        { value: 'loyalty', label: 'Loyalty Programs' },
-    ],
-    manufacturing: [
-        { value: 'erp', label: 'ERP Systems' },
-        { value: 'supply_chain', label: 'Supply Chain Software' },
-        { value: 'quality', label: 'Quality Management' },
-        { value: 'iot', label: 'IoT Solutions' },
-    ],
-    real_estate: [
-        { value: 'proptech', label: 'PropTech' },
-        { value: 'property_mgmt', label: 'Property Management' },
-        { value: 'crm_re', label: 'Real Estate CRM' },
-        { value: 'listings', label: 'Listing Platform' },
-    ],
-    education: [
-        { value: 'lms', label: 'Learning Management System' },
-        { value: 'edtech', label: 'EdTech Platform' },
-        { value: 'assessment', label: 'Assessment Tools' },
-        { value: 'tutoring', label: 'Tutoring Services' },
-    ],
-}
-
-const defaultProducts: ProductOption[] = [
-    { value: 'crm_general', label: 'CRM Software' },
-    { value: 'marketing', label: 'Marketing Tools' },
-    { value: 'project_mgmt', label: 'Project Management' },
-    { value: 'communication', label: 'Communication Platform' },
-    { value: 'hr_tools', label: 'HR & Recruitment' },
-    { value: 'accounting', label: 'Accounting Software' },
-]
-
 const inputClassName =
     'bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-200 shadow-md'
 
@@ -138,7 +60,14 @@ const selectClassName =
     '[&>div]:!bg-gray-50 [&>div]:dark:!bg-gray-800/50 [&>div]:border [&>div]:border-gray-200 [&>div]:dark:border-gray-700 [&>div]:shadow-md'
 
 const OnboardingForm = ({ className, onComplete, isSubmitting = false }: OnboardingFormProps) => {
-    const [selectedIndustry, setSelectedIndustry] = useState<string>('')
+    const dispatch = useAppDispatch()
+    const industries = useAppSelector((state) => state.industriesCatalog.industries)
+    const industriesLoading = useAppSelector((state) => state.industriesCatalog.loading)
+    const industriesError = useAppSelector((state) => state.industriesCatalog.error)
+    const industriesInitialized = useAppSelector(
+        (state) => state.industriesCatalog.initialized,
+    )
+    const [selectedIndustryId, setSelectedIndustryId] = useState('')
     const user = useAppSelector((state) => state.auth.user)
 
     const {
@@ -158,12 +87,29 @@ const OnboardingForm = ({ className, onComplete, isSubmitting = false }: Onboard
         },
     })
 
-    const getProductOptions = (): ProductOption[] => {
-        if (selectedIndustry && productSuggestions[selectedIndustry]) {
-            return productSuggestions[selectedIndustry]
+    useEffect(() => {
+        if (!industriesInitialized && !industriesLoading) {
+            dispatch(fetchIndustries())
         }
-        return defaultProducts
-    }
+    }, [dispatch, industriesInitialized, industriesLoading])
+
+    const industryOptions: IndustryOption[] = useMemo(
+        () =>
+            industries.map((industry) => ({
+                value: industry.name,
+                label: formatDisplayLabel(industry.name),
+            })),
+        [industries],
+    )
+
+    const productOptions: ProductOption[] = useMemo(() => {
+        if (!selectedIndustryId) return []
+        const industry = industries.find((item) => item.industry_id === selectedIndustryId)
+        return (industry?.products ?? []).map((product) => ({
+            value: product.product_id,
+            label: formatDisplayLabel(product.name),
+        }))
+    }, [industries, selectedIndustryId])
 
     const onSubmit = (values: OnboardingFormSchema) => {
         onComplete(values)
@@ -171,6 +117,12 @@ const OnboardingForm = ({ className, onComplete, isSubmitting = false }: Onboard
 
     return (
         <div className={className}>
+            {industriesError && (
+                <Alert showIcon type="danger" className="mb-4">
+                    <span className="break-all">{industriesError}</span>
+                </Alert>
+            )}
+
             <Form onSubmit={handleSubmit(onSubmit)}>
                 <FormItem
                     label="Company Name"
@@ -261,17 +213,25 @@ const OnboardingForm = ({ className, onComplete, isSubmitting = false }: Onboard
                         control={control}
                         render={({ field }) => (
                             <Select<IndustryOption, false>
-                                placeholder="Select your industry"
+                                placeholder={
+                                    industriesLoading
+                                        ? 'Loading industries...'
+                                        : 'Select your industry'
+                                }
                                 options={industryOptions}
+                                isDisabled={industriesLoading || !!industriesError}
                                 value={
                                     industryOptions.find(
                                         (opt) => opt.value === field.value,
                                     ) || null
                                 }
                                 onChange={(option) => {
-                                    const val = option?.value || ''
-                                    field.onChange(val)
-                                    setSelectedIndustry(val)
+                                    const industryName = option?.value || ''
+                                    const industry = industries.find(
+                                        (item) => item.name === industryName,
+                                    )
+                                    field.onChange(industryName)
+                                    setSelectedIndustryId(industry?.industry_id || '')
                                     setValue('industryProducts', [])
                                 }}
                                 menuPlacement="top"
@@ -292,18 +252,28 @@ const OnboardingForm = ({ className, onComplete, isSubmitting = false }: Onboard
                         render={({ field }) => (
                             <Select<ProductOption, true>
                                 isMulti
-                                placeholder="Select or type to add products"
-                                options={getProductOptions()}
-                                value={getProductOptions().filter((opt) =>
+                                placeholder={
+                                    !selectedIndustryId
+                                        ? 'Select an industry first'
+                                        : productOptions.length === 0
+                                          ? 'No products for this industry'
+                                          : 'Select products'
+                                }
+                                options={productOptions}
+                                isDisabled={
+                                    industriesLoading ||
+                                    !!industriesError ||
+                                    !selectedIndustryId ||
+                                    productOptions.length === 0
+                                }
+                                value={productOptions.filter((opt) =>
                                     field.value.includes(opt.value),
                                 )}
                                 onChange={(
                                     newValue: MultiValue<ProductOption>,
                                     _actionMeta: ActionMeta<ProductOption>,
                                 ) => {
-                                    field.onChange(
-                                        newValue.map((opt) => opt.value),
-                                    )
+                                    field.onChange(newValue.map((opt) => opt.value))
                                 }}
                                 menuPlacement="top"
                                 className={selectClassName}
@@ -315,6 +285,7 @@ const OnboardingForm = ({ className, onComplete, isSubmitting = false }: Onboard
                 <Button
                     block
                     loading={isSubmitting}
+                    disabled={industriesLoading || !!industriesError}
                     variant="solid"
                     type="submit"
                     className="mt-2"

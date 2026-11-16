@@ -21,6 +21,7 @@ type TeamMember = {
 type TeamMembersTableProps = {
     members: TeamMember[]
     onRemoveMember: (memberId: string) => void
+    removingMemberId?: string | null
     onRowClick: (member: TeamMember) => void
     pagingData?: {
         total: number
@@ -29,15 +30,18 @@ type TeamMembersTableProps = {
     }
     onPaginationChange?: (page: number) => void
     onSelectChange?: (value: number) => void
+    onSort?: (sort: { key: string | number; order: 'asc' | 'desc' | '' }) => void
 }
 
 const TeamMembersTable = ({ 
     members, 
     onRemoveMember,
+    removingMemberId = null,
     onRowClick,
     pagingData,
     onPaginationChange,
     onSelectChange,
+    onSort,
 }: TeamMembersTableProps) => {
     // Generate initials for avatar fallback
     const getInitials = (name: string) => {
@@ -83,7 +87,7 @@ const TeamMembersTable = ({
             {
                 header: 'Overall Score',
                 accessorKey: 'score',
-                enableSorting: false,
+                enableSorting: true,
                 cell: (props) => {
                     const row = props.row.original
                     return (
@@ -113,7 +117,7 @@ const TeamMembersTable = ({
             {
                 header: 'Sessions',
                 accessorKey: 'sessions',
-                enableSorting: false,
+                enableSorting: true,
                 cell: (props) => {
                     const row = props.row.original
                     return (
@@ -129,12 +133,15 @@ const TeamMembersTable = ({
                 enableSorting: false,
                 cell: (props) => {
                     const row = props.row.original
+                    const isRemoving = removingMemberId === row.id
                     return (
                         <div className="flex items-center gap-2">
                             <Tooltip title="Remove from team">
                                 <Button
                                     size="sm"
                                     variant="plain"
+                                    loading={isRemoving}
+                                    disabled={Boolean(removingMemberId)}
                                     icon={<TbTrash className="text-lg" />}
                                     className="hover:text-red-500"
                                     onClick={(e) => {
@@ -148,7 +155,7 @@ const TeamMembersTable = ({
                 },
             },
         ],
-        [onRemoveMember, onRowClick],
+        [onRemoveMember, onRowClick, removingMemberId],
     )
 
     return (
@@ -160,6 +167,7 @@ const TeamMembersTable = ({
             pagingData={pagingData}
             onPaginationChange={onPaginationChange}
             onSelectChange={onSelectChange}
+            onSort={onSort}
         />
     )
 }

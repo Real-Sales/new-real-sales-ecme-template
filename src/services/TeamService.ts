@@ -45,6 +45,13 @@ export type TeamPerformanceResponse = {
     team_average_score: number | null
 }
 
+export type UpdateTeamRequest = {
+    name?: string
+    sales_division_id?: string | null
+    manager_id?: string
+    sales_company_id?: string
+}
+
 export async function apiCreateTeam(data: CreateTeamRequest) {
     return ApiService.fetchDataWithAxios<TeamResponse>({
         url: endpointConfig.companyTeams,
@@ -53,9 +60,17 @@ export async function apiCreateTeam(data: CreateTeamRequest) {
     })
 }
 
+export async function apiUpdateTeam(teamId: string, data: UpdateTeamRequest) {
+    return ApiService.fetchDataWithAxios<TeamResponse>({
+        url: endpointConfig.companyTeamById(teamId),
+        method: 'put',
+        data,
+    })
+}
+
 export async function apiDeleteTeam(teamId: string) {
     return ApiService.fetchDataWithAxios<void>({
-        url: endpointConfig.deleteCompanyTeam(teamId),
+        url: endpointConfig.companyTeamById(teamId),
         method: 'delete',
     })
 }
@@ -161,6 +176,8 @@ export type TeamScenariosDashboardResponse = {
             name: string
             [key: string]: any
         }
+        /** Scenario's configured modes, in pipeline order (e.g. ["prospecting", "discovering"]). */
+        mode_sequence_names?: string[]
         persona: {
             name: string
             [key: string]: any
@@ -228,12 +245,35 @@ export async function apiGetCompanyTeamsBySalesCompany(companyId: string) {
     })
 }
 
-export async function apiGetTeamScenariosDashboard(teamId: string) {
-    return ApiService.fetchDataWithAxios<TeamScenariosDashboardResponse>({
+const teamScenariosDashboardCache = new Map<string, TeamScenariosDashboardResponse>()
+
+export function peekTeamScenariosDashboard(teamId: string) {
+    return teamScenariosDashboardCache.get(teamId) ?? null
+}
+
+export function invalidateTeamScenariosDashboardCache(teamId?: string) {
+    if (teamId) {
+        teamScenariosDashboardCache.delete(teamId)
+        return
+    }
+    teamScenariosDashboardCache.clear()
+}
+
+export async function apiGetTeamScenariosDashboard(
+    teamId: string,
+    options?: { force?: boolean },
+) {
+    if (!options?.force) {
+        const cached = teamScenariosDashboardCache.get(teamId)
+        if (cached) return cached
+    }
+    const response = await ApiService.fetchDataWithAxios<TeamScenariosDashboardResponse>({
         url: endpointConfig.teamScenariosDashboard,
         method: 'get',
         params: { team_id: teamId },
     })
+    teamScenariosDashboardCache.set(teamId, response)
+    return response
 }
 
 export async function apiUnassignScenario(sessionId: string) {

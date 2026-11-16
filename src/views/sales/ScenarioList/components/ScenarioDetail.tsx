@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { SURFACE_INNER_TILE_CLASSNAME } from '@/constants/surfaceCard.constant'
 import Avatar from '@/components/ui/Avatar'
 import Badge from '@/components/ui/Badge'
 import Dialog from '@/components/ui/Dialog'
@@ -7,6 +8,9 @@ import dayjs from 'dayjs'
 import { FcImageFile } from 'react-icons/fc'
 import { TbInfoCircle } from 'react-icons/tb'
 import type { Scenario, ScenarioSession, ScenarioLibraryPersona } from '../types'
+import MarkdownContent from '@/components/shared/MarkdownContent'
+import ScenarioModeStepper from './ScenarioModeStepper'
+import { useAppSelector } from '@/store'
 
 type ScenarioDetailProps = {
     scenario: Scenario | ScenarioSession
@@ -145,8 +149,8 @@ export const PersonaCard = ({ persona }: { persona: ScenarioLibraryPersona }) =>
         <PersonaAttrRow
             leftLabel="Plant size"
             leftValue={persona.plant_size_impact?.name ?? 'Not applicable'}
-            rightLabel="Manufacturing model"
-            rightValue={persona.manufacturing_model?.name ?? 'Not applicable'}
+            rightLabel="Customer segment"
+            rightValue={persona.customer_segment?.name ?? 'Not applicable'}
         />
         <PersonaAttrRow
             leftLabel="Company size"
@@ -155,28 +159,14 @@ export const PersonaCard = ({ persona }: { persona: ScenarioLibraryPersona }) =>
             rightValue={persona.gender ?? '—'}
         />
 
-        {persona.persona_products && persona.persona_products.length > 0 && (
-            <div className="pt-4">
-                <span className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400 block mb-2">Products</span>
-                <div className="flex flex-wrap gap-2">
-                    {persona.persona_products.map((pp) =>
-                        pp.product?.name ? (
-                            <span
-                                key={pp.persona_product_id}
-                                className="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-gray-50 dark:bg-gray-800/50 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-700"
-                            >
-                                {pp.product.name}
-                            </span>
-                        ) : null
-                    )}
-                </div>
-            </div>
-        )}
     </div>
 )
 
 const ScenarioDetail = ({ scenario }: ScenarioDetailProps) => {
     const [personaPopupOpen, setPersonaPopupOpen] = useState(false)
+    const divisionsData = useAppSelector(
+        (state) => state.salesDivisions?.data?.divisionsData ?? [],
+    )
     const derivedStatus = isLibraryScenario(scenario)
         ? (scenario.persona?.status_active && scenario.mode?.status_active ? 'active' : 'inactive')
         : (scenario as ScenarioSession).session_status
@@ -191,11 +181,43 @@ const ScenarioDetail = ({ scenario }: ScenarioDetailProps) => {
     const modeName = isLibraryScenario(scenario) ? (scenario.mode?.name ?? '') : (scenario as ScenarioSession).mode
     const personaName = isLibraryScenario(scenario) ? (scenario.persona?.name ?? '') : (scenario as ScenarioSession).persona
     const modeStyle = getModeStyle(modeName)
+    const documentFilename = isLibraryScenario(scenario)
+        ? scenario.document_filename
+        : (scenario as ScenarioSession).document_name
+    const documentContent = isLibraryScenario(scenario) ? scenario.document_content : undefined
+
+    const modeSequenceNames = isLibraryScenario(scenario) ? scenario.mode_sequence_names : undefined
+    const isCompleted = isLibraryScenario(scenario)
+        ? Boolean(scenario.is_completed)
+        : sessionStatusKey === 'completed'
+
+    const salesDivisionName = isLibraryScenario(scenario)
+        ? scenario.sales_division_name?.trim() ||
+          (scenario.sales_division_id
+              ? divisionsData.find(
+                    (d) => d.sales_division_id === scenario.sales_division_id,
+                )?.name?.trim()
+              : null) ||
+          null
+        : null
 
     return (
         <div className="space-y-7">
             {/* Title */}
             <InfoField title="Title" value={scenario.title} />
+
+            {salesDivisionName ? (
+                <InfoField title="Sales division" value={salesDivisionName} />
+            ) : null}
+
+            {/* Mode pipeline progress (multi-mode scenarios only) */}
+            {modeSequenceNames && modeSequenceNames.length > 1 && (
+                <ScenarioModeStepper
+                    modeSequenceNames={modeSequenceNames}
+                    currentModeName={modeName}
+                    isCurrentCompleted={isCompleted}
+                />
+            )}
 
             {/* Status and Mode in grid */}
             <div className="grid grid-cols-2 gap-x-8 gap-y-7">
@@ -240,14 +262,15 @@ const ScenarioDetail = ({ scenario }: ScenarioDetailProps) => {
                             </button>
                         </span>
                         <p className="heading-text font-bold">{scenario.persona.name}</p>
-                    <Dialog
-                        isOpen={personaPopupOpen}
-                        onClose={() => setPersonaPopupOpen(false)}
-                        onRequestClose={() => setPersonaPopupOpen(false)}
-                        width={560}
-                        contentClassName="!p-6 !rounded-xl !bg-gray-100 dark:!bg-gray-900"
-                        overlayClassName="!bg-black/20 dark:!bg-gray-900/40 !backdrop-blur-md"
-                    >
+                        <Dialog
+                            isOpen={personaPopupOpen}
+                            onClose={() => setPersonaPopupOpen(false)}
+                            onRequestClose={() => setPersonaPopupOpen(false)}
+                            width={560}
+                            contentClassName="!p-6 !rounded-[1.5rem] !bg-white dark:!bg-gray-900/60 !border-gray-200 dark:!border-white/10 max-h-[min(85vh,720px)] overflow-y-auto"
+                            overlayClassName="!bg-black/20 dark:!bg-gray-900/40 !backdrop-blur-md"
+                            shouldFocusAfterRender={false}
+                        >
                             <PersonaCard persona={scenario.persona} />
                         </Dialog>
                     </div>
@@ -259,17 +282,17 @@ const ScenarioDetail = ({ scenario }: ScenarioDetailProps) => {
                 )}
             </div>
 
-            {/* Created Date */}
-            <InfoField 
-                title="Created Date" 
-                value={dayjs(scenario.created_at).format('DD MMM YYYY')} 
+            {/* Created / assigned date */}
+            <InfoField
+                title={scenario.assigned_at ? 'Assigned Date' : 'Created Date'}
+                value={dayjs(scenario.assigned_at ?? scenario.created_at).format('DD MMM YYYY')}
             />
 
             {/* Scenario */}
             {scenario.scenario_text && (
                 <div>
                     <span className="font-semibold block mb-2">Scenario</span>
-                    <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
+                    <div className={`p-4 ${SURFACE_INNER_TILE_CLASSNAME}`}>
                         <p className="text-sm heading-text whitespace-pre-wrap leading-relaxed">
                             {scenario.scenario_text}
                         </p>
@@ -281,7 +304,7 @@ const ScenarioDetail = ({ scenario }: ScenarioDetailProps) => {
             {scenario.message && (
                 <div>
                     <span className="font-semibold block mb-2">Message</span>
-                    <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
+                    <div className={`p-4 ${SURFACE_INNER_TILE_CLASSNAME}`}>
                         <p className="text-sm heading-text whitespace-pre-wrap leading-relaxed">
                             {scenario.message}
                         </p>
@@ -289,23 +312,24 @@ const ScenarioDetail = ({ scenario }: ScenarioDetailProps) => {
                 </div>
             )}
 
-            {/* Document content (API) or document name (legacy) */}
-            {(isLibraryScenario(scenario) ? scenario.document_content : (scenario as ScenarioSession).document_name) && (
+            {/* Attached document */}
+            {(documentFilename || documentContent) && (
                 <div>
                     <span className="font-semibold block mb-2">Document</span>
-                    <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
-                        <div className="flex items-center gap-3">
-                            <div className="text-4xl">
-                                <FcImageFile />
+                    <div className={`p-4 ${SURFACE_INNER_TILE_CLASSNAME}`}>
+                        {documentFilename && (
+                            <div className="flex items-center gap-3 pb-3 mb-3 border-b border-gray-200 dark:border-gray-700">
+                                <div className="text-3xl shrink-0">
+                                    <FcImageFile />
+                                </div>
+                                <p className="text-sm font-semibold heading-text break-all">{documentFilename}</p>
                             </div>
-                            <div className="min-w-0 flex-1">
-                                <p className="text-sm heading-text whitespace-pre-wrap leading-relaxed">
-                                    {isLibraryScenario(scenario)
-                                        ? scenario.document_content
-                                        : (scenario as ScenarioSession).document_name}
-                                </p>
+                        )}
+                        {documentContent && (
+                            <div className="max-h-[320px] overflow-y-auto pr-1 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 dark:[&::-webkit-scrollbar-thumb]:bg-gray-600">
+                                <MarkdownContent content={documentContent} />
                             </div>
-                        </div>
+                        )}
                     </div>
                 </div>
             )}

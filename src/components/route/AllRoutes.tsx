@@ -8,6 +8,12 @@ import appConfig from '@/configs/app.config'
 import { useAuth } from '@/auth'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import type { LayoutType } from '@/@types/theme'
+import { lazy } from 'react'
+
+// Routes accessible regardless of auth state (no login required, no redirect when logged in)
+const openRoutes = [
+    { key: 'book-demo', path: '/book-demo', component: lazy(() => import('@/views/Landing/BookDemo')) },
+]
 
 interface ViewsProps {
     pageContainerType?: 'default' | 'gutterless' | 'contained'
@@ -23,11 +29,37 @@ const AllRoutes = (props: AllRoutesProps) => {
 
     return (
         <Routes>
-            <Route path="/" element={<ProtectedRoute />}>
+            {/* Public marketing + auth routes first so `/` is the homepage for guests */}
+            <Route path="/" element={<PublicRoute />}>
+                {publicRoutes.map((route) => (
+                    <Route
+                        key={route.key + route.path}
+                        path={route.path === '/' ? undefined : route.path}
+                        index={route.path === '/'}
+                        element={
+                            <AppRoute
+                                routeKey={route.key}
+                                component={route.component}
+                                {...route.meta}
+                            />
+                        }
+                    />
+                ))}
+            </Route>
+            {openRoutes.map((route) => (
                 <Route
-                    path="/"
-                    element={<Navigate replace to={authenticatedEntryPath} />}
+                    key={route.path}
+                    path={route.path}
+                    element={
+                        <AppRoute
+                            routeKey={route.key}
+                            component={route.component}
+                            layout="blank"
+                        />
+                    }
                 />
+            ))}
+            <Route path="/" element={<ProtectedRoute />}>
                 {protectedRoutes.map((route, index) => (
                     <Route
                         key={route.key + index}
@@ -48,22 +80,10 @@ const AllRoutes = (props: AllRoutesProps) => {
                         }
                     />
                 ))}
-                <Route path="*" element={<Navigate replace to="/" />} />
-            </Route>
-            <Route path="/" element={<PublicRoute />}>
-                {publicRoutes.map((route) => (
-                    <Route
-                        key={route.path}
-                        path={route.path}
-                        element={
-                            <AppRoute
-                                routeKey={route.key}
-                                component={route.component}
-                                {...route.meta}
-                            />
-                        }
-                    />
-                ))}
+                <Route
+                    path="*"
+                    element={<Navigate replace to={authenticatedEntryPath} />}
+                />
             </Route>
         </Routes>
     )

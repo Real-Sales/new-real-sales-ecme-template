@@ -1,10 +1,12 @@
 import { useEffect, useRef } from 'react'
-import { motion } from 'framer-motion'
+import { GlassLayers } from '@/components/ui/liquid-glass'
+import { glassCard, glassEdge } from '../landingTheme'
+import { motion, useScroll, useSpring, useTransform } from 'framer-motion'
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { TbSettings2, TbMessageChatbot, TbTrendingUp } from 'react-icons/tb'
 import { useLandingTheme } from '../LandingThemeProvider'
-import { SectionBadge, SectionHeading, SectionDesc } from './landingUi'
+import { SectionBadge, SectionHeading, SectionDesc, PARALLAX_SPRING } from './landingUi'
 
 gsap.registerPlugin(ScrollTrigger)
 
@@ -41,6 +43,14 @@ const WorkflowSection = () => {
     const prefersReducedMotion =
         typeof window !== 'undefined' &&
         window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+    // Steps column drifts against the sticky intro for layered depth.
+    const { scrollYProgress } = useScroll({
+        target: sectionRef,
+        offset: ['start end', 'end start'],
+    })
+    const stepsYRaw = useTransform(scrollYProgress, [0, 1], [70, -70])
+    const stepsY = useSpring(stepsYRaw, PARALLAX_SPRING)
 
     useEffect(() => {
         if (prefersReducedMotion || !sectionRef.current) return
@@ -104,7 +114,10 @@ const WorkflowSection = () => {
                         </div>
                     </div>
 
-                    <div className="space-y-6">
+                    <motion.div
+                        className="space-y-6 will-change-transform"
+                        style={prefersReducedMotion ? undefined : { y: stepsY }}
+                    >
                         {steps.map((step, i) => {
                             const Icon = step.icon
                             return (
@@ -112,10 +125,12 @@ const WorkflowSection = () => {
                                     key={i}
                                     className="workflow-step relative rounded-2xl transition-all duration-300 p-7"
                                     style={{
-                                        border: `1px solid ${t.border}`,
-                                        backgroundColor: t.surface,
+                                        border: '1px solid transparent',
+                                        ...glassCard(t),
+                                        boxShadow: glassEdge(t, 'none'),
                                     }}
                                 >
+                                    <GlassLayers light={t.isLight} />
                                     <div className="flex items-start gap-5">
                                         <div className="shrink-0">
                                             <div
@@ -161,7 +176,7 @@ const WorkflowSection = () => {
                                 </div>
                             )
                         })}
-                    </div>
+                    </motion.div>
                 </div>
             </div>
         </section>

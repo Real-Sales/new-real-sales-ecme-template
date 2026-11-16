@@ -101,6 +101,7 @@ const DefaultItem = (props: DefaultItemProps) => {
             <MenuItem key={nav.key} eventKey={nav.key} dotIndent={indent}>
                 <Link
                     to={nav.path}
+                    data-tour-id={`nav-${nav.key}`}
                     className="flex items-center gap-2 h-full w-full"
                     target={nav.isExternalLink ? '_blank' : ''}
                     onClick={() =>

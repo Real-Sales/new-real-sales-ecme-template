@@ -9,6 +9,7 @@ import toast from '@/components/ui/toast'
 import wildCardSearch from '@/utils/wildCardSearch'
 import classNames from '@/utils/classNames'
 import { TbSearch } from 'react-icons/tb'
+import { SEARCH_INPUT_CLASSNAME } from '@/constants/searchInput.constant'
 import debounce from 'lodash/debounce'
 import {
     apiAssignCompanyMember,
@@ -26,7 +27,7 @@ type AddDivisionMemberContentProps = {
     salesCompanyId: string
     salesDivisionId: string
     divisionMemberIds: string[]
-    onUpdate: () => void
+    onUpdate: () => void | Promise<void>
     onClose: () => void
 }
 
@@ -40,21 +41,41 @@ const AddDivisionMemberContent = ({
     const inputRef = useRef(null)
 
     const [allCompanyMembers, setAllCompanyMembers] = useState<Member[]>([])
+    const [memberAssignments, setMemberAssignments] = useState<
+        Record<string, { divisionIds: string[]; primaryDivisionId: string | null }>
+    >({})
     const [assignedMemberIds, setAssignedMemberIds] =
         useState<string[]>(divisionMemberIds)
     const [memberList, setMemberList] = useState<Member[]>([])
     const [isLoading, setIsLoading] = useState(false)
+    const [addingMemberId, setAddingMemberId] = useState<string | null>(null)
 
     const fetchData = async () => {
         if (!salesCompanyId) return
         setIsLoading(true)
         try {
             const data = await apiGetCompanyMembers(salesCompanyId)
-            const members = (data.members ?? []).map((user) => ({
-                id: user.user_id,
-                name: `${user.first_name} ${user.last_name}`,
-                email: user.email,
-            }))
+            const assignments: Record<
+                string,
+                { divisionIds: string[]; primaryDivisionId: string | null }
+            > = {}
+            const members = (data.members ?? []).map((user) => {
+                const divisionIds = user.sales_division_ids?.length
+                    ? user.sales_division_ids
+                    : user.sales_division_id
+                      ? [user.sales_division_id]
+                      : []
+                assignments[user.user_id] = {
+                    divisionIds,
+                    primaryDivisionId: user.sales_division_id?.trim() || null,
+                }
+                return {
+                    id: user.user_id,
+                    name: `${user.first_name} ${user.last_name}`,
+                    email: user.email,
+                }
+            })
+            setMemberAssignments(assignments)
             setAllCompanyMembers(members)
             setMemberList(members)
             setAssignedMemberIds(divisionMemberIds)
@@ -87,17 +108,35 @@ const AddDivisionMemberContent = ({
     const isExistingMember = (id: string) => assignedMemberIds.includes(id)
 
     const onAddMember = async (member: Member) => {
+        if (addingMemberId) return
+        setAddingMemberId(member.id)
         try {
+            const existing = memberAssignments[member.id]
+            const existingDivisionIds = existing?.divisionIds ?? []
+            const nextDivisionIds = [
+                ...new Set([...existingDivisionIds, salesDivisionId]),
+            ]
+
             await apiAssignCompanyMember(salesCompanyId, member.id, {
-                sales_division_id: salesDivisionId,
+                sales_division_ids: nextDivisionIds,
+                sales_division_id:
+                    existing?.primaryDivisionId || salesDivisionId,
             })
+            setMemberAssignments((prev) => ({
+                ...prev,
+                [member.id]: {
+                    divisionIds: nextDivisionIds,
+                    primaryDivisionId:
+                        existing?.primaryDivisionId || salesDivisionId,
+                },
+            }))
             setAssignedMemberIds([...assignedMemberIds, member.id])
+            await onUpdate()
             toast.push(
                 <Notification title="Success" type="success">
                     {member.name} added to division
                 </Notification>,
             )
-            onUpdate()
         } catch (error: unknown) {
             const err = error as { response?: { data?: { detail?: string } } }
             toast.push(
@@ -105,6 +144,8 @@ const AddDivisionMemberContent = ({
                     {err.response?.data?.detail || 'Failed to add member'}
                 </Notification>,
             )
+        } finally {
+            setAddingMemberId(null)
         }
     }
 
@@ -130,10 +171,10 @@ const AddDivisionMemberContent = ({
             </div>
             <Input
                 ref={inputRef}
-                prefix={<TbSearch className="text-xl text-gray-400" />}
+                className={SEARCH_INPUT_CLASSNAME}
+                prefix={<TbSearch className="text-lg" />}
                 placeholder="Quick search member"
                 onChange={onSearch}
-                className="bg-gray-50 dark:bg-gray-800"
             />
             <div className="mt-6">
                 <p className="font-bold uppercase text-xs text-gray-500 mb-4 tracking-wider">
@@ -151,10 +192,14 @@ const AddDivisionMemberContent = ({
                             {availableMembers.map((member) => (
                                 <div
                                     key={member.id}
-                                    className="py-3 px-4 mb-2 rounded-xl flex items-center justify-between hover:bg-gray-100 dark:hover:bg-gray-800/60 transition-colors"
+                                    className="py-3 px-4 mb-2 rounded-xl flex items-center justify-between hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
                                 >
                                     <div className="flex items-center gap-3">
-                                        <Avatar size={45} shape="circle">
+                                        <Avatar
+                                            size={45}
+                                            shape="circle"
+                                            className="bg-primary/10 text-primary"
+                                        >
                                             {getInitials(member.name)}
                                         </Avatar>
                                         <div>
@@ -168,7 +213,9 @@ const AddDivisionMemberContent = ({
                                     </div>
                                     <Button
                                         size="sm"
-                                        className="bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 font-semibold"
+                                        loading={addingMemberId === member.id}
+                                        disabled={Boolean(addingMemberId)}
+                                        className="!bg-gray-50 dark:!bg-gray-800/50 !border !border-gray-200 dark:!border-white/10 hover:!bg-gray-100 dark:hover:!bg-gray-800 font-semibold"
                                         onClick={() => onAddMember(member)}
                                     >
                                         Add

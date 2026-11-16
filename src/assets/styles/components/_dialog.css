@@ -29,12 +29,13 @@
   }
   
   .dialog-content {
-    @apply p-6 rounded-2xl shadow-xl mx-4 my-8 sm:mx-0 sm:my-16 relative h-full bg-white dark:bg-gray-800;
+    @apply p-6 rounded-[1.5rem] shadow-sm mx-4 my-8 sm:mx-0 sm:my-16 relative h-full bg-white dark:bg-gray-900/60 border border-gray-200 dark:border-white/10;
   }
   
   .dialog-overlay {
     transition: all 0.15s ease-in-out;
-    @apply inset-0 fixed z-30 bg-black/60 dark:bg-black/80 backdrop-blur-md;
+    /* Above drawer (z-[200]) so nested dialogs remain visible */
+    @apply inset-0 fixed z-[210] bg-black/60 dark:bg-black/80 backdrop-blur-md;
   }
   
   .dialog-overlay-after-open {

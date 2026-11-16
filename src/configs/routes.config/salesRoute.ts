@@ -49,6 +49,12 @@ const salesRoute: Routes = [
         authority: [],
     },
     {
+        key: 'salesPerson.assignedScenarios',
+        path: '/assigned-scenarios',
+        component: lazy(() => import('@/views/sales/ScenarioList')),
+        authority: [],
+    },
+    {
         key: 'salesManager.personaSelection',
         path: '/persona-selection',
         component: lazy(() => import('@/views/sales/PersonaSelection')),
@@ -81,7 +87,7 @@ const salesRoute: Routes = [
         key: 'companyGroup.members',
         path: '/company-members',
         component: lazy(() => import('@/views/sales/members/MemberList')),
-        authority: ['sales_manager', 'company_owner', 'manager'],
+        authority: ['sales_person', 'sales_manager', 'company_owner', 'manager'],
     },
     {
         key: 'companyGroup.company',
@@ -96,21 +102,15 @@ const salesRoute: Routes = [
         authority: [],
     },
     {
-        key: 'companyGroup.teams',
-        path: '/teams',
-        component: lazy(() => import('@/views/sales/teams/TeamList')),
-        authority: [],
-    },
-    {
         key: 'companyGroup.teamDetail',
         path: '/teams/:id',
         component: lazy(() => import('@/views/sales/teams/TeamDetail')),
         authority: [],
     },
     {
-        key: 'companyGroup.feedback',
-        path: '/feedback',
-        component: lazy(() => import('@/views/sales/MyFeedback')),
+        key: 'salesManager.leaderboard',
+        path: '/leaderboard',
+        component: lazy(() => import('@/views/sales/Leaderboard')),
         authority: [],
     },
     {

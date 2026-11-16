@@ -8,6 +8,10 @@ export type ChatHistoryItem = {
 
 export type EphemeralTokenResponse = {
     token: string
+    /** Live model the token is locked to; the client must connect with this exact model. */
+    model: string
+    /** Prebuilt voice chosen per persona by the backend. */
+    voice_name?: string
     expires_at: string
     chat_history?: ChatHistoryItem[]
     has_history?: boolean

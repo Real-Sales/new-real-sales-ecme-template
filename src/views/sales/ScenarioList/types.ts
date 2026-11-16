@@ -1,16 +1,5 @@
 // API response types for /scenarios/library
 
-export type ScenarioLibraryPersonaProduct = {
-    persona_product_id: string
-    product: {
-        name: string
-        details: string
-        product_id: string
-        created_at: string
-        updated_at: string
-    }
-}
-
 export type ScenarioLibraryPersona = {
     persona_id: string
     name: string
@@ -24,13 +13,12 @@ export type ScenarioLibraryPersona = {
     }
     geography: string
     plant_size_impact?: { name: string; plant_size_impact_id: string }
-    manufacturing_model?: { name: string; manufacturing_model_id: string }
+    customer_segment?: { name: string; customer_segment_id: string }
     company_size_new?: { name: string; company_size_id: string }
     status_active: boolean
     profile_pic?: string
     gender?: string
     voice_id?: string
-    persona_products?: ScenarioLibraryPersonaProduct[]
 }
 
 export type ScenarioLibraryMode = {
@@ -44,13 +32,23 @@ export type ScenarioLibraryMode = {
 
 export type ScenarioLibraryItem = {
     scenario_id: string
+    sales_division_id?: string | null
+    /** Display name from GET /scenarios/library — null for older/system scenarios. */
+    sales_division_name?: string | null
     created_by: string
     creator_role: string
     persona: ScenarioLibraryPersona
     mode: ScenarioLibraryMode
+    /** All configured modes, in pipeline order (prospecting -> discovering -> closing). */
+    modes?: ScenarioLibraryMode[]
+    /** mode_id strings, in pipeline order — same order as `modes`. */
+    mode_sequence?: string[] | null
+    /** Configured mode names, in pipeline order — present on dashboard rows. */
+    mode_sequence_names?: string[]
     title: string
     scenario_text: string
     document_content?: string
+    document_filename?: string | null
     message: string
     time_limit_days: number
     created_at: string
@@ -65,6 +63,7 @@ export type ScenarioLibraryItem = {
     days_remaining?: number | null
     creator_name?: string | null
     end_time?: string | null
+    assigned_at?: string
     user_name?: string
     user_email?: string
     user_id?: string
@@ -79,17 +78,6 @@ export type InteractionModeDashboardResponse = {
     updated_at: string
 }
 
-export type PersonaDashboardProduct = {
-    persona_product_id: string
-    product: {
-        product_id: string
-        name: string
-        details: string
-        created_at: string
-        updated_at: string
-    } | null
-}
-
 export type PersonaDashboardResponse = {
     persona_id: string
     name: string
@@ -97,13 +85,12 @@ export type PersonaDashboardResponse = {
     ai_role: { ai_role_id: string; name: string }
     geography: string | null
     plant_size_impact: { plant_size_impact_id: string; name: string }
-    manufacturing_model: { manufacturing_model_id: string; name: string }
+    customer_segment: { customer_segment_id: string; name: string }
     company_size_new: { company_size_id: string; name: string }
     status_active: boolean
     profile_pic: string | null
     gender: string | null
     voice_id: string | null
-    persona_products: PersonaDashboardProduct[]
 }
 
 /** GET /scenarios/dashboard/sales-rep — one row per assigned session with scenario_id. */
@@ -115,6 +102,7 @@ export type ScenarioDashboardDataForSalesRep = {
     title: string | null
     time_limit_days: number
     created_at: string
+    assigned_at: string
     session_status: string
     is_completed: boolean
     days_remaining: number | null
@@ -122,6 +110,8 @@ export type ScenarioDashboardDataForSalesRep = {
     user_email: string
     creator_name: string | null
     mode: InteractionModeDashboardResponse | null
+    /** Configured mode names for this scenario, in pipeline order (e.g. ["prospecting", "discovering"]). */
+    mode_sequence_names?: string[]
     persona: PersonaDashboardResponse | null
     scenario_text: string | null
     message: string | null
@@ -130,7 +120,29 @@ export type ScenarioDashboardDataForSalesRep = {
 
 export type SalesRepDashboardResponse = {
     pending_scenarios: ScenarioDashboardDataForSalesRep[]
+    active_scenarios?: ScenarioDashboardDataForSalesRep[]
+    completed_scenarios?: ScenarioDashboardDataForSalesRep[]
+    expired_scenarios?: ScenarioDashboardDataForSalesRep[]
     total_pending: number
+}
+
+export type AssignedScenarioTab = 'pending' | 'completed' | 'expired'
+
+const PENDING_TAB_STATUSES = new Set([
+    'pending',
+    'active',
+    'abandoned',
+    'inactive',
+])
+
+export function getAssignedScenarioTab(
+    scenario: Pick<ScenarioLibraryItem, 'session_status'>,
+): AssignedScenarioTab {
+    const status = (scenario.session_status ?? '').toLowerCase()
+    if (status === 'completed') return 'completed'
+    if (status === 'expired') return 'expired'
+    if (!status || PENDING_TAB_STATUSES.has(status)) return 'pending'
+    return 'pending'
 }
 
 const emptyPersonaForTable = (): ScenarioLibraryPersona => ({
@@ -159,13 +171,12 @@ function personaDashboardToLibrary(p: PersonaDashboardResponse): ScenarioLibrary
         ai_role: p.ai_role,
         geography: p.geography ?? '',
         plant_size_impact: p.plant_size_impact,
-        manufacturing_model: p.manufacturing_model,
+        customer_segment: p.customer_segment,
         company_size_new: p.company_size_new,
         status_active: p.status_active,
         profile_pic: p.profile_pic ?? undefined,
         gender: p.gender ?? undefined,
         voice_id: p.voice_id ?? undefined,
-        persona_products: p.persona_products as ScenarioLibraryPersona['persona_products'],
     }
 }
 
@@ -200,12 +211,14 @@ export function mapSalesRepDashboardRowToScenario(
         creator_role: '',
         persona,
         mode,
+        mode_sequence_names: row.mode_sequence_names ?? [],
         title: row.title ?? '',
         scenario_text: row.scenario_text ?? '',
         message: row.message ?? '',
         time_limit_days: row.time_limit_days,
         created_at: row.created_at,
-        updated_at: row.created_at,
+        assigned_at: row.assigned_at,
+        updated_at: row.assigned_at ?? row.created_at,
         assigned_sessions_count: 0,
         users_assigned_count: 0,
         users_completed_count: row.is_completed ? 1 : 0,
@@ -214,6 +227,7 @@ export function mapSalesRepDashboardRowToScenario(
 
 export type ScenarioLibraryResponse = {
     scenarios: ScenarioLibraryItem[]
+    total_count?: number
 }
 
 // Alias for scenario library (API)
@@ -250,6 +264,7 @@ export type Filter = {
     status: string
     mode: string
     persona: string
+    division: string
     daysRemaining: string
 }
 
@@ -295,26 +310,45 @@ export type AiPersonaListItem = {
     ai_role?: { name: string; ai_role_id: string }
     geography?: string
     plant_size_impact?: { name: string; plant_size_impact_id: string }
-    manufacturing_model?: { name: string; manufacturing_model_id: string }
+    customer_segment?: { name: string; customer_segment_id: string }
     company_size_new?: { name: string; company_size_id: string }
     behavioral_detail?: string
     status_active: boolean
     profile_pic?: string
     gender?: string
     voice_id?: string
-    persona_products?: unknown[]
 }
 
 // Create scenario (POST /scenarios/)
 export type CreateScenarioRequest = {
+    sales_division_id: string
     persona_id?: string | null
+    /** Deprecated: use mode_ids. Kept for backward-compat single-mode callers. */
     mode_id?: string | null
+    /** Modes this scenario should progress through, in any order — the backend
+     * normalizes to pipeline order (prospecting -> discovering -> closing).
+     * The rep always starts at the first configured mode and is later
+     * advanced through the rest via POST /scenarios/{id}/advance/{session_id}. */
+    mode_ids?: string[] | null
     title?: string | null
     scenario_text?: string | null
     document_content?: string | null
+    document_filename?: string | null
     time_limit_days?: number
     message?: string | null
 }
 
 // Update scenario (PUT /api/v1/scenarios/{scenario_id})
-export type UpdateScenarioRequest = CreateScenarioRequest
+export type UpdateScenarioRequest = {
+    sales_division_id?: string | null
+    persona_id?: string | null
+    mode_ids?: string[] | null
+    mode_id?: string | null
+    title?: string | null
+    scenario_text?: string | null
+    document_content?: string | null
+    document_filename?: string | null
+    time_limit_days?: number
+    message?: string | null
+    session_id?: string | null
+}

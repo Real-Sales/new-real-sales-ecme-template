@@ -1,4 +1,4 @@
-import { createSlice, createAsyncThunk } from '@reduxjs/toolkit'
+import { createSlice, createAsyncThunk, type PayloadAction } from '@reduxjs/toolkit'
 import {
     apiGetSalesDivisions,
     apiGetSalesDivisionInfo,
@@ -135,6 +135,16 @@ const salesDivisionsSlice = createSlice({
             state.infoLoading = false
             state.initialized = false
         },
+        removeDivisionMemberLocally: (
+            state,
+            action: PayloadAction<{ divisionId: string; userId: string }>,
+        ) => {
+            const info = state.divisionInfo[action.payload.divisionId]
+            if (!info?.users) return
+            info.users = info.users.filter(
+                (u) => u.user_id !== action.payload.userId,
+            )
+        },
     },
     extraReducers: (builder) => {
         builder
@@ -193,6 +203,9 @@ const salesDivisionsSlice = createSlice({
                 if (index > -1) {
                     state.divisionsData[index] = action.payload
                 }
+                // Invalidate cached division info so persona picker / segment
+                // consumers refetch and don't keep a stale customer_segment.
+                delete state.divisionInfo[action.payload.sales_division_id]
                 state.divisionsLoading = false
                 state.notification = { 
                     type: 'success', 
@@ -212,6 +225,7 @@ const salesDivisionsSlice = createSlice({
                 state.divisionsData = state.divisionsData.filter(
                     (d) => d.sales_division_id !== action.payload
                 )
+                delete state.divisionInfo[action.payload]
                 state.divisionsLoading = false
                 state.notification = { 
                     type: 'success', 
@@ -226,7 +240,12 @@ const salesDivisionsSlice = createSlice({
     },
 })
 
-export const { resetError, resetNotification, resetSalesDivisionsData } =
+export const {
+    resetError,
+    resetNotification,
+    resetSalesDivisionsData,
+    removeDivisionMemberLocally,
+} =
     salesDivisionsSlice.actions
 
 export default salesDivisionsSlice.reducer

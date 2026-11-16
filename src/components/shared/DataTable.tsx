@@ -55,6 +55,7 @@ type DataTableProps<T> = {
     }
     checkboxChecked?: (row: T) => boolean
     indeterminateCheckboxChecked?: (row: Row<T>[]) => boolean
+    rowClassName?: (row: T) => string | undefined
     ref?: Ref<DataTableResetHandle | HTMLTableElement>
 } & TableProps
 
@@ -131,6 +132,7 @@ function DataTable<T>(props: DataTableProps<T>) {
         },
         checkboxChecked,
         indeterminateCheckboxChecked,
+        rowClassName,
         instanceId = 'data-table',
         ref,
         ...rest
@@ -236,7 +238,7 @@ function DataTable<T>(props: DataTableProps<T>) {
         getPaginationRowModel: getPaginationRowModel(),
         getSortedRowModel: getSortedRowModel(),
         manualPagination: true,
-        manualSorting: true,
+        manualSorting: !!onSort,
         onSortingChange: (sorter) => {
             setSorting(sorter as ColumnSort[])
         },
@@ -346,7 +348,12 @@ function DataTable<T>(props: DataTableProps<T>) {
                                 .rows.slice(0, pageSize)
                                 .map((row) => {
                                     return (
-                                        <Tr key={row.id}>
+                                        <Tr
+                                            key={row.id}
+                                            className={rowClassName?.(
+                                                row.original as T,
+                                            )}
+                                        >
                                             {row
                                                 .getVisibleCells()
                                                 .map((cell) => {

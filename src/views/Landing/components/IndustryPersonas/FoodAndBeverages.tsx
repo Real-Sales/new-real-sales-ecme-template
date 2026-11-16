@@ -8,10 +8,15 @@ import {
 } from 'react'
 import type { Meta } from '@/@types/routes'
 import { motion, AnimatePresence, useSpring, useMotionValue } from 'framer-motion'
-import { useNavigate } from 'react-router-dom'
+import Lenis from 'lenis'
 import { gsap } from 'gsap'
-import { TbArrowLeft } from 'react-icons/tb'
 import personaIntros from '../../../../../persona_intros/index.json'
+import useDarkMode from '@/utils/hooks/useDarkMode'
+import { MODE_DARK, MODE_LIGHT } from '@/constants/theme.constant'
+import { LandingThemeProvider } from '../../LandingThemeProvider'
+import NavigationBar from '../NavigationBar'
+import Seo from '@/components/shared/Seo'
+import { seoPages } from '@/configs/seo.config'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -52,7 +57,7 @@ interface MergedPersona {
 
 // ─── Ambient Canvas ──────────────────────────────────────────────────────────
 
-const AmbientParticles: FC = () => {
+const AmbientParticles: FC<{ isLight?: boolean }> = ({ isLight = false }) => {
     const canvasRef = useRef<HTMLCanvasElement>(null)
     useEffect(() => {
         const canvas = canvasRef.current
@@ -80,12 +85,12 @@ const AmbientParticles: FC = () => {
         draw()
         return () => { cancelAnimationFrame(raf); window.removeEventListener('resize', resize) }
     }, [])
-    return <canvas ref={canvasRef} className="absolute inset-0 w-full h-full pointer-events-none" style={{ opacity: .65 }} />
+    return <canvas ref={canvasRef} className="absolute inset-0 w-full h-full pointer-events-none" style={{ opacity: isLight ? 0.18 : 0.65 }} />
 }
 
 // ─── Premium Waveform (Canvas-based) ─────────────────────────────────────────
 
-const PremiumWaveform: FC<{ isPlaying: boolean; progress: number; personaId: string }> = ({ isPlaying, progress }) => {
+const PremiumWaveform: FC<{ isPlaying: boolean; progress: number; personaId: string; isLight?: boolean }> = ({ isPlaying, progress, isLight = false }) => {
     const canvasRef = useRef<HTMLCanvasElement>(null)
     const animRef = useRef<number>(0)
     const phaseRef = useRef(0)
@@ -156,7 +161,7 @@ const PremiumWaveform: FC<{ isPlaying: boolean; progress: number; personaId: str
                     grad.addColorStop(1, `rgba(8,141,80,${alpha * 0.6})`)
                     ctx.fillStyle = grad
                 } else {
-                    ctx.fillStyle = `rgba(255,255,255,${alpha})`
+                    ctx.fillStyle = isLight ? `rgba(0,0,0,${alpha * 0.35})` : `rgba(255,255,255,${alpha})`
                 }
 
                 ctx.fill()
@@ -244,8 +249,8 @@ const PlayButton: FC<{ isPlaying: boolean; onToggle: (e: React.MouseEvent) => vo
                         : 'linear-gradient(135deg, rgba(12,175,96,0.2), rgba(12,175,96,0.08))',
                     border: '1.5px solid rgba(12,175,96,0.5)',
                     boxShadow: isPlaying
-                        ? '0 0 24px rgba(12,175,96,0.5), 0 4px 16px rgba(0,0,0,0.4)'
-                        : '0 0 12px rgba(12,175,96,0.2), 0 4px 12px rgba(0,0,0,0.3)',
+                        ? '0 0 24px rgba(12,175,96,0.4), 0 4px 12px rgba(0,0,0,0.15)'
+                        : '0 0 12px rgba(12,175,96,0.15), 0 2px 8px rgba(0,0,0,0.1)',
                     transition: 'background 0.3s, box-shadow 0.3s',
                 }}
                 transition={{ type: 'spring', stiffness: 400, damping: 25 }}
@@ -296,28 +301,25 @@ interface CardProps {
     onPlayPause: (e: React.MouseEvent) => void
     index: number
     total: number
+    isLight: boolean
 }
 
-const PersonaCard: FC<CardProps> = ({ persona, isActive, isPlaying, audioProgress, onPlayPause, index }) => {
-    const cardRef = useRef<HTMLDivElement>(null)
+const PersonaCard: FC<CardProps> = ({ persona, isActive, isPlaying, audioProgress, onPlayPause, index, isLight }) => {
     const spotRef = useRef<HTMLDivElement>(null)
     const [hovered, setHovered] = useState(false)
 
     const initials = persona.name.split(' ').map(n => n[0]).slice(0, 2).join('')
 
     const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-        if (!cardRef.current || !spotRef.current) return
-        const r = cardRef.current.getBoundingClientRect()
+        if (!spotRef.current) return
+        const r = e.currentTarget.getBoundingClientRect()
         const x = e.clientX - r.left
         const y = e.clientY - r.top
-        const cx = r.width / 2, cy = r.height / 2
-        gsap.to(cardRef.current, { rotateX: ((y - cy) / cy) * -5, rotateY: ((x - cx) / cx) * 5, duration: 0.35, ease: 'power2.out', transformPerspective: 900 })
         gsap.to(spotRef.current, { left: x, top: y, duration: 0.25, ease: 'power2.out' })
     }, [])
 
     const handleMouseLeave = useCallback(() => {
         setHovered(false)
-        gsap.to(cardRef.current, { rotateX: 0, rotateY: 0, duration: 0.7, ease: 'elastic.out(1,0.5)' })
     }, [])
 
     return (
@@ -332,23 +334,25 @@ const PersonaCard: FC<CardProps> = ({ persona, isActive, isPlaying, audioProgres
             onMouseLeave={handleMouseLeave}
         >
             <div
-                ref={cardRef}
                 className="relative overflow-hidden rounded-3xl"
                 style={{
-                    transformStyle: 'preserve-3d',
                     background: isActive
-                        ? 'linear-gradient(160deg, rgba(12,175,96,0.1) 0%, rgba(8,8,8,0.97) 55%, rgba(12,175,96,0.05) 100%)'
-                        : 'linear-gradient(160deg, rgba(22,22,22,0.97) 0%, rgba(10,10,10,0.98) 100%)',
+                        ? isLight
+                            ? 'linear-gradient(160deg, rgba(12,175,96,0.07) 0%, #ffffff 55%, rgba(12,175,96,0.03) 100%)'
+                            : 'linear-gradient(160deg, rgba(12,175,96,0.1) 0%, rgba(8,8,8,0.97) 55%, rgba(12,175,96,0.05) 100%)'
+                        : isLight
+                            ? '#ffffff'
+                            : 'linear-gradient(160deg, rgba(22,22,22,0.97) 0%, rgba(10,10,10,0.98) 100%)',
                     border: isActive
                         ? '1px solid rgba(12,175,96,0.35)'
                         : hovered
-                        ? '1px solid rgba(255,255,255,0.1)'
-                        : '1px solid rgba(255,255,255,0.055)',
+                        ? `1px solid ${isLight ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.1)'}`
+                        : `1px solid ${isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.055)'}`,
                     boxShadow: isActive
-                        ? '0 0 60px rgba(12,175,96,0.14), 0 30px 80px rgba(0,0,0,0.7), inset 0 1px 0 rgba(12,175,96,0.12)'
+                        ? `0 0 60px rgba(12,175,96,0.12), 0 20px 50px ${isLight ? 'rgba(0,0,0,0.1)' : 'rgba(0,0,0,0.7)'}, inset 0 1px 0 rgba(12,175,96,0.1)`
                         : hovered
-                        ? '0 20px 60px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.05)'
-                        : '0 8px 32px rgba(0,0,0,0.5)',
+                        ? `0 12px 40px ${isLight ? 'rgba(0,0,0,0.08)' : 'rgba(0,0,0,0.6)'}`
+                        : `0 4px 20px ${isLight ? 'rgba(0,0,0,0.06)' : 'rgba(0,0,0,0.5)'}`,
                     transition: 'border 0.3s, box-shadow 0.4s, background 0.4s',
                 }}
                 onMouseMove={handleMouseMove}
@@ -394,7 +398,7 @@ const PersonaCard: FC<CardProps> = ({ persona, isActive, isPlaying, audioProgres
                             {/* Breathing outer ring */}
                             <motion.div
                                 className="absolute rounded-full"
-                                style={{ inset: -8, border: `1.5px solid ${isActive ? 'rgba(12,175,96,0.25)' : 'rgba(255,255,255,0.05)'}` }}
+                                style={{ inset: -8, border: `1.5px solid ${isActive ? 'rgba(12,175,96,0.25)' : (isLight ? 'rgba(0,0,0,0.07)' : 'rgba(255,255,255,0.05)')}` }}
                                 animate={{ opacity: isActive ? [0.4, 0.9, 0.4] : [0.2, 0.4, 0.2], scale: isActive ? [0.97, 1.02, 0.97] : [0.98, 1, 0.98] }}
                                 transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut' }}
                             />
@@ -410,7 +414,7 @@ const PersonaCard: FC<CardProps> = ({ persona, isActive, isPlaying, audioProgres
                                     src={persona.profile_pic}
                                     alt={persona.name}
                                     className="w-full h-full rounded-full object-cover"
-                                    style={{ border: isActive ? '2px solid rgba(12,175,96,0.5)' : '2px solid rgba(255,255,255,0.07)' }}
+                                    style={{ border: isActive ? '2px solid rgba(12,175,96,0.5)' : `2px solid ${isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.07)'}` }}
                                     onError={(e) => {
                                         e.currentTarget.style.display = 'none'
                                         const fb = e.currentTarget.parentElement?.querySelector('.fb') as HTMLElement
@@ -420,13 +424,15 @@ const PersonaCard: FC<CardProps> = ({ persona, isActive, isPlaying, audioProgres
                             ) : null}
                             <div
                                 className="fb w-full h-full rounded-full items-center justify-center text-2xl font-bold"
-                                style={{
-                                    display: persona.profile_pic ? 'none' : 'flex',
-                                    background: isActive
-                                        ? 'linear-gradient(135deg, rgba(12,175,96,0.22) 0%, rgba(12,175,96,0.06) 100%)'
-                                        : 'linear-gradient(135deg, rgba(30,30,30,1) 0%, rgba(18,18,18,1) 100%)',
-                                    border: isActive ? '2px solid rgba(12,175,96,0.45)' : '2px solid rgba(255,255,255,0.08)',
-                                    color: isActive ? '#34c779' : '#4B5563',
+                                    style={{
+                                        display: persona.profile_pic ? 'none' : 'flex',
+                                        background: isActive
+                                            ? 'linear-gradient(135deg, rgba(12,175,96,0.18) 0%, rgba(12,175,96,0.05) 100%)'
+                                            : isLight
+                                                ? 'linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%)'
+                                                : 'linear-gradient(135deg, rgba(30,30,30,1) 0%, rgba(18,18,18,1) 100%)',
+                                        border: isActive ? '2px solid rgba(12,175,96,0.45)' : `2px solid ${isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.08)'}`,
+                                        color: isActive ? '#0CAF60' : (isLight ? '#9CA3AF' : '#4B5563'),
                                     letterSpacing: '-0.03em',
                                 }}
                             >
@@ -436,13 +442,13 @@ const PersonaCard: FC<CardProps> = ({ persona, isActive, isPlaying, audioProgres
 
                         <motion.h3
                             className="text-base font-semibold tracking-tight mb-0.5 text-center"
-                            style={{ color: isActive ? '#F5F5F5' : '#D1D5DB' }}
-                            animate={{ color: isActive ? '#F5F5F5' : '#9CA3AF' }}
+                            style={{ color: isActive ? (isLight ? '#111827' : '#F5F5F5') : (isLight ? '#374151' : '#D1D5DB') }}
+                            animate={{ color: isActive ? (isLight ? '#111827' : '#F5F5F5') : (isLight ? '#6B7280' : '#9CA3AF') }}
                             transition={{ duration: 0.3 }}
                         >
                             {persona.name}
                         </motion.h3>
-                        <p className="text-xs font-medium text-center" style={{ color: isActive ? '#0CAF60' : '#4B5563' }}>
+                        <p className="text-xs font-medium text-center" style={{ color: isActive ? '#0CAF60' : (isLight ? '#9CA3AF' : '#4B5563') }}>
                             {persona.role}
                         </p>
                     </div>
@@ -452,13 +458,13 @@ const PersonaCard: FC<CardProps> = ({ persona, isActive, isPlaying, audioProgres
                         <span
                             className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-medium tracking-wide"
                             style={{
-                                background: isActive ? 'rgba(12,175,96,0.1)' : 'rgba(255,255,255,0.04)',
-                                border: isActive ? '1px solid rgba(12,175,96,0.22)' : '1px solid rgba(255,255,255,0.07)',
-                                color: isActive ? '#34c779' : '#4B5563',
+                                background: isActive ? 'rgba(12,175,96,0.1)' : (isLight ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.04)'),
+                                border: isActive ? '1px solid rgba(12,175,96,0.22)' : `1px solid ${isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.07)'}`,
+                                color: isActive ? '#0CAF60' : (isLight ? '#9CA3AF' : '#4B5563'),
                                 transition: 'all 0.3s',
                             }}
                         >
-                            <span style={{ width: 5, height: 5, borderRadius: '50%', background: isActive ? '#0CAF60' : '#374151', display: 'inline-block' }} />
+                            <span style={{ width: 5, height: 5, borderRadius: '50%', background: isActive ? '#0CAF60' : (isLight ? '#D1D5DB' : '#374151'), display: 'inline-block' }} />
                             {persona.company_size.replace(':', '').trim()}
                         </span>
                     </div>
@@ -466,7 +472,7 @@ const PersonaCard: FC<CardProps> = ({ persona, isActive, isPlaying, audioProgres
                     {/* Quote */}
                     <p
                         className="text-xs leading-[1.65] text-center mb-5 line-clamp-3"
-                        style={{ color: isActive ? '#6B7280' : '#374151' }}
+                        style={{ color: isActive ? (isLight ? '#374151' : '#6B7280') : (isLight ? '#9CA3AF' : '#374151') }}
                     >
                         {persona.intro_text}
                     </p>
@@ -478,16 +484,16 @@ const PersonaCard: FC<CardProps> = ({ persona, isActive, isPlaying, audioProgres
                             style={{
                                 background: isActive
                                     ? 'rgba(12,175,96,0.06)'
-                                    : 'rgba(255,255,255,0.025)',
+                                    : (isLight ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.025)'),
                                 border: isActive
                                     ? '1px solid rgba(12,175,96,0.15)'
-                                    : '1px solid rgba(255,255,255,0.05)',
+                                    : `1px solid ${isLight ? 'rgba(0,0,0,0.07)' : 'rgba(255,255,255,0.05)'}`,
                                 transition: 'all 0.4s',
                             }}
                         >
                             {/* Label */}
                             <div className="flex items-center justify-between mb-3">
-                                <span className="text-[10px] font-medium uppercase tracking-widest" style={{ color: isActive ? 'rgba(12,175,96,0.7)' : '#2D3748' }}>
+                                <span className="text-[10px] font-medium uppercase tracking-widest" style={{ color: isActive ? 'rgba(12,175,96,0.8)' : (isLight ? '#9CA3AF' : '#6B7280') }}>
                                     Voice preview
                                 </span>
                                 {isActive && isPlaying && (
@@ -513,6 +519,7 @@ const PersonaCard: FC<CardProps> = ({ persona, isActive, isPlaying, audioProgres
                                         isPlaying={isActive && isPlaying}
                                         progress={isActive ? audioProgress : 0}
                                         personaId={persona.id}
+                                        isLight={isLight}
                                     />
                                 </div>
                             </div>
@@ -526,29 +533,29 @@ const PersonaCard: FC<CardProps> = ({ persona, isActive, isPlaying, audioProgres
 
 // ─── Skeleton Card ────────────────────────────────────────────────────────────
 
-const SkeletonCard: FC<{ delay?: number }> = ({ delay = 0 }) => (
+const SkeletonCard: FC<{ delay?: number; isLight?: boolean }> = ({ delay = 0, isLight = false }) => (
     <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay }}
         className="flex-shrink-0 rounded-3xl overflow-hidden"
-        style={{ width: 300, background: 'rgba(13,13,13,0.95)', border: '1px solid rgba(255,255,255,0.05)' }}
+        style={{ width: 300, background: isLight ? '#f3f4f6' : 'rgba(13,13,13,0.95)', border: `1px solid ${isLight ? 'rgba(0,0,0,0.07)' : 'rgba(255,255,255,0.05)'}` }}
     >
         <div className="p-6">
             <div className="flex flex-col items-center mb-5">
-                <motion.div className="w-[100px] h-[100px] rounded-full mb-4" style={{ background: 'rgba(255,255,255,0.05)' }} animate={{ opacity: [.4, .7, .4] }} transition={{ duration: 1.8, repeat: Infinity, delay }} />
+                <motion.div className="w-[100px] h-[100px] rounded-full mb-4" style={{ background: isLight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.05)' }} animate={{ opacity: [.4, .7, .4] }} transition={{ duration: 1.8, repeat: Infinity, delay }} />
                 {[55, 75].map((w, i) => (
-                    <motion.div key={i} className="h-3 rounded-full mb-1.5" style={{ width: `${w}%`, background: 'rgba(255,255,255,0.05)' }} animate={{ opacity: [.4, .7, .4] }} transition={{ duration: 1.8, repeat: Infinity, delay: delay + i * .1 }} />
+                    <motion.div key={i} className="h-3 rounded-full mb-1.5" style={{ width: `${w}%`, background: isLight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.05)' }} animate={{ opacity: [.4, .7, .4] }} transition={{ duration: 1.8, repeat: Infinity, delay: delay + i * .1 }} />
                 ))}
             </div>
-            <motion.div className="h-[88px] rounded-2xl" style={{ background: 'rgba(255,255,255,0.03)' }} animate={{ opacity: [.3, .6, .3] }} transition={{ duration: 1.8, repeat: Infinity, delay: delay + .2 }} />
+            <motion.div className="h-[88px] rounded-2xl" style={{ background: isLight ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.03)' }} animate={{ opacity: [.3, .6, .3] }} transition={{ duration: 1.8, repeat: Infinity, delay: delay + .2 }} />
         </div>
     </motion.div>
 )
 
 // ─── Track Navigation ─────────────────────────────────────────────────────────
 
-const TrackNav: FC<{ total: number; active: number; onDotClick: (i: number) => void }> = ({ total, active, onDotClick }) => (
+const TrackNav: FC<{ total: number; active: number; onDotClick: (i: number) => void; isLight: boolean }> = ({ total, active, onDotClick, isLight }) => (
     <div className="flex items-center justify-center gap-2 mt-6">
         {Array.from({ length: total }).map((_, i) => (
             <button
@@ -559,7 +566,7 @@ const TrackNav: FC<{ total: number; active: number; onDotClick: (i: number) => v
                     width: i === active ? 24 : 6,
                     height: 6,
                     borderRadius: 3,
-                    background: i === active ? '#0CAF60' : 'rgba(255,255,255,0.12)',
+                    background: i === active ? '#0CAF60' : (isLight ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.12)'),
                     boxShadow: i === active ? '0 0 8px rgba(12,175,96,0.5)' : 'none',
                     border: 'none',
                     padding: 0,
@@ -593,7 +600,11 @@ const HeroBadge: FC = () => (
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 function FoodAndBeverages<T extends Meta>(_props: T): JSX.Element {
-    const navigate = useNavigate()
+    const [isDark, setMode] = useDarkMode()
+    const isLight = !isDark
+    const mode = isDark ? MODE_DARK : MODE_LIGHT
+    const toggleMode = () =>
+        setMode(mode === MODE_LIGHT ? MODE_DARK : MODE_LIGHT)
     const heroRef = useRef<HTMLDivElement>(null)
     const scrollRef = useRef<HTMLDivElement>(null)
     const titleRef = useRef<HTMLHeadingElement>(null)
@@ -701,18 +712,53 @@ function FoodAndBeverages<T extends Meta>(_props: T): JSX.Element {
 
     useEffect(() => { return () => { audioRef.current?.pause() } }, [])
 
+    // Smooth scroll (Lenis) — matches the landing page feel.
+    useEffect(() => {
+        const prefersReducedMotion = window.matchMedia(
+            '(prefers-reduced-motion: reduce)',
+        ).matches
+        if (prefersReducedMotion) return
+
+        const lenis = new Lenis({
+            duration: 1.15,
+            easing: (x: number) => Math.min(1, 1.001 - Math.pow(2, -10 * x)),
+            smoothWheel: true,
+            wheelMultiplier: 1,
+            touchMultiplier: 1.5,
+        })
+
+        let rafId = 0
+        const raf = (time: number) => {
+            lenis.raf(time)
+            rafId = requestAnimationFrame(raf)
+        }
+        rafId = requestAnimationFrame(raf)
+
+        return () => {
+            cancelAnimationFrame(rafId)
+            lenis.destroy()
+        }
+    }, [])
+
     return (
+      <LandingThemeProvider mode={mode}>
+        <Seo {...seoPages.foodAndBeverages} />
         <div
-            className="min-h-screen relative overflow-x-clip"
+            className={`relative z-0 flex-1 w-full min-w-full min-h-screen min-h-[100dvh] overflow-x-clip ${isLight ? 'bg-white' : 'bg-[#050505]'}`}
             style={{
-                background: '#050505',
-                color: '#F5F5F5',
+                color: isLight ? '#111827' : '#F5F5F5',
                 fontFamily: "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
             }}
         >
+            {/* Full-bleed page backdrop (covers body gray on wide screens) */}
+            <div
+                className="fixed inset-0 -z-10 pointer-events-none"
+                style={{ background: isLight ? '#ffffff' : '#050505' }}
+            />
+
             {/* ── Background layer ── */}
             <div className="absolute inset-0 pointer-events-none overflow-hidden">
-                <AmbientParticles />
+                <AmbientParticles isLight={isLight} />
                 {/* Large ambient glow top */}
                 <motion.div
                     className="absolute"
@@ -720,40 +766,24 @@ function FoodAndBeverages<T extends Meta>(_props: T): JSX.Element {
                     transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut' }}
                     style={{ width: 900, height: 600, borderRadius: '50%', background: 'radial-gradient(ellipse, rgba(12,175,96,0.055) 0%, transparent 70%)', top: -200, left: '50%', transform: 'translateX(-50%)', filter: 'blur(50px)' }}
                 />
-                {/* Bottom right glow */}
-                <motion.div
-                    className="absolute"
-                    animate={{ scale: [1, 1.08, 1], opacity: [0.3, 0.6, 0.3] }}
-                    transition={{ duration: 11, repeat: Infinity, ease: 'easeInOut', delay: 3 }}
-                    style={{ width: 500, height: 500, borderRadius: '50%', background: 'radial-gradient(circle, rgba(12,175,96,0.04) 0%, transparent 70%)', bottom: '5%', right: '-80px', filter: 'blur(60px)' }}
-                />
+                {/* Bottom right glow (hidden in light mode to keep CTA area flat white) */}
+                {!isLight && (
+                    <motion.div
+                        className="absolute"
+                        animate={{ scale: [1, 1.08, 1], opacity: [0.3, 0.6, 0.3] }}
+                        transition={{ duration: 11, repeat: Infinity, ease: 'easeInOut', delay: 3 }}
+                        style={{ width: 500, height: 500, borderRadius: '50%', background: 'radial-gradient(circle, rgba(12,175,96,0.04) 0%, transparent 70%)', bottom: '5%', right: '-80px', filter: 'blur(60px)' }}
+                    />
+                )}
                 {/* Subtle dot grid */}
-                <div className="absolute inset-0 opacity-[0.022]" style={{ backgroundImage: 'radial-gradient(rgba(255,255,255,0.8) 1px, transparent 1px)', backgroundSize: '44px 44px' }} />
+                <div className="absolute inset-0 opacity-[0.04]" style={{ backgroundImage: `radial-gradient(${isLight ? 'rgba(0,0,0,0.35)' : 'rgba(255,255,255,0.8)'} 1px, transparent 1px)`, backgroundSize: '44px 44px' }} />
             </div>
 
             {/* ── Nav bar ── */}
-            <div className="relative z-30 flex items-center justify-between px-6 md:px-10 py-5 max-w-7xl mx-auto">
-                <motion.button
-                    initial={{ opacity: 0, x: -12 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.2 }}
-                    onClick={() => navigate('/landing')}
-                    whileHover={{ x: -3 }}
-                    className="flex items-center gap-2 text-sm font-medium"
-                    style={{ color: '#4B5563', transition: 'color 0.2s' }}
-                    onMouseEnter={e => (e.currentTarget.style.color = '#9CA3AF')}
-                    onMouseLeave={e => (e.currentTarget.style.color = '#4B5563')}
-                >
-                    <TbArrowLeft size={16} />
-                    Back
-                </motion.button>
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}>
-                    <img src="/img/logo/logo-dark-full.png" alt="RealSales" className="h-7 w-auto" style={{ opacity: .6 }} onError={e => (e.currentTarget.style.display = 'none')} />
-                </motion.div>
-            </div>
+            <NavigationBar mode={mode} toggleMode={toggleMode} />
 
             {/* ── Hero ── */}
-            <section ref={heroRef} className="relative z-10 px-6 pt-10 pb-16 max-w-4xl mx-auto text-center">
+            <section ref={heroRef} className="relative z-10 px-6 pt-28 md:pt-32 pb-16 max-w-4xl mx-auto text-center">
                 <HeroBadge />
                 <h1
                     ref={titleRef}
@@ -766,7 +796,7 @@ function FoodAndBeverages<T extends Meta>(_props: T): JSX.Element {
                                 <span
                                     key={wi}
                                     className="word inline-block mr-[0.22em] opacity-0"
-                                    style={{ color: line === 'Food & Beverage' ? '#0CAF60' : '#F5F5F5', textShadow: line === 'Food & Beverage' ? '0 0 40px rgba(12,175,96,0.3)' : 'none' }}
+                                    style={{ color: line === 'Food & Beverage' ? '#0CAF60' : (isLight ? '#111827' : '#F5F5F5'), textShadow: line === 'Food & Beverage' ? '0 0 40px rgba(12,175,96,0.3)' : 'none' }}
                                 >
                                     {word}
                                 </span>
@@ -780,7 +810,7 @@ function FoodAndBeverages<T extends Meta>(_props: T): JSX.Element {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.75, duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
                     className="text-base md:text-lg leading-relaxed max-w-xl mx-auto mb-10"
-                    style={{ color: '#52525b' }}
+                    style={{ color: isLight ? '#4B5563' : '#52525b' }}
                 >
                     Train against hyper-realistic AI buyers — plant managers, CFOs, distillery owners, and procurement directors. Real voices. Real objections.
                 </motion.p>
@@ -794,7 +824,7 @@ function FoodAndBeverages<T extends Meta>(_props: T): JSX.Element {
                     {[['20+', 'AI personas'], ['6+', 'Seniority levels'], ['3', 'Company sizes']].map(([v, l]) => (
                         <div key={l} className="flex flex-col items-center gap-0.5">
                             <span className="text-xl font-bold tracking-tight" style={{ color: '#0CAF60' }}>{v}</span>
-                            <span style={{ color: '#374151', fontSize: 11 }}>{l}</span>
+                            <span style={{ color: isLight ? '#6B7280' : '#374151', fontSize: 11 }}>{l}</span>
                         </div>
                     ))}
                 </motion.div>
@@ -854,10 +884,10 @@ function FoodAndBeverages<T extends Meta>(_props: T): JSX.Element {
                                 )}
                             </div>
 
-                            <span className="text-sm font-semibold" style={{ color: '#E5E7EB' }}>
+                            <span className="text-sm font-semibold" style={{ color: isLight ? '#111827' : '#E5E7EB' }}>
                                 {personas.find(p => p.id === activeId)?.name}
                             </span>
-                            <span className="text-xs hidden sm:block" style={{ color: '#4B5563' }}>
+                            <span className="text-xs hidden sm:block" style={{ color: isLight ? '#6B7280' : '#4B5563' }}>
                                 {personas.find(p => p.id === activeId)?.role}
                             </span>
 
@@ -883,7 +913,7 @@ function FoodAndBeverages<T extends Meta>(_props: T): JSX.Element {
                                             exit={{ opacity: 0, scale: 0.85 }}
                                             transition={{ duration: 0.2 }}
                                             className="text-[10px] uppercase tracking-widest"
-                                            style={{ color: '#374151' }}
+                                            style={{ color: isLight ? '#9CA3AF' : '#374151' }}
                                         >
                                             Click to play
                                         </motion.span>
@@ -896,10 +926,10 @@ function FoodAndBeverages<T extends Meta>(_props: T): JSX.Element {
             </AnimatePresence>
 
             {/* ── Persona carousel ── */}
-            <section className="relative z-10 pb-8">
+            <section className="relative z-10 pb-8" style={{ background: isLight ? '#ffffff' : '#050505' }}>
                 {/* Edge fades */}
-                <div className="absolute left-0 top-0 bottom-0 w-20 z-10 pointer-events-none" style={{ background: 'linear-gradient(90deg, #050505, transparent)' }} />
-                <div className="absolute right-0 top-0 bottom-0 w-20 z-10 pointer-events-none" style={{ background: 'linear-gradient(270deg, #050505, transparent)' }} />
+                <div className="absolute left-0 top-0 bottom-0 w-20 z-10 pointer-events-none" style={{ background: `linear-gradient(90deg, ${isLight ? '#ffffff' : '#050505'}, transparent)` }} />
+                <div className="absolute right-0 top-0 bottom-0 w-20 z-10 pointer-events-none" style={{ background: `linear-gradient(270deg, ${isLight ? '#ffffff' : '#050505'}, transparent)` }} />
 
                 <div
                     ref={scrollRef}
@@ -909,12 +939,13 @@ function FoodAndBeverages<T extends Meta>(_props: T): JSX.Element {
                         msOverflowStyle: 'none',
                         paddingLeft: 'max(40px, calc((100vw - 1380px) / 2 + 40px))',
                         paddingRight: 'max(40px, calc((100vw - 1380px) / 2 + 40px))',
-                        paddingBottom: 12,
+                        paddingTop: 24,
+                        paddingBottom: 24,
                         scrollSnapType: 'x mandatory',
                     }}
                 >
                     {loading
-                        ? Array.from({ length: 5 }).map((_, i) => <SkeletonCard key={i} delay={i * 0.07} />)
+                        ? Array.from({ length: 5 }).map((_, i) => <SkeletonCard key={i} delay={i * 0.07} isLight={isLight} />)
                         : personas.map((p, i) => (
                             <div key={p.id} style={{ scrollSnapAlign: 'start' }}>
                                 <PersonaCard
@@ -925,6 +956,7 @@ function FoodAndBeverages<T extends Meta>(_props: T): JSX.Element {
                                     isPlaying={activeId === p.id && isPlaying}
                                     audioProgress={activeId === p.id ? audioProgress : 0}
                                     onPlayPause={(e) => handlePlayPause(p.id, e)}
+                                    isLight={isLight}
                                 />
                             </div>
                         ))}
@@ -936,6 +968,7 @@ function FoodAndBeverages<T extends Meta>(_props: T): JSX.Element {
                         total={totalPages}
                         active={visiblePage}
                         onDotClick={scrollToPage}
+                        isLight={isLight}
                     />
                 )}
 
@@ -946,7 +979,7 @@ function FoodAndBeverages<T extends Meta>(_props: T): JSX.Element {
                         animate={{ opacity: 1 }}
                         transition={{ delay: 1 }}
                         className="text-center mt-3 text-[11px]"
-                        style={{ color: '#2D3748' }}
+                        style={{ color: isLight ? '#9CA3AF' : '#6B7280' }}
                     >
                         {activeIndex + 1} of {personas.length} personas · Scroll to explore
                     </motion.p>
@@ -959,23 +992,30 @@ function FoodAndBeverages<T extends Meta>(_props: T): JSX.Element {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: '-100px' }}
                 transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-                className="relative z-10 max-w-2xl mx-auto px-6 py-24 text-center"
+                className="relative z-10 w-full py-24 text-center"
             >
+                <div className="max-w-2xl mx-auto px-6">
                 <div
                     className="rounded-3xl p-10 md:p-14"
                     style={{
-                        background: 'linear-gradient(140deg, rgba(12,175,96,0.09) 0%, rgba(8,8,8,0.98) 60%)',
-                        border: '1px solid rgba(12,175,96,0.15)',
-                        boxShadow: '0 0 80px rgba(12,175,96,0.06), 0 40px 100px rgba(0,0,0,0.6)',
+                        background: isLight
+                            ? '#ffffff'
+                            : 'linear-gradient(140deg, rgba(12,175,96,0.09) 0%, rgba(8,8,8,0.98) 60%)',
+                        border: isLight
+                            ? '1px solid rgba(0,0,0,0.08)'
+                            : '1px solid rgba(12,175,96,0.18)',
+                        boxShadow: isLight
+                            ? '0 4px 24px rgba(0,0,0,0.06)'
+                            : '0 0 80px rgba(12,175,96,0.06), 0 40px 100px rgba(0,0,0,0.6)',
                     }}
                 >
                     <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-6" style={{ background: 'rgba(12,175,96,0.1)', border: '1px solid rgba(12,175,96,0.2)' }}>
                         <div style={{ width: 0, height: 0, borderTop: '7px solid transparent', borderBottom: '7px solid transparent', borderLeft: '12px solid #0CAF60', marginLeft: 2 }} />
                     </div>
-                    <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-4" style={{ color: '#F5F5F5' }}>
+                    <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-4" style={{ color: isLight ? '#111827' : '#F5F5F5' }}>
                         Put your reps in the room<br />before the real deal
                     </h2>
-                    <p className="text-sm leading-relaxed mb-8 max-w-sm mx-auto" style={{ color: '#4B5563' }}>
+                    <p className="text-sm leading-relaxed mb-8 max-w-sm mx-auto" style={{ color: isLight ? '#6B7280' : '#4B5563' }}>
                         Every session is scored, coached, and reviewed. Your team walks into real meetings with confidence they've earned.
                     </p>
                     <motion.a
@@ -989,8 +1029,10 @@ function FoodAndBeverages<T extends Meta>(_props: T): JSX.Element {
                         Start training free
                     </motion.a>
                 </div>
+                </div>
             </motion.section>
         </div>
+      </LandingThemeProvider>
     )
 }
 

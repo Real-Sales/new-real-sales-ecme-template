@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { SURFACE_CARD_CLASSNAME } from '@/constants/surfaceCard.constant'
 import { Alert, Button, Card, Input, Notification, Select, toast } from '@/components/ui'
 import { useAppSelector } from '@/store/hook'
 import Table from '@/components/ui/Table'
@@ -218,7 +219,7 @@ const SettingsInvites = () => {
 
     if (!canSendInvite) {
         return (
-            <Card className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 shadow-md" bodyClass="!p-4">
+            <Card className={SURFACE_CARD_CLASSNAME} bodyClass="!p-4">
                 <Alert type="info" showIcon>
                     Only company owners and sales managers can send invites.
                 </Alert>
@@ -275,7 +276,7 @@ const SettingsInvites = () => {
             </div>
 
             <Card
-                className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 shadow-md"
+                className={SURFACE_CARD_CLASSNAME}
                 bodyClass="!p-0"
             >
                 <Table>

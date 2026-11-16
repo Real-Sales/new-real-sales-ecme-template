@@ -27,6 +27,10 @@ const endpointConfig = {
     performanceReportPdf: (sessionId: string) => `performance-reports/${sessionId}/pdf`,
     sessionsByUser: (userId: string) => `sessions/by-user/${userId}`,
     createSession: 'sessions/',
+    sessionById: (sessionId: string) => `sessions/${sessionId}`,
+    sessionJourney: (sessionId: string) => `sessions/${sessionId}/journey`,
+    regenerateSessionMemory: (sessionId: string) =>
+        `performance-reports/${sessionId}/regenerate-memory`,
     storeSessionMessage: (sessionId: string) => `sessions/${sessionId}/messages`,
     storeSessionMessagesBatch: (sessionId: string) =>
         `sessions/${sessionId}/messages/batch`,
@@ -35,6 +39,8 @@ const endpointConfig = {
     salesCompanies: 'sales-companies/',
     salesCompanyByManager: (managerId: string) => `sales-companies/manager/${managerId}`,
     salesCompanyDetail: (companyId: string) => `sales-companies/${companyId}`,
+    salesCompanyProducts: (companyId: string) =>
+        `sales-companies/${companyId}/products`,
     salesCompanyMembers: (companyId: string) => `sales-companies/${companyId}/members`,
     salesCompanyMemberAssignment: (companyId: string, userId: string) =>
         `sales-companies/${companyId}/members/${userId}`,
@@ -44,6 +50,8 @@ const endpointConfig = {
     salesDivisionsDelete: (divisionId: string) => `sales-divisions/${divisionId}`,
     salesDivisionInfo: (divisionId: string) => `sales-divisions/${divisionId}/info`,
     companyTeams: 'company-teams/',
+    companyTeamById: (teamId: string) => `company-teams/${teamId}`,
+    /** @deprecated use companyTeamById */
     deleteCompanyTeam: (teamId: string) => `company-teams/${teamId}`,
     teamPerformance: (companyId: string) => `company-teams/sales-company/${companyId}/performance`,
     companyTeamPerformance: (teamId: string) => `company-teams/${teamId}/performance`,
@@ -59,18 +67,38 @@ const endpointConfig = {
     unassignScenario: (sessionId: string) => `scenarios/unassign/${sessionId}`,
     sessionsManagerCreate: 'sessions/manager-create',
     assignScenario: (scenarioId: string, sessionId: string) => `scenarios/${scenarioId}/assign/${sessionId}`,
-    scenarioAssignmentStatus: (scenarioId: string, teamId: string) => `scenarios/${scenarioId}/team/${teamId}/assignment-status`,
+    scenarioAssignmentStatus: (scenarioId: string) =>
+        `scenarios/${scenarioId}/assignment-status`,
+    scenarioAdvance: (scenarioId: string, sessionId: string) =>
+        `scenarios/${scenarioId}/advance/${sessionId}`,
     authMe: 'auth/me',
+    authProfile: 'auth/profile',
+    authProfilePersonal: 'auth/profile/personal',
+    authProfileCompany: 'auth/profile/company',
+    industries: 'industries',
+    customerSegments: 'customer-segments',
+    customerSegmentById: (customerSegmentId: string) => `customer-segments/${customerSegmentId}`,
     geminiEphemeralToken: 'gemini/ephemeral-token',
     subscriptions: 'subscriptions/',
+    subscriptionPlans: (billingCycle: 'monthly' | 'yearly') =>
+        `subscriptions/plans?billing_cycle=${billingCycle}`,
     userSubscriptionsByUser: (userId: string) =>
         `user-subscriptions/by-user/${userId}`,
     userSubscriptions: 'user-subscriptions/',
     userSubscriptionsMy: 'user-subscriptions/my-subscription',
+    userSubscriptionsCreditsRemaining: 'user-subscriptions/credits/remaining',
     paymentsCreatePayment: 'payments/create-payment',
+    paymentsCreatePaymentIntent: 'payments/create-payment-intent',
+    paymentsConfirmPayment: (paymentIntentId: string) =>
+        `payments/confirm-payment?payment_intent_id=${paymentIntentId}`,
+    paymentsPaymentIntent: (paymentIntentId: string) =>
+        `payments/payment-intent/${paymentIntentId}`,
+    paymentsByUser: (userId: string) => `payments/by-user/${userId}`,
     paymentsUpdate: (paymentId: string) => `payments/${paymentId}`,
     paymentsCreateOrder: 'create-order',
     paymentsVerifyPayment: 'verify-payment',
+    leaderboard: 'leaderboard',
+    platformFeedback: 'platform-feedback/',
 }
 
 export default endpointConfig

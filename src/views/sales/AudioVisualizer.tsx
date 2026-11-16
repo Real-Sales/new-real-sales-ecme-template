@@ -1,4 +1,5 @@
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLocation, useParams, useNavigate } from 'react-router-dom';
 import { HiStop, HiPaperAirplane, HiPaperClip, HiLightBulb, HiChevronLeft, HiChevronRight } from 'react-icons/hi2';
@@ -10,11 +11,17 @@ import {
 } from '@/services/SessionService';
 import { apiGetGeminiEphemeralToken } from '@/services/GeminiService';
 import type { ChatHistoryItem } from '@/services/GeminiService';
+import type { AudioVizSessionState } from '@/utils/audioVizSessionState';
 import ConfirmDialog from '@/components/shared/ConfirmDialog';
 import Loading from '@/components/shared/Loading';
 import ScrollBar from '@/components/ui/ScrollBar';
 import { toast, Notification, Tooltip } from '@/components/ui';
-import { useAppSelector } from '@/store/hook';
+import { useAppSelector, useAppDispatch } from '@/store/hook';
+import { invalidateSalesRepDashboard } from '@/views/sales/ScenarioList/store/scenarioLibrarySlice';
+import { invalidatePerformanceData } from '@/store/slices/performance';
+import { invalidateLeaderboard } from '@/views/sales/Leaderboard/store/leaderboardSlice';
+import { invalidateTeamScenariosDashboardCache } from '@/services/TeamService';
+import { getApiErrorMessage } from '@/utils/getApiErrorMessage';
 
 // --- 1. Audio Analyzer Hook ---
 const useAudioAnalyzer = () => {
@@ -271,14 +278,14 @@ const CircularAvatarVisualizer = ({
           {/* Saturated soft halo behind the ring — heavy blur for depth */}
           <div
             ref={glowRef}
-            className="pointer-events-none absolute w-[280px] h-[280px] rounded-full bg-gradient-to-br from-cyan-400 via-blue-500 to-indigo-600 dark:from-sky-500 dark:via-blue-600 dark:to-cyan-500 blur-[72px] saturate-[1.45]"
+            className="pointer-events-none absolute w-[280px] h-[280px] rounded-full bg-gradient-to-br from-emerald-400 via-primary to-emerald-600 dark:from-emerald-600 dark:via-primary dark:to-emerald-500 blur-[72px] saturate-[1.45]"
             style={{ opacity: 0.22, transform: 'scale(1)', willChange: 'opacity, transform' }}
           />
 
           {/* --- TRUE LIQUID GLASS AVATAR RING --- */}
           <div className="relative w-[260px] h-[260px] flex items-center justify-center z-30 group">
             
-            {/* 1. The morphing blue liquid — fully audio-reactive: speed, color, secondary blob */}
+            {/* 1. The morphing liquid ring — fully audio-reactive: speed, color, secondary blob */}
             <div
               ref={swirlRef}
               className="absolute inset-0 flex items-center justify-center"
@@ -287,13 +294,13 @@ const CircularAvatarVisualizer = ({
               {/* Primary blob — morph + saturate/brighten driven in rAF */}
               <div
                 ref={blobARef}
-                className="absolute inset-0 bg-gradient-to-tr from-cyan-300 via-blue-500 to-indigo-600 dark:from-indigo-800 dark:via-blue-600 dark:to-cyan-600"
+                className="absolute inset-0 bg-gradient-to-tr from-emerald-300 via-primary to-emerald-700 dark:from-emerald-900 dark:via-primary dark:to-emerald-600"
                 style={{ willChange: 'border-radius, filter', borderRadius: '50%' }}
               />
               {/* Secondary blob — smoky highlight layer */}
               <div
                 ref={blobBRef}
-                className="absolute inset-[4%] bg-gradient-to-br from-white/75 via-cyan-300/85 to-blue-500/85 dark:from-sky-400/35 dark:via-blue-500/45 dark:to-indigo-500/55"
+                className="absolute inset-[4%] bg-gradient-to-br from-white/75 via-emerald-300/85 to-primary/85 dark:from-emerald-400/35 dark:via-primary/45 dark:to-emerald-600/55"
                 style={{
                   willChange: 'border-radius, transform, opacity, filter',
                   borderRadius: '50%',
@@ -305,7 +312,7 @@ const CircularAvatarVisualizer = ({
             </div>
             
             {/* 2. The Proper Outer Glass Shell */}
-            <div className="absolute inset-[6px] rounded-full bg-white/12 dark:bg-gray-900/45 backdrop-blur-2xl border border-white/60 dark:border-white/15 shadow-[inset_0_4px_30px_rgba(255,255,255,0.7),_0_8px_32px_rgba(37,99,235,0.22)] dark:shadow-[inset_0_4px_28px_rgba(255,255,255,0.06),_0_8px_36px_rgba(56,189,248,0.2)] z-10 overflow-hidden">
+            <div className="absolute inset-[6px] rounded-full bg-white/12 dark:bg-gray-900/45 backdrop-blur-2xl border border-white/60 dark:border-white/15 shadow-[inset_0_4px_30px_rgba(255,255,255,0.7),_0_8px_32px_rgba(12,175,96,0.22)] dark:shadow-[inset_0_4px_28px_rgba(255,255,255,0.06),_0_8px_36px_rgba(12,175,96,0.2)] z-10 overflow-hidden">
               <div className="absolute inset-0 rounded-full bg-gradient-to-b from-white/40 via-transparent to-black/5 dark:from-white/[0.07] dark:via-transparent dark:to-black/50 pointer-events-none" />
             </div>
             
@@ -376,7 +383,7 @@ function formatMessageContentHtml(content: string) {
   );
   formatted = formatted.replace(
     /`(.*?)`/g,
-    '<code class="px-2 py-0.5 rounded-lg bg-gray-200/90 dark:bg-gray-800/80 text-blue-600 dark:text-blue-400 font-mono text-sm">$1</code>',
+    '<code class="px-2 py-0.5 rounded-lg bg-gray-200/90 dark:bg-gray-800/80 text-primary font-mono text-sm">$1</code>',
   );
   return formatted;
 }
@@ -386,31 +393,29 @@ export default function InteractiveVisualizerSession() {
   const location = useLocation();
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigateTo = useNavigate();
+  const dispatch = useAppDispatch();
   const direction = useAppSelector((state) => state.theme.direction);
 
   const sessionData = useMemo(() => {
     const fromState = location.state as Record<string, unknown> | null | undefined;
+    let resolved: AudioVizSessionState | null = null;
     if (fromState && typeof fromState === 'object' && (fromState as { persona?: unknown }).persona) {
-      return fromState as {
-        mode?: string
-        persona?: { name?: string; role?: string; avatar?: string }
-        scenarios?: string[]
-      };
-    }
-    if (sessionId) {
+      resolved = fromState as AudioVizSessionState;
+    } else if (sessionId) {
       try {
         const raw = sessionStorage.getItem(audioVizSessionMetaKey(sessionId));
         if (raw) {
-          const parsed = JSON.parse(raw) as { persona?: unknown; mode?: string };
-          if (parsed?.persona) return parsed as typeof parsed & {
-            persona: { name?: string; role?: string; avatar?: string }
-          };
+          const parsed = JSON.parse(raw) as AudioVizSessionState;
+          if (parsed?.persona) resolved = parsed;
         }
       } catch {
         /* ignore */
       }
     }
-    return (fromState as { mode?: string; persona?: { name?: string; role?: string; avatar?: string } }) ?? null;
+    if (!resolved && fromState && typeof fromState === 'object') {
+      resolved = fromState as AudioVizSessionState;
+    }
+    return resolved;
   }, [location.state, sessionId]);
 
   useEffect(() => {
@@ -508,8 +513,8 @@ export default function InteractiveVisualizerSession() {
     return SESSION_DURATION;
   });
   
-  const userName = sessionData?.persona?.name || 'Tony Romano';
-  const userRole = sessionData?.persona?.role || 'Prospecting · Operations Manager';
+  const userName = sessionData?.persona?.name || '—';
+  const userRole = sessionData?.persona?.role || '—';
   const userAvatar = sessionData?.persona?.avatar;
 
   const [hints, setHints] = useState<Hint[]>(AVAILABLE_HINTS);
@@ -570,9 +575,24 @@ export default function InteractiveVisualizerSession() {
           }));
           setMessages(restored);
         }
+        if (!cancelled) setTokenReady(true);
       } catch (err) {
         console.error('Failed to prefetch ephemeral token:', err);
-      } finally {
+        if (cancelled) return;
+        const message = getApiErrorMessage(err, 'Failed to start session.');
+        const isCreditsError = /credit/i.test(message);
+        toast.push(
+          <Notification
+            title={isCreditsError ? 'No credits remaining' : 'Error'}
+            type={isCreditsError ? 'warning' : 'danger'}
+          >
+            {message}
+          </Notification>,
+        );
+        if (isCreditsError) {
+          navigateTo('/assigned-scenarios');
+          return;
+        }
         if (!cancelled) setTokenReady(true);
       }
     })();
@@ -800,6 +820,12 @@ export default function InteractiveVisualizerSession() {
     setCurrentHintIndex(0);
     sessionStorage.removeItem(storageKey('session_started'));
     sessionStorage.removeItem(storageKey('session_start_timestamp'));
+    if (destination.includes('/report')) {
+      dispatch(invalidateSalesRepDashboard());
+      dispatch(invalidatePerformanceData());
+      dispatch(invalidateLeaderboard());
+      invalidateTeamScenariosDashboardCache();
+    }
     navigateTo(destination);
   };
 
@@ -869,6 +895,14 @@ export default function InteractiveVisualizerSession() {
     if (currentHintIndex > 0) setCurrentHintIndex(currentHintIndex - 1);
   };
 
+  // Close hint and mark current as viewed so the count decreases
+  const handleCloseHint = () => {
+    const currentHint = hints[currentHintIndex];
+    if (!viewedHints.includes(currentHint.id)) setViewedHints([...viewedHints, currentHint.id]);
+    if (currentHintIndex < hints.length - 1) setCurrentHintIndex(currentHintIndex + 1);
+    setShowHints(false);
+  };
+
   const floatingAiCaption = useMemo(() => {
     if (isChatPanelOpen || !sessionStarted) {
       return { show: false, html: '', thinking: false, plain: '' };
@@ -895,7 +929,7 @@ export default function InteractiveVisualizerSession() {
   if (!tokenReady) {
     return (
       <div className="flex h-screen w-screen bg-gray-100 dark:bg-gray-900 overflow-hidden fixed inset-0">
-        <Loading loading={true} className="w-full h-full bg-gray-100 dark:bg-gray-900" spinnerClass="text-blue-500" />
+        <Loading loading={true} className="w-full h-full bg-gray-100 dark:bg-gray-900" spinnerClass="text-primary" />
       </div>
     );
   }
@@ -970,7 +1004,7 @@ export default function InteractiveVisualizerSession() {
                       aria-hidden
                       animate={{ scale: [1, 1.3, 1] }}
                       transition={{ repeat: Infinity, duration: 0.6, delay }}
-                      className="h-1.5 w-1.5 rounded-full bg-blue-500"
+                      className="h-1.5 w-1.5 rounded-full bg-primary"
                     />
                   ))}
                   <span className="sr-only">AI is preparing a reply</span>
@@ -1026,12 +1060,18 @@ export default function InteractiveVisualizerSession() {
                 disabled={isGenerating}
                 className="flex-1 bg-transparent text-gray-900 dark:text-white text-sm focus:outline-none disabled:opacity-50"
               />
-              <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => setShowHints(!showHints)} className="flex items-center gap-1.5 px-3 py-1 rounded-full flex-shrink-0 bg-blue-500/10 text-blue-500">
+              <motion.button
+                whileHover={hints.length - viewedHints.length > 0 ? { scale: 1.05 } : {}}
+                whileTap={hints.length - viewedHints.length > 0 ? { scale: 0.95 } : {}}
+                onClick={() => hints.length - viewedHints.length > 0 && setShowHints(!showHints)}
+                disabled={hints.length - viewedHints.length === 0}
+                className={`flex items-center gap-1.5 px-3 py-1 rounded-full flex-shrink-0 transition-opacity ${hints.length - viewedHints.length === 0 ? 'opacity-30 cursor-not-allowed bg-gray-200 dark:bg-gray-700 text-gray-400' : 'bg-primary/10 text-primary'}`}
+              >
                 <HiLightBulb className="w-3.5 h-3.5" />
                 <span className="text-xs font-medium">{hints.length - viewedHints.length}</span>
               </motion.button>
               {inputValue.trim() ? (
-                <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={handleSendMessage} disabled={isGenerating} className="w-9 h-9 rounded-full flex-shrink-0 bg-blue-500 text-white flex items-center justify-center">
+                <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={handleSendMessage} disabled={isGenerating} className="w-9 h-9 rounded-full flex-shrink-0 bg-primary text-white flex items-center justify-center">
                   <HiPaperAirplane className="w-4 h-4" />
                 </motion.button>
               ) : isMicActive ? (
@@ -1073,10 +1113,10 @@ export default function InteractiveVisualizerSession() {
         <div className="flex-shrink-0 px-5 py-4 border-b border-gray-200 dark:border-gray-700/60 bg-gray-100/95 dark:bg-gray-800/70 backdrop-blur-xl">
           <div className="flex items-center gap-3">
             {userAvatar ? (
-              <img src={userAvatar} alt={userName} className="w-11 h-11 rounded-full border border-blue-500/30 object-cover flex-shrink-0" />
+              <img src={userAvatar} alt={userName} className="w-11 h-11 rounded-full border border-primary/30 object-cover flex-shrink-0" />
             ) : (
-              <div className="w-11 h-11 rounded-full flex-shrink-0 bg-gradient-to-br from-blue-500/20 to-blue-600/20 border border-blue-500/30 flex items-center justify-center">
-                <span className="text-sm font-bold text-blue-400">{userName.split(' ').map((n: string) => n[0]).join('')}</span>
+              <div className="w-11 h-11 rounded-full flex-shrink-0 bg-gradient-to-br from-primary/20 to-primary-deep/20 border border-primary/30 flex items-center justify-center">
+                <span className="text-sm font-bold text-primary">{userName.split(' ').map((n: string) => n[0]).join('')}</span>
               </div>
             )}
             <div className="flex-1 min-w-0">
@@ -1110,7 +1150,7 @@ export default function InteractiveVisualizerSession() {
                 <>
                   {messages.map((message) => (
                     <motion.div key={message.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                      <div className={`max-w-[90%] px-4 py-3 rounded-xl ${message.role === 'user' ? 'bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/30' : 'bg-gradient-to-br from-gray-100 to-gray-50 dark:from-gray-900/90 dark:to-gray-800/90 text-gray-800 dark:text-gray-200 border border-gray-200/80 dark:border-gray-700/50 shadow-md'}`}>
+                      <div className={`max-w-[90%] px-4 py-3 rounded-xl ${message.role === 'user' ? 'bg-gradient-to-br from-primary to-primary-deep text-white shadow-lg shadow-primary/30' : 'bg-gradient-to-br from-gray-100 to-gray-50 dark:from-gray-900/90 dark:to-gray-800/90 text-gray-800 dark:text-gray-200 border border-gray-200/80 dark:border-gray-700/50 shadow-md'}`}>
                         <div className="text-sm leading-relaxed" dangerouslySetInnerHTML={{ __html: formatMessageContentHtml(message.content) }} />
                         <p className="text-xs opacity-50 mt-1.5">{message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                       </div>
@@ -1121,7 +1161,7 @@ export default function InteractiveVisualizerSession() {
                       <div className="px-4 py-3 rounded-xl bg-gray-100 dark:bg-gray-900/90 border border-gray-200 dark:border-gray-700/50">
                         <div className="flex gap-1.5">
                           {[0, 0.2, 0.4].map(delay => (
-                            <motion.div key={delay} animate={{ scale: [1, 1.3, 1] }} transition={{ repeat: Infinity, duration: 0.6, delay }} className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                            <motion.div key={delay} animate={{ scale: [1, 1.3, 1] }} transition={{ repeat: Infinity, duration: 0.6, delay }} className="w-1.5 h-1.5 rounded-full bg-primary" />
                           ))}
                         </div>
                       </div>
@@ -1134,35 +1174,86 @@ export default function InteractiveVisualizerSession() {
           </ScrollBar>
         </div>
 
-        {/* Hints Panel */}
-        <AnimatePresence>
-          {showHints && hints[currentHintIndex] && (
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }} className="flex-shrink-0 px-6 py-4 border-t border-blue-500/20 bg-blue-50/50 dark:bg-blue-900/10 backdrop-blur-xl">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <HiLightBulb className="w-5 h-5 text-blue-400" />
-                  <h4 className="text-sm font-semibold text-gray-900 dark:text-white">Session Hint {currentHintIndex + 1}/{hints.length}</h4>
+        {/* Hints Modal — portal to body so it covers the full page */}
+        {showHints && hints[currentHintIndex] && createPortal(
+          <AnimatePresence>
+            <motion.div
+              key="hint-backdrop"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px', backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}
+              onClick={handleCloseHint}
+            >
+              <motion.div
+                initial={{ opacity: 0, scale: 0.92, y: 24 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.92, y: 24 }}
+                transition={{ type: 'spring', damping: 24, stiffness: 320 }}
+                style={{ width: '100%', maxWidth: '480px' }}
+                onClick={(e) => e.stopPropagation()}
+                className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden"
+              >
+                {/* Header */}
+                <div className="flex items-center justify-between px-6 pt-6 pb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center">
+                      <HiLightBulb className="w-5 h-5 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-400 dark:text-gray-500 leading-none mb-0.5">
+                        {currentHintIndex + 1} of {hints.length} hints
+                      </p>
+                      <span className="text-sm font-semibold text-gray-900 dark:text-white leading-none">
+                        Session Hint
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleCloseHint}
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-xl leading-none"
+                  >
+                    ×
+                  </button>
                 </div>
-                <button onClick={() => setShowHints(false)} className="text-xs text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-300">Close</button>
-              </div>
-              <motion.div key={hints[currentHintIndex].id} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="p-4 rounded-xl bg-white/80 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700/50">
-                <h5 className="text-base font-bold text-gray-900 dark:text-white mb-2">{hints[currentHintIndex].title}</h5>
-                <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{hints[currentHintIndex].suggestion}</p>
+
+                {/* Hint content */}
+                <div className="mx-6 mb-6 p-5 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+                  <h5 className="text-lg font-bold text-gray-900 dark:text-white mb-3">
+                    {hints[currentHintIndex].title}
+                  </h5>
+                  <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
+                    {hints[currentHintIndex].suggestion}
+                  </p>
+                </div>
+
+                {/* Footer — single Got it button */}
+                <div className="flex items-center justify-between px-6 pb-6">
+                  <p className="text-xs text-gray-400 dark:text-gray-500">
+                    {hints.length - viewedHints.length - 1 > 0
+                      ? `${hints.length - viewedHints.length - 1} hint${hints.length - viewedHints.length - 1 > 1 ? 's' : ''} remaining`
+                      : 'Last hint'}
+                  </p>
+                  <motion.button
+                    whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}
+                    onClick={handleCloseHint}
+                    className="px-6 py-2.5 rounded-xl text-sm font-semibold bg-primary text-white hover:bg-primary/90 transition-colors"
+                  >
+                    Got it
+                  </motion.button>
+                </div>
               </motion.div>
-              <div className="flex items-center justify-between mt-4">
-                <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={handlePreviousHint} disabled={currentHintIndex === 0} className={`px-4 py-2 rounded-lg text-sm font-medium ${currentHintIndex === 0 ? 'opacity-50 cursor-not-allowed' : 'bg-gray-100 hover:bg-gray-200 dark:bg-gray-800'}`}>Previous</motion.button>
-                <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={handleNextHint} className="px-4 py-2 rounded-lg text-sm font-medium bg-blue-500/20 text-blue-500 hover:bg-blue-500/30">{currentHintIndex === hints.length - 1 ? 'Done' : 'Next'}</motion.button>
-              </div>
             </motion.div>
-          )}
-        </AnimatePresence>
+          </AnimatePresence>,
+          document.body
+        )}
 
         {/* Bottom Bar Container */}
         <div className="flex-shrink-0 px-4 py-3 bg-gray-100/95 dark:bg-gray-800/70 backdrop-blur-2xl border-t border-gray-200 dark:border-gray-700/60">
           <AnimatePresence mode="wait">
             {!sessionStarted ? (
               <motion.div key="start" initial={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }}>
-                <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={handleStartSession} className="w-full py-3.5 rounded-full bg-gradient-to-r from-blue-500 to-blue-600 text-white text-sm font-semibold shadow-lg hover:shadow-xl transition-all">
+                <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={handleStartSession} className="w-full py-3.5 rounded-full bg-gradient-to-r from-primary to-primary-deep text-white text-sm font-semibold shadow-lg shadow-primary/25 hover:shadow-xl transition-all">
                   {hasBackendHistory ? 'Continue Session' : 'Start Session'}
                 </motion.button>
               </motion.div>
@@ -1179,12 +1270,18 @@ export default function InteractiveVisualizerSession() {
                   disabled={isGenerating}
                   className="flex-1 bg-transparent text-gray-900 dark:text-white text-sm focus:outline-none disabled:opacity-50"
                 />
-                <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => setShowHints(!showHints)} className="flex items-center gap-1.5 px-3 py-1 rounded-full flex-shrink-0 bg-blue-500/10 text-blue-500">
+                <motion.button
+                  whileHover={hints.length - viewedHints.length > 0 ? { scale: 1.05 } : {}}
+                  whileTap={hints.length - viewedHints.length > 0 ? { scale: 0.95 } : {}}
+                  onClick={() => hints.length - viewedHints.length > 0 && setShowHints(!showHints)}
+                  disabled={hints.length - viewedHints.length === 0}
+                  className={`flex items-center gap-1.5 px-3 py-1 rounded-full flex-shrink-0 transition-opacity ${hints.length - viewedHints.length === 0 ? 'opacity-30 cursor-not-allowed bg-gray-200 dark:bg-gray-700 text-gray-400' : 'bg-primary/10 text-primary'}`}
+                >
                   <HiLightBulb className="w-3.5 h-3.5" />
                   <span className="text-xs font-medium">{hints.length - viewedHints.length}</span>
                 </motion.button>
                 {inputValue.trim() ? (
-                  <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={handleSendMessage} disabled={isGenerating} className="w-9 h-9 rounded-full flex-shrink-0 bg-blue-500 text-white flex items-center justify-center">
+                  <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={handleSendMessage} disabled={isGenerating} className="w-9 h-9 rounded-full flex-shrink-0 bg-primary text-white flex items-center justify-center">
                     <HiPaperAirplane className="w-4 h-4" />
                   </motion.button>
                 ) : isMicActive ? (

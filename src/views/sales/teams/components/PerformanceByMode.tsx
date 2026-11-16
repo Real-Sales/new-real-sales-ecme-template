@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { SURFACE_INNER_TILE_CLASSNAME } from '@/constants/surfaceCard.constant'
 import Progress from '@/components/ui/Progress'
 import classNames from '@/utils/classNames'
 import { TbChevronDown } from 'react-icons/tb'
@@ -50,7 +51,7 @@ const ModeItem = ({ mode, label, data, defaultExpand = false }: ModeItemProps) =
 
     return (
         <div className={classNames(
-            "rounded-lg mb-3 overflow-hidden transition-all shadow-md hover:shadow-lg bg-gray-50 dark:bg-gray-800/50",
+            `${SURFACE_INNER_TILE_CLASSNAME} mb-3 overflow-hidden transition-all shadow-sm hover:shadow-md`,
             getBorderColor(mode)
         )}>
             <div

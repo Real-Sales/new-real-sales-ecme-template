@@ -11,15 +11,22 @@ import { Form, FormItem } from '@/components/ui/Form'
 import DataTable from '@/components/shared/DataTable'
 import SessionDetailDrawer from './SessionDetailDrawer'
 import classNames from '@/utils/classNames'
-import { TbHistory, TbFilter } from 'react-icons/tb'
+import { TbHistory, TbFilter, TbDownload } from 'react-icons/tb'
 import { NumericFormat } from 'react-number-format'
 import { useForm, Controller } from 'react-hook-form'
 import type { ColumnDef } from '@/components/shared/DataTable'
 import type { OptionProps, ControlProps } from 'react-select'
 import { components } from 'react-select'
 import { type SessionHistory as SessionHistoryType } from './performanceData'
-import { apiGetSessionsByUser, apiGetInteractionMode, apiGetAiPersona } from '@/services/SessionService'
-import { useAppSelector } from '@/store'
+import { useAppSelector, useAppDispatch, fetchSessionHistory } from '@/store/slices/performance'
+import {
+    downloadPerformanceReportPdf,
+    getPerformanceReportPdfErrorMessage,
+} from '@/services/SessionService'
+import toast from '@/components/ui/toast'
+import Notification from '@/components/ui/Notification'
+import Tooltip from '@/components/ui/Tooltip'
+import { SURFACE_CARD_CLASSNAME } from '@/constants/surfaceCard.constant'
 
 type Option = {
     value: string
@@ -69,108 +76,51 @@ const defaultFilterValues: FilterSchema = {
 
 const FILTER_SESSIONS_FORM_ID = 'filter-sessions-form'
 
+const getModeBadgeClass = (mode: string) => {
+    const key = mode.toLowerCase()
+    if (key.includes('discovering')) {
+        return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+    }
+    if (key.includes('prospecting')) {
+        return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+    }
+    if (key.includes('closing')) {
+        return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+    }
+    return 'bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400'
+}
+
 const SessionHistorySection = () => {
-    const [sessions, setSessions] = useState<SessionHistoryType[]>([])
-    const [loading, setLoading] = useState(true)
+    const dispatch = useAppDispatch()
     const [currentPage, setCurrentPage] = useState(1)
     const [pageSize, setPageSize] = useState(10)
     const [filterIsOpen, setFilterIsOpen] = useState(false)
     const [activeFilters, setActiveFilters] = useState<FilterSchema>(defaultFilterValues)
+    const [sortConfig, setSortConfig] = useState<{ key: string; order: 'asc' | 'desc' | '' }>({ key: '', order: '' })
     const [detailDrawerOpen, setDetailDrawerOpen] = useState(false)
     const [selectedSession, setSelectedSession] = useState<SessionHistoryType | null>(null)
+    const [downloadingSessionId, setDownloadingSessionId] = useState<string | null>(null)
 
     const userId = useAppSelector((state) => state.auth.user.userId)
+    const {
+        sessionHistory: sessions,
+        sessionHistoryLoading: loading,
+        sessionHistoryInitialized,
+    } = useAppSelector(
+        (state) =>
+            state.performance?.data ?? {
+                sessionHistory: [],
+                sessionHistoryLoading: false,
+                sessionHistoryInitialized: false,
+            },
+    )
 
     useEffect(() => {
-        if (!userId) {
-            setSessions([])
-            setLoading(false)
-            return
+        if (!userId) return
+        if (!sessionHistoryInitialized && !loading) {
+            dispatch(fetchSessionHistory(userId))
         }
-
-        const fetchSessions = async () => {
-            try {
-                setLoading(true)
-                const sessionData = await apiGetSessionsByUser(userId)
-                
-                // Fetch personas and modes for all unique IDs
-                const uniquePersonaIds = Array.from(new Set(sessionData.map(s => s.persona_id)))
-                const uniqueModeIds = Array.from(new Set(sessionData.map(s => s.mode_id)))
-
-                const personaMap: Record<string, string> = {}
-                const modeMap: Record<string, string> = {}
-
-                await Promise.all([
-                    ...uniquePersonaIds.map(async (id) => {
-                        try {
-                            const details = await apiGetAiPersona(id)
-                            personaMap[id] = details.name
-                        } catch (e) {
-                            personaMap[id] = 'Unknown Persona'
-                        }
-                    }),
-                    ...uniqueModeIds.map(async (id) => {
-                        try {
-                            const details = await apiGetInteractionMode(id)
-                            modeMap[id] = details.name
-                        } catch (e) {
-                            modeMap[id] = 'Unknown Mode'
-                        }
-                    })
-                ])
-
-                const formattedSessions: SessionHistoryType[] = sessionData.map(s => {
-                    const report = s.performance_report
-
-                    // Flatten categories array → { category_key: score, ... }
-                    const flatMetrics: Record<string, number> = {}
-                    if (typeof report?.overall_score === 'number') {
-                        flatMetrics.overall_score = report.overall_score
-                    }
-                    if (Array.isArray(report?.categories)) {
-                        ;(report.categories as { name: string; score: number }[]).forEach((cat) => {
-                            if (cat.name && typeof cat.score === 'number') {
-                                const key = cat.name
-                                    .toLowerCase()
-                                    .replace(/\s+/g, '_')
-                                    .replace(/[^a-z0-9_]/g, '')
-                                flatMetrics[key] = cat.score
-                            }
-                        })
-                    }
-
-                    // Extract coaching summary string from flat or nested shapes
-                    const cs = report?.coaching_summary as string | { summary?: string } | undefined
-                    const coachingSummaryText: string | undefined =
-                        typeof cs === 'string'
-                            ? cs
-                            : typeof cs?.summary === 'string'
-                              ? cs.summary
-                              : undefined
-
-                    return {
-                        id: s.session_id,
-                        persona: personaMap[s.persona_id],
-                        mode: modeMap[s.mode_id],
-                        date: s.start_time,
-                        duration: s.duration ?? 0,
-                        overallScore: report?.overall_score ?? 0,
-                        status: s.status,
-                        coachingSummary: coachingSummaryText,
-                        metrics: Object.keys(flatMetrics).length > 0 ? flatMetrics : undefined,
-                    }
-                })
-
-                setSessions(formattedSessions)
-            } catch (error) {
-                console.error('Failed to fetch sessions:', error)
-            } finally {
-                setLoading(false)
-            }
-        }
-
-        fetchSessions()
-    }, [userId])
+    }, [dispatch, userId, sessionHistoryInitialized, loading])
 
     const personaOptions: Option[] = useMemo(() => [
         { value: 'all', label: 'All Personas' },
@@ -182,7 +132,7 @@ const SessionHistorySection = () => {
     const modeOptions: Option[] = useMemo(() => [
         { value: 'all', label: 'All Modes' },
         ...Array.from(new Set(sessions.map((s) => s.mode))).map(
-            (mode) => ({ value: mode, label: mode })
+            (mode) => ({ value: mode, label: mode }),
         ),
     ], [sessions])
 
@@ -206,10 +156,31 @@ const SessionHistorySection = () => {
         })
     }, [activeFilters, sessions])
 
+    const sortedData = useMemo(() => {
+        if (!sortConfig.key || !sortConfig.order) return filteredData
+        return [...filteredData].sort((a, b) => {
+            const aVal = (a as Record<string, unknown>)[sortConfig.key]
+            const bVal = (b as Record<string, unknown>)[sortConfig.key]
+            if (sortConfig.key === 'date') {
+                const aTime = aVal ? new Date(aVal as string).getTime() : 0
+                const bTime = bVal ? new Date(bVal as string).getTime() : 0
+                return sortConfig.order === 'asc' ? aTime - bTime : bTime - aTime
+            }
+            if (typeof aVal === 'number' && typeof bVal === 'number') {
+                return sortConfig.order === 'asc' ? aVal - bVal : bVal - aVal
+            }
+            const aStr = String(aVal ?? '')
+            const bStr = String(bVal ?? '')
+            return sortConfig.order === 'asc'
+                ? aStr.localeCompare(bStr)
+                : bStr.localeCompare(aStr)
+        })
+    }, [filteredData, sortConfig])
+
     const paginatedData = useMemo(() => {
         const start = (currentPage - 1) * pageSize
-        return filteredData.slice(start, start + pageSize)
-    }, [currentPage, pageSize, filteredData])
+        return sortedData.slice(start, start + pageSize)
+    }, [currentPage, pageSize, sortedData])
 
     const handlePaginationChange = (page: number) => {
         setCurrentPage(page)
@@ -281,6 +252,22 @@ const SessionHistorySection = () => {
         removeBodyScrollLock()
     }
 
+    const handleDownloadReport = async (sessionId: string) => {
+        if (downloadingSessionId) return
+        try {
+            setDownloadingSessionId(sessionId)
+            await downloadPerformanceReportPdf(sessionId)
+        } catch (err: unknown) {
+            toast.push(
+                <Notification title="Error" type="danger">
+                    {getPerformanceReportPdfErrorMessage(err)}
+                </Notification>,
+            )
+        } finally {
+            setDownloadingSessionId(null)
+        }
+    }
+
     const activeFilterCount = useMemo(() => {
         let count = 0
         if (activeFilters.persona !== 'all') count++
@@ -316,9 +303,7 @@ const SessionHistorySection = () => {
                         <Badge
                             innerClass={classNames(
                                 'px-2.5 py-1 text-xs font-medium rounded-md',
-                                row.mode === 'Discovering' && 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
-                                row.mode === 'Prospecting' && 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-                                row.mode === 'Closing' && 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+                                getModeBadgeClass(row.mode),
                             )}
                             content={row.mode}
                         />
@@ -328,7 +313,6 @@ const SessionHistorySection = () => {
             {
                 header: 'Duration',
                 accessorKey: 'duration',
-                enableSorting: false,
                 cell: (props) => {
                     const row = props.row.original
                     const minutes = Math.floor(row.duration / 60)
@@ -387,13 +371,40 @@ const SessionHistorySection = () => {
                     )
                 },
             },
+            {
+                header: 'Action',
+                id: 'action',
+                enableSorting: false,
+                cell: (props) => {
+                    const row = props.row.original
+                    const isDownloading = downloadingSessionId === row.id
+                    return (
+                        <Tooltip title="Download performance report">
+                            <Button
+                                size="xs"
+                                variant="solid"
+                                icon={<TbDownload className="text-sm" />}
+                                loading={isDownloading}
+                                disabled={Boolean(downloadingSessionId)}
+                                className="bg-primary hover:bg-primary-deep text-white border-none h-8 min-w-[8.5rem]"
+                                onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleDownloadReport(row.id)
+                                }}
+                            >
+                                Download
+                            </Button>
+                        </Tooltip>
+                    )
+                },
+            },
         ],
-        [handleRowClick],
+        [handleRowClick, downloadingSessionId],
     )
 
     return (
         <>
-        <Card className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 shadow-md">
+        <Card className={SURFACE_CARD_CLASSNAME}>
             {/* Section Heading */}
             <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-3">
@@ -437,6 +448,10 @@ const SessionHistorySection = () => {
                 }}
                 onPaginationChange={handlePaginationChange}
                 onSelectChange={handleSelectChange}
+                onSort={({ key, order }) => {
+                    setSortConfig({ key: String(key), order })
+                    setCurrentPage(1)
+                }}
             />
         </Card>
 

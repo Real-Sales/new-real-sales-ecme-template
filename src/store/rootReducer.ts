@@ -7,17 +7,40 @@ import type { Theme } from '@/@types/theme'
 import routeKey, { RouteKeyState } from './slices/routeKeySlice'
 import settings, { SettingsState } from '@/views/profile/Settings/store/settingsSlice'
 import subscription, { SubscriptionState } from '@/views/profile/Subscription/store/subscriptionSlice'
+import industriesCatalog, {
+    IndustriesCatalogState,
+} from './slices/industriesCatalogSlice'
+import concierge, { ConciergeState } from './slices/concierge/conciergeSlice'
 import RtkQueryService from '@/services/RtkQueryService'
 import { persistReducer } from 'redux-persist'
 import storage from 'redux-persist/lib/storage'
+import { createTransform } from 'redux-persist'
 import appConfig from '@/configs/app.config'
+import type { UserState } from './slices/auth/userSlice'
 
-// When using cookies, only persist user profile data — NOT the session (token/signedIn)
+/** Company fields live in Redux memory only — loaded from API, never localStorage. */
+const clearPersistedAuthCompanyFields = (user: UserState): UserState => ({
+    ...user,
+    companyId: '',
+    companyName: '',
+    industry: '',
+    industryId: '',
+    industryProducts: [],
+})
+
+const authUserTransform = createTransform(
+    (inboundState: UserState) => clearPersistedAuthCompanyFields(inboundState),
+    (outboundState: UserState) => clearPersistedAuthCompanyFields(outboundState),
+    { whitelist: ['user'] },
+)
+
+// When using cookies, only persist basic user identity — NOT the session (token/signedIn)
 // The JWT token lives exclusively in the auth_token cookie
 const authPersistConfig = {
     key: 'auth',
     storage,
     whitelist: appConfig.accessTokenPersistStrategy === 'cookies' ? ['user'] : ['user', 'session'],
+    transforms: [authUserTransform],
 }
 
 const persistedAuth = persistReducer(authPersistConfig, auth as Reducer)
@@ -30,6 +53,8 @@ export type RootState = {
     routeKey: RouteKeyState
     settings: SettingsState
     subscription: SubscriptionState
+    industriesCatalog: IndustriesCatalogState
+    concierge: ConciergeState
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     [key: string]: any
 }
@@ -46,6 +71,8 @@ const staticReducers = {
     routeKey,
     settings,
     subscription,
+    industriesCatalog,
+    concierge,
     [RtkQueryService.reducerPath]: RtkQueryService.reducer,
 }
 

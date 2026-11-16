@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Dialog, Button, Upload } from '@/components/ui'
 import {
@@ -38,6 +38,8 @@ interface SessionSetupPanelProps {
     isOpen: boolean
     onClose: () => void
     onNavigateToPersonas: (mode: ConversationMode, scenarios?: string[], files?: File[]) => void
+    /** Pre-select a mode (e.g. clicked directly from a mode-specific entry point). */
+    initialMode?: ConversationMode
 }
 
 const modes: ModeOption[] = [
@@ -68,15 +70,19 @@ const SessionSetupPanel = ({
     isOpen,
     onClose,
     onNavigateToPersonas,
+    initialMode,
 }: SessionSetupPanelProps) => {
     const [step, setStep] = useState<1 | 2>(1)
     const [selectedMode, setSelectedMode] = useState<ConversationMode | null>(
-        null
-    )
-    const [hoveredMode, setHoveredMode] = useState<ConversationMode | null>(
-        null
+        initialMode ?? null
     )
     const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
+
+    useEffect(() => {
+        if (isOpen) {
+            setSelectedMode(initialMode ?? null)
+        }
+    }, [isOpen, initialMode])
 
     const isClosingMode = selectedMode === 'closing'
     const hasSecondStep = isClosingMode
@@ -176,7 +182,7 @@ const SessionSetupPanel = ({
                 {hasSecondStep && (
                     <div className="flex-shrink-0 relative h-1 bg-gray-200 dark:bg-gray-700">
                         <motion.div
-                            className="absolute left-0 top-0 h-full bg-gradient-to-r from-blue-500 to-blue-600"
+                            className="absolute left-0 top-0 h-full bg-gradient-to-r from-primary to-primary-deep"
                             initial={{ width: '0%' }}
                             animate={{
                                 width: step === 1 ? '50%' : '100%',
@@ -211,8 +217,6 @@ const SessionSetupPanel = ({
                                     {modes.map((mode) => {
                                         const isSelected =
                                             selectedMode === mode.id
-                                        const isHovered =
-                                            hoveredMode === mode.id
                                         const isOtherSelected =
                                             selectedMode &&
                                             selectedMode !== mode.id
@@ -223,34 +227,20 @@ const SessionSetupPanel = ({
                                                 onClick={() =>
                                                     handleModeSelect(mode.id)
                                                 }
-                                                onMouseEnter={() =>
-                                                    setHoveredMode(mode.id)
-                                                }
-                                                onMouseLeave={() =>
-                                                    setHoveredMode(null)
-                                                }
                                                 className={`
                                                     relative w-full p-2.5 sm:p-3 rounded-lg border-2 transition-all duration-300
                                                     ${
                                                         isSelected
-                                                            ? 'border-blue-500 bg-blue-50/80 dark:bg-blue-500/15 shadow-md'
-                                                            : 'border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800/80 hover:border-gray-300 dark:hover:border-gray-500'
+                                                            ? 'border-primary bg-primary-subtle dark:border-primary dark:bg-primary-subtle shadow-md'
+                                                            : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/70 hover:border-gray-300 dark:hover:border-gray-600'
                                                     }
                                                     ${
                                                         isOtherSelected
                                                             ? 'opacity-50'
                                                             : 'opacity-100'
                                                     }
-                                                    hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-lg
+                                                    hover:border-primary-mild dark:hover:border-primary hover:shadow-lg
                                                 `}
-                                                whileHover={{
-                                                    scale: isOtherSelected
-                                                        ? 1
-                                                        : 1.02,
-                                                }}
-                                                whileTap={{
-                                                    scale: 0.98,
-                                                }}
                                             >
                                                 <div className="flex items-start gap-3">
                                                     <div
@@ -258,13 +248,6 @@ const SessionSetupPanel = ({
                                                         flex-shrink-0 flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-lg
                                                         bg-gradient-to-br ${mode.color}
                                                         text-white shadow-sm
-                                                        transition-transform duration-300
-                                                        ${
-                                                            isSelected ||
-                                                            isHovered
-                                                                ? 'scale-105'
-                                                                : 'scale-100'
-                                                        }
                                                     `}
                                                     >
                                                         {mode.icon}
@@ -278,7 +261,7 @@ const SessionSetupPanel = ({
                                                                 <motion.div
                                                                     initial={{ scale: 0 }}
                                                                     animate={{ scale: 1 }}
-                                                                    className="flex-shrink-0 w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center"
+                                                                    className="flex-shrink-0 w-5 h-5 rounded-full bg-primary flex items-center justify-center"
                                                                 >
                                                                     <HiOutlineCheckCircle className="w-3 h-3 text-white" />
                                                                 </motion.div>

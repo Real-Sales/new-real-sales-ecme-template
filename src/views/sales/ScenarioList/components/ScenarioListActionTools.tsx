@@ -21,6 +21,7 @@ const ScenarioListActionTools = ({
                 icon={<TbPlus className="text-xl" />}
                 className="bg-primary hover:bg-primary-deep text-neutral border-none rounded-md"
                 onClick={onAddNew}
+                data-tour-id="add-scenario-button"
             >
                 Add Scenario
             </Button>

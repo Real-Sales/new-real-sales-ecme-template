@@ -86,7 +86,7 @@ const Segment = (props: SegmentProps) => {
                 ref={ref}
                 className={classNames(
                     'segment',
-                    'gap-2 bg-gray-100 dark:bg-gray-700',
+                    'gap-2 bg-gray-100 dark:bg-gray-800/50 border border-gray-200/80 dark:border-white/10',
                     className,
                 )}
                 {...rest}

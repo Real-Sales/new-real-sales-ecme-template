@@ -1,8 +1,11 @@
-import { motion } from 'framer-motion'
 import { TbCheck, TbArrowRight } from 'react-icons/tb'
+import { GlassLayers } from '@/components/ui/liquid-glass'
+import { glassCard, glassEdge } from '../landingTheme'
 import { Link } from 'react-router-dom'
 import { useLandingTheme } from '../LandingThemeProvider'
-import { SectionBadge, SectionHeading, SectionDesc } from './landingUi'
+import SpotlightCard from '@/components/reactbits/SpotlightCard'
+import GradientText from '@/components/reactbits/GradientText'
+import { SectionBadge, SectionHeading, SectionDesc, ParallaxReveal } from './landingUi'
 
 const tiers = [
     {
@@ -63,9 +66,15 @@ const PricingSection = () => {
     const t = useLandingTheme()
 
     return (
-        <section className="py-24 md:py-32">
-            <div className="max-w-7xl mx-auto px-4">
-                <div id="pricing" className="text-center mb-16">
+        <section id="pricing" className="py-24 md:py-32 relative overflow-hidden">
+            <div
+                className="pointer-events-none absolute inset-x-0 top-0 h-[360px]"
+                style={{
+                    background: `radial-gradient(ellipse 50% 50% at 50% 50%, ${t.accent}14 0%, transparent 70%)`,
+                }}
+            />
+            <div className="max-w-7xl mx-auto px-4 relative z-10">
+                <div className="text-center mb-16">
                     <SectionBadge t={t} label="Pricing" />
                     <SectionHeading
                         t={t}
@@ -81,21 +90,32 @@ const PricingSection = () => {
 
                 <div className="grid md:grid-cols-3 gap-4 items-stretch">
                     {tiers.map((tier, i) => (
-                        <motion.div
+                        <ParallaxReveal
                             key={tier.name}
-                            initial={{ opacity: 0, y: 28 }}
-                            whileInView={{ opacity: 1, y: 0 }}
-                            viewport={{ once: true, margin: '-60px' }}
-                            transition={{ duration: 0.6, delay: i * 0.1, ease: [0.16, 1, 0.3, 1] }}
-                            className="relative rounded-2xl flex flex-col transition-all duration-300"
+                            className="h-full"
+                            delay={i * 0.1}
+                            distance={i % 2 === 0 ? 55 : 90}
+                        >
+                        <SpotlightCard
+                            theme={t.isLight ? 'light' : 'dark'}
+                            spotlightColor={t.accent}
+                            spotlightSize={320}
+                            intensity={t.isLight ? 0.12 : 0.2}
+                            className="!rounded-2xl !p-0 flex flex-col h-full transition-transform duration-300 hover:-translate-y-1"
                             style={{
-                                border: `1px solid ${tier.highlight ? t.accent : t.border}`,
-                                backgroundColor: tier.highlight ? t.accentSubtle : t.surface,
+                                ['--spotlight-card-border' as string]: 'transparent',
+                                ...glassCard(t),
+                                ...(tier.highlight ? { border: `1px solid ${t.accent}` } : {}),
                                 boxShadow: tier.highlight
-                                    ? `0 0 0 1px ${t.accent}22, 0 32px 64px ${t.isLight ? 'rgba(12,175,96,0.12)' : 'rgba(0,0,0,0.5)'}`
-                                    : undefined,
+                                    ? t.isLight
+                                      ? `${glassEdge(t, '')}, 0 24px 56px rgba(12,175,96,0.14)`
+                                      : `0 0 0 1px ${t.accent}22, 0 32px 64px rgba(0,0,0,0.5)`
+                                    : t.isLight
+                                      ? glassEdge(t, '')
+                                      : '0 12px 26px rgba(0,0,0,0.24)',
                             }}
                         >
+                            <GlassLayers light={t.isLight} tint={!t.isLight && tier.highlight ? 'rgba(12,175,96,0.10)' : undefined} />
                             {tier.highlight && (
                                 <div
                                     className="absolute -top-px left-1/2 -translate-x-1/2 px-4 py-1 rounded-b-full border border-t-0"
@@ -117,7 +137,13 @@ const PricingSection = () => {
                                     </p>
                                     <div className="flex items-baseline gap-1 mb-3">
                                         <span className="text-4xl font-bold tracking-tight" style={{ color: t.text }}>
-                                            {tier.price}
+                                            {tier.highlight ? (
+                                                <GradientText colors={[t.accentMild, '#38D6E8', t.accent, '#A7F3D0', t.accentMild]} animationSpeed={6}>
+                                                    {tier.price}
+                                                </GradientText>
+                                            ) : (
+                                                tier.price
+                                            )}
                                         </span>
                                         {tier.period && (
                                             <span className="text-sm" style={{ color: t.textFaint }}>
@@ -132,16 +158,20 @@ const PricingSection = () => {
 
                                 <Link
                                     to={tier.ctaTo}
-                                    className="group flex items-center justify-center gap-2 w-full py-3 rounded-full text-sm font-semibold mb-7 transition-all duration-200 active:scale-[0.97]"
+                                    className="group flex items-center justify-center gap-2 w-full py-3 rounded-full text-sm font-semibold mb-7 transition-all duration-200 hover:-translate-y-0.5 hover:!border-[#0CAF60]/60 hover:!shadow-[0_12px_30px_rgba(12,175,96,0.28)] active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2"
                                     style={
                                         tier.highlight
                                             ? {
                                                   backgroundColor: t.primaryBtnBg,
                                                   color: t.primaryBtnText,
+                                                  boxShadow: t.isLight
+                                                      ? '0 10px 24px rgba(16,185,129,0.22)'
+                                                      : '0 10px 24px rgba(0,0,0,0.38)',
                                               }
                                             : {
                                                   border: `1px solid ${t.border}`,
                                                   color: t.textMuted,
+                                                  backgroundColor: t.surface,
                                               }
                                     }
                                 >
@@ -165,7 +195,8 @@ const PricingSection = () => {
                                     </ul>
                                 </div>
                             </div>
-                        </motion.div>
+                        </SpotlightCard>
+                        </ParallaxReveal>
                     ))}
                 </div>
 

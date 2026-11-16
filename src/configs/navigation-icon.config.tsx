@@ -12,9 +12,9 @@ import {
     PiTargetDuotone,
     PiUsersDuotone,
     PiBuildingsDuotone,
-    PiThumbsUpDuotone,
     PiBooksDuotone,
     PiUserCircleDuotone,
+    PiTrophyDuotone,
 } from 'react-icons/pi'
 import type { JSX } from 'react'
 
@@ -32,7 +32,7 @@ const navigationIcon: NavigationIcons = {
     company: <PiBuildingsDuotone />,
     teams: <PiUsersDuotone />, // Reusing users icon for teams as well
     members: <PiUserCircleDuotone />,
-    feedback: <PiThumbsUpDuotone />,
+    leaderboard: <PiTrophyDuotone />,
     singleMenu: <PiAcornDuotone />,
     collapseMenu: <PiArrowsInDuotone />,
     groupSingleMenu: <PiBookOpenUserDuotone />,

@@ -19,6 +19,7 @@ type FormSchema = {
     status: string
     mode: string
     persona: string
+    division: string
 }
 
 type Option = {
@@ -48,6 +49,28 @@ const buildPersonaOptions = (scenarios: Scenario[]): Option[] => {
     return [
         { value: 'all', label: 'All Personas' },
         ...personas.map((p) => ({ value: p, label: p })),
+    ]
+}
+
+const buildDivisionOptions = (
+    scenarios: Scenario[],
+    getDivisionName?: (scenario: Scenario) => string,
+): Option[] => {
+    const divisions = [
+        ...new Set(
+            scenarios
+                .map(
+                    (s) =>
+                        getDivisionName?.(s)?.trim() ||
+                        s.sales_division_name?.trim() ||
+                        '',
+                )
+                .filter((name) => name && name !== '—'),
+        ),
+    ].sort() as string[]
+    return [
+        { value: 'all', label: 'All Divisions', className: 'bg-gray-400' },
+        ...divisions.map((d) => ({ value: d, label: d, className: 'bg-primary' })),
     ]
 }
 
@@ -81,17 +104,24 @@ const validationSchema: ZodType<FormSchema> = z.object({
     status: z.string(),
     mode: z.string(),
     persona: z.string(),
+    division: z.string(),
 })
 
 type ScenarioListTableFilterProps = {
     scenarios: Scenario[]
     onFilterChange: (filters: FormSchema) => void
     defaultValues: FormSchema
+    getDivisionName?: (scenario: Scenario) => string
 }
 
 const FILTER_FORM_ID = 'filter-scenarios-form'
 
-const ScenarioListTableFilter = ({ scenarios, onFilterChange, defaultValues }: ScenarioListTableFilterProps) => {
+const ScenarioListTableFilter = ({
+    scenarios,
+    onFilterChange,
+    defaultValues,
+    getDivisionName,
+}: ScenarioListTableFilterProps) => {
     const [filterIsOpen, setFilterIsOpen] = useState(false)
 
     const { handleSubmit, control, reset } = useForm<FormSchema>({
@@ -109,6 +139,7 @@ const ScenarioListTableFilter = ({ scenarios, onFilterChange, defaultValues }: S
             status: 'all',
             mode: 'all',
             persona: 'all',
+            division: 'all',
         }
         reset(resetValues)
         onFilterChange(resetValues)
@@ -227,6 +258,36 @@ const ScenarioListTableFilter = ({ scenarios, onFilterChange, defaultValues }: S
                                         )}
                                         components={{
                                             Option: CustomSelectOption,
+                                        }}
+                                        onChange={(option) =>
+                                            field.onChange(option?.value)
+                                        }
+                                    />
+                                )}
+                            />
+                        </FormItem>
+                        <FormItem label="Division">
+                            <Controller
+                                name="division"
+                                control={control}
+                                render={({ field }) => (
+                                    <Select<Option>
+                                        className="[&>div]:!bg-gray-50 [&>div]:dark:!bg-gray-800/50 [&>div]:border [&>div]:border-gray-200 [&>div]:dark:border-gray-700 [&>div]:shadow-md"
+                                        options={buildDivisionOptions(
+                                            scenarios,
+                                            getDivisionName,
+                                        )}
+                                        {...field}
+                                        value={buildDivisionOptions(
+                                            scenarios,
+                                            getDivisionName,
+                                        ).filter(
+                                            (option) =>
+                                                option.value === field.value,
+                                        )}
+                                        components={{
+                                            Option: CustomSelectOption,
+                                            Control: CustomControl,
                                         }}
                                         onChange={(option) =>
                                             field.onChange(option?.value)

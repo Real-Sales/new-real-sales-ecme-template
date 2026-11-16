@@ -16,13 +16,33 @@ import {
     REGISTER,
 } from 'redux-persist'
 import storage from 'redux-persist/lib/storage'
+import { createTransform } from 'redux-persist'
+import type { SettingsState } from '@/views/profile/Settings/store/settingsSlice'
+import { emptySettingsProfile } from '@/views/profile/Settings/store/settingsSlice'
+
+const clearPersistedProfile = (state: SettingsState): SettingsState => ({
+    ...state,
+    profile: emptySettingsProfile,
+    profileInitialized: false,
+    profileLoading: false,
+    profileSaving: false,
+    profileSaveError: null,
+    profileError: null,
+})
+
+const settingsTransform = createTransform(
+    (inboundState: SettingsState) => clearPersistedProfile(inboundState),
+    (outboundState: SettingsState) => clearPersistedProfile(outboundState),
+    { whitelist: ['settings'] },
+)
 
 const persistConfig = {
     key: PERSIST_STORE_NAME,
     keyPrefix: '',
     storage,
     // auth is handled by its own nested persistReducer in rootReducer
-    whitelist: ['locale', 'settings'],
+    whitelist: ['locale', 'settings', 'concierge'],
+    transforms: [settingsTransform],
 }
 
 import { PERSIST_STORE_NAME } from '@/constants/app.constant'

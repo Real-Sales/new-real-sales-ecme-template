@@ -4,15 +4,40 @@ import type { ReactNode } from 'react'
 import Container from '@/components/shared/Container'
 import Loading from '@/components/shared/Loading'
 import Card from '@/components/ui/Card'
+import {
+    SURFACE_CARD_CLASSNAME,
+    SURFACE_INNER_TILE_CLASSNAME,
+} from '@/constants/surfaceCard.constant'
 import Button from '@/components/ui/Button'
-import { TbArrowLeft, TbDownload, TbRefresh } from 'react-icons/tb'
+import { TbArrowLeft, TbArrowRight, TbDownload, TbRefresh } from 'react-icons/tb'
+import toast from '@/components/ui/toast'
+import Notification from '@/components/ui/Notification'
+import { injectReducer, useAppDispatch } from '@/store'
+import store from '@/store'
+import { refreshCreditsState } from '@/utils/refreshCreditsState'
 import {
     apiEnsurePerformanceReport,
-    apiDownloadPerformanceReportPdf,
+    apiGetSessionById,
+    apiRegenerateSessionMemory,
+    downloadPerformanceReportPdf,
+    getPerformanceReportPdfErrorMessage,
     type CoachingSummary,
     type PerformanceReportPayload,
     type ReportCategory,
+    type SessionResponse,
 } from '@/services/SessionService'
+import { getApiErrorMessage } from '@/utils/getApiErrorMessage'
+import { MODE_PIPELINE_ORDER, MODE_PIPELINE_NAMES, formatModeName } from '@/utils/modePipeline'
+import scenarioLibraryReducer, {
+    useAppSelector as useScenarioSelector,
+    fetchModes,
+} from '@/views/sales/ScenarioList/store'
+import SessionFeedbackDialog from '@/views/sales/components/SessionFeedbackDialog'
+
+injectReducer('scenarioLibrary', scenarioLibraryReducer)
+
+const feedbackPromptKey = (sessionId: string) =>
+    `sw-platform-feedback-prompted:${sessionId}`
 
 type ReportState =
     | { status: 'loading' }
@@ -126,8 +151,34 @@ function mapReportError(err: unknown): { message: string; canRetry?: boolean } {
 const SessionReport = () => {
     const { sessionId } = useParams<{ sessionId: string }>()
     const navigate = useNavigate()
+    const dispatch = useAppDispatch()
     const [state, setState] = useState<ReportState>({ status: 'loading' })
     const [downloading, setDownloading] = useState(false)
+    const [session, setSession] = useState<SessionResponse | null>(null)
+    const [regeneratingMemory, setRegeneratingMemory] = useState(false)
+    const [feedbackOpen, setFeedbackOpen] = useState(false)
+
+    const modesData = useScenarioSelector(
+        (s) => s.scenarioLibrary?.data?.modesData,
+    )
+    const modesLoading = useScenarioSelector(
+        (s) => s.scenarioLibrary?.data?.modesLoading,
+    )
+
+    useEffect(() => {
+        if (!modesData?.length && !modesLoading) {
+            dispatch(fetchModes())
+        }
+    }, [dispatch, modesData?.length, modesLoading])
+
+    const loadSession = useCallback(() => {
+        if (!sessionId) return
+        apiGetSessionById(sessionId)
+            .then((s) => setSession(s))
+            .catch((err: unknown) => {
+                console.error('Failed to load session for journey CTA:', err)
+            })
+    }, [sessionId])
 
     const runLoad = useCallback(() => {
         if (!sessionId) {
@@ -161,21 +212,105 @@ const SessionReport = () => {
         }
     }, [sessionId])
 
+    useEffect(() => {
+        loadSession()
+    }, [loadSession])
+
+    useEffect(() => {
+        if (state.status !== 'ready') return
+        refreshCreditsState(dispatch, () => store.getState())
+    }, [state.status, dispatch])
+
+    useEffect(() => {
+        if (state.status !== 'ready' || !sessionId) return
+        try {
+            if (sessionStorage.getItem(feedbackPromptKey(sessionId))) return
+        } catch {
+            // sessionStorage may be unavailable; still show once per mount
+        }
+        setFeedbackOpen(true)
+    }, [state.status, sessionId])
+
+    const markFeedbackPrompted = useCallback(() => {
+        if (!sessionId) return
+        try {
+            sessionStorage.setItem(feedbackPromptKey(sessionId), '1')
+        } catch {
+            // ignore
+        }
+    }, [sessionId])
+
+    const handleFeedbackClose = useCallback(() => {
+        markFeedbackPrompted()
+        setFeedbackOpen(false)
+    }, [markFeedbackPrompted])
+
+    const currentModeName = useMemo(() => {
+        if (!session || !modesData?.length) return null
+        const mode = modesData.find((m) => m.mode_id === session.mode_id)
+        return mode?.name?.toLowerCase() ?? null
+    }, [session, modesData])
+
+    const nextModeName = useMemo(() => {
+        if (!currentModeName) return null
+        const order = MODE_PIPELINE_ORDER[currentModeName]
+        if (order === undefined || order >= MODE_PIPELINE_NAMES.length - 1) {
+            return null // closing mode (or unknown) — end of pipeline
+        }
+        return MODE_PIPELINE_NAMES[order + 1]
+    }, [currentModeName])
+
+    const nextMode = useMemo(() => {
+        if (!nextModeName || !modesData?.length) return null
+        return modesData.find((m) => m.name?.toLowerCase() === nextModeName) ?? null
+    }, [nextModeName, modesData])
+
+    const handleContinueToNextMode = () => {
+        if (!session || !nextMode || !nextModeName || !sessionId) return
+        navigate('/persona-selection', {
+            state: {
+                mode: formatModeName(nextModeName),
+                scenarios: [],
+                files: [],
+                continueFromSessionId: sessionId,
+                prefillPersonaId: session.persona_id,
+            },
+        })
+    }
+
+    const handleRegenerateMemory = async () => {
+        if (!sessionId || regeneratingMemory) return
+        try {
+            setRegeneratingMemory(true)
+            await apiRegenerateSessionMemory(sessionId)
+            loadSession()
+            toast.push(
+                <Notification title="Success" type="success">
+                    Session memory regenerated. You can now continue to the next mode.
+                </Notification>,
+            )
+        } catch (err: unknown) {
+            toast.push(
+                <Notification title="Error" type="danger">
+                    {getApiErrorMessage(err, 'Failed to regenerate session memory.')}
+                </Notification>,
+            )
+        } finally {
+            setRegeneratingMemory(false)
+        }
+    }
+
     const handleDownloadPdf = async () => {
         if (!sessionId || downloading) return
         try {
             setDownloading(true)
-            const blob = await apiDownloadPerformanceReportPdf(sessionId)
-            const url = URL.createObjectURL(blob)
-            const a = document.createElement('a')
-            a.href = url
-            a.download = `performance_report_${sessionId}.pdf`
-            document.body.appendChild(a)
-            a.click()
-            a.remove()
-            URL.revokeObjectURL(url)
-        } catch {
-            /* swallow */
+            await downloadPerformanceReportPdf(sessionId)
+        } catch (err: unknown) {
+            toast.push(
+                <Notification title="Error" type="danger">
+                    {getPerformanceReportPdfErrorMessage(err)}
+                </Notification>,
+            )
         } finally {
             setDownloading(false)
         }
@@ -241,7 +376,7 @@ const SessionReport = () => {
                 </div>
 
                 {state.status === 'loading' && (
-                    <Card>
+                    <Card className={SURFACE_CARD_CLASSNAME}>
                         <div className="py-16 flex flex-col items-center justify-center gap-3">
                             <Loading
                                 loading
@@ -256,7 +391,7 @@ const SessionReport = () => {
                 )}
 
                 {state.status === 'error' && (
-                    <Card>
+                    <Card className={SURFACE_CARD_CLASSNAME}>
                         <div className="py-12 px-6 flex flex-col items-center justify-center gap-3 text-center">
                             <p className="text-sm text-gray-700 dark:text-gray-200">
                                 {state.message}
@@ -278,7 +413,7 @@ const SessionReport = () => {
                 {state.status === 'ready' && (
                     <div className="flex flex-col gap-6">
                         {typeof overall === 'number' && (
-                            <Card bodyClass="!p-6">
+                            <Card className={SURFACE_CARD_CLASSNAME} bodyClass="!p-6">
                                 <div className="flex items-center justify-between flex-wrap gap-4">
                                     <div>
                                         <p className="text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400">
@@ -313,7 +448,7 @@ const SessionReport = () => {
                         )}
 
                         {categoryRows.length > 0 && (
-                            <Card bodyClass="!p-6">
+                            <Card className={SURFACE_CARD_CLASSNAME} bodyClass="!p-6">
                                 <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-4">
                                     Skill Breakdown
                                 </h2>
@@ -321,7 +456,7 @@ const SessionReport = () => {
                                     {categoryRows.map((m) => (
                                         <div
                                             key={m.key}
-                                            className="flex flex-col gap-2 p-4 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/40"
+                                            className={`flex flex-col gap-2 p-4 ${SURFACE_INNER_TILE_CLASSNAME}`}
                                         >
                                             <div className="flex items-center justify-between gap-2">
                                                 <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
@@ -357,7 +492,7 @@ const SessionReport = () => {
                         )}
 
                         {hasCoachingContent && coaching && (
-                            <Card bodyClass="!p-6">
+                            <Card className={SURFACE_CARD_CLASSNAME} bodyClass="!p-6">
                                 <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-4">
                                     Coaching Summary
                                 </h2>
@@ -403,7 +538,7 @@ const SessionReport = () => {
                         )}
 
                         {scenarioEval ? (
-                            <Card bodyClass="!p-6">
+                            <Card className={SURFACE_CARD_CLASSNAME} bodyClass="!p-6">
                                 <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-3">
                                     Scenario Evaluation
                                 </h2>
@@ -412,9 +547,59 @@ const SessionReport = () => {
                                 </p>
                             </Card>
                         ) : null}
+
+                        {session?.status === 'completed' && nextModeName && (
+                            <Card className={SURFACE_CARD_CLASSNAME} bodyClass="!p-6">
+                                <div className="flex items-center justify-between flex-wrap gap-4">
+                                    <div>
+                                        <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-1">
+                                            Continue your journey
+                                        </h2>
+                                        {session.session_memory ? (
+                                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                                                Ready to move on? Your persona will remember this
+                                                conversation in the next session.
+                                            </p>
+                                        ) : (
+                                            <p className="text-sm text-amber-600 dark:text-amber-400">
+                                                Session memory couldn't be generated yet, so continuing
+                                                would lose this conversation's context. Retry below.
+                                            </p>
+                                        )}
+                                    </div>
+                                    {session.session_memory ? (
+                                        <Button
+                                            size="sm"
+                                            variant="solid"
+                                            icon={<TbArrowRight />}
+                                            iconAlignment="end"
+                                            onClick={handleContinueToNextMode}
+                                        >
+                                            Continue to {formatModeName(nextModeName)}
+                                        </Button>
+                                    ) : (
+                                        <Button
+                                            size="sm"
+                                            variant="solid"
+                                            icon={<TbRefresh />}
+                                            loading={regeneratingMemory}
+                                            onClick={handleRegenerateMemory}
+                                        >
+                                            Retry memory generation
+                                        </Button>
+                                    )}
+                                </div>
+                            </Card>
+                        )}
                     </div>
                 )}
             </Container>
+
+            <SessionFeedbackDialog
+                isOpen={feedbackOpen}
+                onClose={handleFeedbackClose}
+                onSubmitted={markFeedbackPrompted}
+            />
         </div>
     )
 }

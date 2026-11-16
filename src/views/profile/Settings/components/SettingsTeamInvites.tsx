@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { SURFACE_CARD_CLASSNAME } from '@/constants/surfaceCard.constant'
 import { Alert, Button, Card, Input, Notification, Select, toast } from '@/components/ui'
 import { useAppSelector } from '@/store/hook'
 import {
@@ -92,7 +93,7 @@ const SettingsTeamInvites = () => {
     }
 
     return (
-        <Card>
+        <Card className={SURFACE_CARD_CLASSNAME}>
             <h5 className="mb-3">Team Invites</h5>
             <p className="heading-text mb-4">
                 Invite team members from your profile settings.

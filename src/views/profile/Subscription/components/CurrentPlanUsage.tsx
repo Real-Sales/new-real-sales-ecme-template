@@ -1,4 +1,8 @@
 import Card from '@/components/ui/Card'
+import {
+    SURFACE_CARD_CLASSNAME,
+    SURFACE_INNER_TILE_CLASSNAME,
+} from '@/constants/surfaceCard.constant'
 import Tag from '@/components/ui/Tag'
 import Alert from '@/components/ui/Alert'
 import { NumericFormat } from 'react-number-format'
@@ -8,7 +12,10 @@ import {
     TbCreditCard,
     TbMessageCircle,
 } from 'react-icons/tb'
-import type { UserSubscriptionRecord } from '@/services/SubscriptionService'
+import {
+    isCompanyCreditPool,
+    type UserSubscriptionRecord,
+} from '@/services/SubscriptionService'
 
 type CurrentPlanUsageProps = {
     activeUserSubscription: UserSubscriptionRecord | null
@@ -56,7 +63,7 @@ const CurrentPlanUsage = ({
 }: CurrentPlanUsageProps) => {
     if (!hasUserId) {
         return (
-            <Card className="mb-6 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
+            <Card className={`mb-6 ${SURFACE_CARD_CLASSNAME}`}>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
                     Sign in to view your subscription and usage.
                 </p>
@@ -66,7 +73,7 @@ const CurrentPlanUsage = ({
 
     if (loading) {
         return (
-            <Card className="mb-6 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
+            <Card className={`mb-6 ${SURFACE_CARD_CLASSNAME}`}>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
                     Loading your subscription…
                 </p>
@@ -76,7 +83,7 @@ const CurrentPlanUsage = ({
 
     if (error) {
         return (
-            <Card className="mb-6 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
+            <Card className={`mb-6 ${SURFACE_CARD_CLASSNAME}`}>
                 <Alert showIcon type="danger">
                     {error}
                 </Alert>
@@ -86,7 +93,7 @@ const CurrentPlanUsage = ({
 
     if (!activeUserSubscription) {
         return (
-            <Card className="mb-6 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
+            <Card className={`mb-6 ${SURFACE_CARD_CLASSNAME}`}>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
                     No subscription is linked to your account yet.
                 </p>
@@ -95,65 +102,63 @@ const CurrentPlanUsage = ({
     }
 
     const sub = activeUserSubscription.subscription
+    if (!sub) {
+        return (
+            <Card className={`mb-6 ${SURFACE_CARD_CLASSNAME}`}>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Credit pool loaded, but plan details are unavailable.
+                </p>
+            </Card>
+        )
+    }
+
     const billingLabel =
         sub.billing_cycle === 'yearly' ? 'yearly' : 'monthly'
     const periodSuffix = sub.billing_cycle === 'yearly' ? 'yr' : 'mo'
     const amount =
         sub.billing_cycle === 'yearly'
-            ? parseAmount(sub.yearly_price)
+            ? parseAmount(sub.yearly_price ?? '0')
             : parseAmount(sub.monthly_price)
 
     const creditsUsed = Number(activeUserSubscription.credits_used ?? 0)
-    const creditsRem =
-        activeUserSubscription.credits_remaining != null
-            ? Number(activeUserSubscription.credits_remaining)
-            : null
+    const creditsAllocated = Number(activeUserSubscription.credits_allocated ?? 0)
+    const creditsRemaining = Number(
+        activeUserSubscription.credits_remaining ??
+            Math.max(0, creditsAllocated - creditsUsed),
+    )
+    const usageNumerator = creditsUsed
+    const usageDenominator = creditsAllocated
+    const usagePercentRaw =
+        usageDenominator > 0
+            ? Math.round((usageNumerator / usageDenominator) * 100)
+            : 0
+    const usagePercent = Math.min(100, usagePercentRaw)
 
-    let usageNumerator: number
-    let usageDenominator: number
-    let usagePercent: number
-    let usagePercentRaw: number
-
-    if (creditsRem != null) {
-        usageNumerator = creditsUsed
-        usageDenominator = creditsUsed + creditsRem
-        usagePercentRaw =
-            usageDenominator > 0
-                ? Math.round((usageNumerator / usageDenominator) * 100)
-                : 0
-        usagePercent = Math.min(100, usagePercentRaw)
-    } else {
-        const allocated = activeUserSubscription.credits_allocated
-        const completed = Number(
-            activeUserSubscription.sessions_completed ?? creditsUsed,
-        )
-        usageNumerator = completed
-        usageDenominator = allocated
-        usagePercentRaw =
-            allocated > 0
-                ? Math.round((completed / allocated) * 100)
-                : 0
-        usagePercent = Math.min(100, usagePercentRaw)
-    }
-
-    const renewalLabel = formatDateLabel(activeUserSubscription.end_date)
-    const daysRemaining = daysUntil(activeUserSubscription.end_date)
+    const endDate = activeUserSubscription.end_date
+    const renewalLabel = endDate ? formatDateLabel(endDate) : '—'
+    const daysRemaining = endDate ? daysUntil(endDate) : 0
     const statusLabel = activeUserSubscription.status_active ? 'active' : 'inactive'
+    const poolLabel = isCompanyCreditPool(activeUserSubscription)
+        ? 'Company credits'
+        : 'Your credits'
 
     return (
-        <Card className="mb-6 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
+        <Card className={`mb-6 ${SURFACE_CARD_CLASSNAME}`}>
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6">
                 <div className="flex items-center gap-4">
                     <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-primary/10">
                         <TbBolt className="text-2xl text-primary" />
                     </div>
                     <div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                             <h4 className="font-bold">
                                 {formatPlanTitle(sub.plan_type)}
                             </h4>
                             <Tag className="bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-md border-0 font-semibold">
                                 <span className="capitalize">{statusLabel}</span>
+                            </Tag>
+                            <Tag className="bg-primary/10 text-primary rounded-md border-0 font-semibold">
+                                {poolLabel}
                             </Tag>
                         </div>
                         <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
@@ -163,17 +168,19 @@ const CurrentPlanUsage = ({
                                 fixedDecimalScale
                                 decimalScale={2}
                                 displayType="text"
-                                prefix="$"
+                                prefix="₹"
                                 value={amount}
                             />
                             /{periodSuffix}
+                            {' · '}
+                            {creditsRemaining} remaining
                         </p>
                     </div>
                 </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-800/50">
+                <div className={`${SURFACE_INNER_TILE_CLASSNAME} p-4`}>
                     <div className="flex items-center gap-3 mb-3">
                         <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-blue-50 dark:bg-blue-500/10">
                             <TbMessageCircle className="text-lg text-blue-500" />
@@ -210,7 +217,7 @@ const CurrentPlanUsage = ({
                     </p>
                 </div>
 
-                <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-800/50">
+                <div className={`${SURFACE_INNER_TILE_CLASSNAME} p-4`}>
                     <div className="flex items-center gap-3 mb-3">
                         <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-amber-50 dark:bg-amber-500/10">
                             <TbCalendarEvent className="text-lg text-amber-500" />
@@ -227,7 +234,7 @@ const CurrentPlanUsage = ({
                     </p>
                 </div>
 
-                <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-800/50">
+                <div className={`${SURFACE_INNER_TILE_CLASSNAME} p-4`}>
                     <div className="flex items-center gap-3 mb-3">
                         <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-emerald-50 dark:bg-emerald-500/10">
                             <TbCreditCard className="text-lg text-emerald-500" />
@@ -242,7 +249,7 @@ const CurrentPlanUsage = ({
                             fixedDecimalScale
                             decimalScale={2}
                             displayType="text"
-                            prefix="$"
+                            prefix="₹"
                             value={amount}
                         />
                     </div>

@@ -1,6 +1,5 @@
 import Header from '@/components/template/Header'
 import ThemeToggleButton from '@/components/shared/ThemeToggleButton'
-import Notification from '@/components/template/Notification/Notification'
 import UserProfileDropdown from '@/components//template/UserProfileDropdown'
 import HeaderLogo from '@/components/template/HeaderLogo'
 import MobileNav from '@/components/template/MobileNav'
@@ -114,7 +113,6 @@ const ContentOverlay = ({ children }: CommonProps) => {
                         headerEnd={
                             <>
                                 <ThemeToggleButton />
-                                <Notification />
                                 <UserProfileDropdown hoverable={false} />
                             </>
                         }

@@ -1,5 +1,9 @@
+import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui'
-import { HiOutlineChatAlt2 } from 'react-icons/hi'
+import { HiOutlineUserAdd } from 'react-icons/hi'
+import { useAppDispatch, useAppSelector } from '@/store'
+import { setCurrentView } from '@/views/profile/Settings/store/settingsSlice'
+import { canSendTeamInvite } from '@/utils/inviteAccess'
 
 type PlatformFeedbackProps = {
     /** When true, ignore theme and render with the dark palette (used by the always-dark desktop side nav). */
@@ -7,9 +11,17 @@ type PlatformFeedbackProps = {
 }
 
 const PlatformFeedback = ({ forceDark = false }: PlatformFeedbackProps) => {
-    const handleFeedbackClick = () => {
-        // In real app: Open feedback form/modal or redirect to feedback page
-        console.log('Open feedback form')
+    const navigate = useNavigate()
+    const dispatch = useAppDispatch()
+    const userRole = useAppSelector((state) => state.auth.user.role)
+
+    if (!canSendTeamInvite(userRole)) {
+        return null
+    }
+
+    const handleInviteClick = () => {
+        dispatch(setCurrentView('invites'))
+        navigate('/profile/settings')
     }
 
     const containerCls = forceDark
@@ -24,17 +36,17 @@ const PlatformFeedback = ({ forceDark = false }: PlatformFeedbackProps) => {
 
     return (
         <div className={containerCls}>
-            <h5 className={titleCls}>Platform Feedback</h5>
-            <p className={bodyCls}>Help us improve! Share your thoughts</p>
+            <h5 className={titleCls}>Invite Team Member</h5>
+            <p className={bodyCls}>Grow your team and collaborate together.</p>
             <Button
                 block
                 size="sm"
                 variant="solid"
                 className="bg-primary hover:bg-primary-deep text-white border-none flex justify-center items-center gap-1.5 px-2.5 py-1.5 h-auto rounded-md transition-all"
-                onClick={handleFeedbackClick}
+                onClick={handleInviteClick}
             >
-                <HiOutlineChatAlt2 className="text-sm" />
-                <span className="text-xs font-semibold">Give Feedback</span>
+                <HiOutlineUserAdd className="text-sm" />
+                <span className="text-xs font-semibold">Invite Member</span>
             </Button>
         </div>
     )

@@ -4,6 +4,7 @@ import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
 import Select from '@/components/ui/Select'
 import Card from '@/components/ui/Card'
+import { SURFACE_CARD_CLASSNAME } from '@/constants/surfaceCard.constant'
 import Alert from '@/components/ui/Alert'
 import { toast, Notification } from '@/components/ui'
 import { useAppSelector } from '@/store/hook'
@@ -112,7 +113,7 @@ const InviteManagement = () => {
                 </Alert>
             )}
 
-            <Card className="mb-6">
+            <Card className={`mb-6 ${SURFACE_CARD_CLASSNAME}`}>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <Input
                         value={email}
@@ -138,7 +139,7 @@ const InviteManagement = () => {
                 </div>
             </Card>
 
-            <Card>
+            <Card className={SURFACE_CARD_CLASSNAME}>
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                         <thead>

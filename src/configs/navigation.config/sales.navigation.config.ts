@@ -5,8 +5,10 @@ import {
 
 import type { NavigationTree } from '@/@types/navigation'
 
-/** Full scenario + org nav; hidden for `sales_person` (they get Assigned scenarios instead). */
-const MANAGER_ROLES = ['sales_manager', 'company_owner', 'manager']
+/** Full scenario + org nav; `sales_person` only sees Assigned scenarios (not Scenario Library). */
+export const MANAGER_ROLES = ['sales_manager', 'company_owner', 'manager']
+export const ASSIGNED_SCENARIOS_ROLES = ['sales_person', ...MANAGER_ROLES]
+export const COMPANY_MEMBERS_ROLES = ['sales_person', ...MANAGER_ROLES]
 
 const salesNavigationConfig: NavigationTree[] = [
     {
@@ -40,12 +42,12 @@ const salesNavigationConfig: NavigationTree[] = [
             },
             {
                 key: 'salesPerson.assignedScenarios',
-                path: '/scenario-library',
+                path: '/assigned-scenarios',
                 title: 'Assigned scenarios',
                 translateKey: '',
                 icon: 'scenarioLibrary',
                 type: NAV_ITEM_TYPE_ITEM,
-                authority: ['sales_person'],
+                authority: ASSIGNED_SCENARIOS_ROLES,
                 subMenu: [],
             },
             {
@@ -56,6 +58,16 @@ const salesNavigationConfig: NavigationTree[] = [
                 icon: 'scenarioLibrary',
                 type: NAV_ITEM_TYPE_ITEM,
                 authority: MANAGER_ROLES,
+                subMenu: [],
+            },
+            {
+                key: 'salesManager.leaderboard',
+                path: '/leaderboard',
+                title: 'Leaderboard',
+                translateKey: '',
+                icon: 'leaderboard',
+                type: NAV_ITEM_TYPE_ITEM,
+                authority: [],
                 subMenu: [],
             },
         ],
@@ -76,7 +88,7 @@ const salesNavigationConfig: NavigationTree[] = [
                 translateKey: '',
                 icon: 'members',
                 type: NAV_ITEM_TYPE_ITEM,
-                authority: MANAGER_ROLES,
+                authority: COMPANY_MEMBERS_ROLES,
                 subMenu: [],
             },
             {
@@ -87,26 +99,6 @@ const salesNavigationConfig: NavigationTree[] = [
                 icon: 'company',
                 type: NAV_ITEM_TYPE_ITEM,
                 authority: MANAGER_ROLES,
-                subMenu: [],
-            },
-            {
-                key: 'companyGroup.teams',
-                path: '/teams',
-                title: 'Teams',
-                translateKey: '',
-                icon: 'teams',
-                type: NAV_ITEM_TYPE_ITEM,
-                authority: MANAGER_ROLES,
-                subMenu: [],
-            },
-            {
-                key: 'companyGroup.feedback',
-                path: '/feedback',
-                title: 'My Feedback',
-                translateKey: '',
-                icon: 'feedback',
-                type: NAV_ITEM_TYPE_ITEM,
-                authority: [],
                 subMenu: [],
             },
         ],

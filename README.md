@@ -1,24 +1,24 @@
-# Ecme - The Ultimate React, Vite & TypeScript Web Template
+# SalesWana - AI Sales Training Platform
 
-Ecme  is a modern and responsive admin dashboard template built with React and TypeScript. Designed to provide a highly customizable and easy-to-use platform for building admin interfaces, it includes a variety of reusable components, pre-designed pages, and dynamic features. 
+SalesWana is an AI-powered sales training platform built with React, Vite, and TypeScript. It helps revenue teams practice high-stakes buyer conversations with realistic AI personas, voice-first sessions, and actionable performance analytics.
 
-This template is perfect for developing dashboards, web applications, CRM systems, e-commerce backends, and more. Whether you're building a small-scale admin panel or a large-scale enterprise application, Ecme is designed to be flexible and scalable.
+## Features
 
-Key Features:
-- **Responsive Layout**: Optimized for all screen sizes and devices.
-- **Dark/Light Mode**: Easily switch between light and dark themes.
-- **Configurable Themes**: Personalize colors, layouts, and more to fit your needs.
-- **Built with React + TypeScript**: Ensures robust type-checking and fast development.
-- **Multi-Locale Support**: Easily add and manage multiple languages.
-- **RTL Support**: Full Right-to-Left support for languages like Arabic or Hebrew.
-- **Tailwind Component-Based Architecture**: Reusable components to streamline your development process.
-- **API Ready**: Simple integration with any RESTful API.
+- AI buyer simulations for discovery, objection handling, and closing practice
+- Scenario library with document upload and team assignment
+- Manager dashboards, team analytics, and subscription management
+- Modern responsive UI with dark mode support
 
----
-### Demo
-Check out the [Live Demo](https://ecme-react.themenate.net/) to explore the template in action.
+## Getting Started
 
+```bash
+npm install
+npm run dev
+```
 
-### Guide
-Please visit our [Online documentation](https://ecme-react.themenate.net/guide/documentation/introduction) for detailed guides, setup instructions, and customization options.
+## Scripts
 
+- `npm run dev` — start development server
+- `npm run build` — production build
+- `npm run preview` — preview production build
+- `npm run lint` — run ESLint

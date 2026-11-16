@@ -15,29 +15,47 @@ const OauthSignIn = ({ setMessage, disableSubmit, className }: OauthSignInProps)
     const googleLogin = useGoogleLogin({
         onSuccess: async (tokenResponse) => {
             if (!disableSubmit) {
-                oAuthSignIn(async ({ redirect, onSignIn }) => {
+                oAuthSignIn(async ({ redirect, onSignIn, navigateToOnboarding }) => {
                     try {
                         const resp = await apiGoogleOauthSignIn({
                             id_token: tokenResponse.access_token,
                         })
                         if (resp) {
-                            onSignIn({ accessToken: resp.token }, {
-                                userId: resp.user.user_id,
-                                firstName: resp.user.first_name,
-                                lastName: resp.user.last_name,
-                                email: resp.user.email,
-                                phoneNumber: resp.user.phone_number,
-                                role: resp.user.role,
-                            })
-                            redirect()
+                            const needsOnboarding = await onSignIn(
+                                { accessToken: resp.token },
+                                {
+                                    userId: resp.user.user_id,
+                                    firstName: resp.user.first_name,
+                                    lastName: resp.user.last_name,
+                                    email: resp.user.email,
+                                    phoneNumber: resp.user.phone_number,
+                                    role: resp.user.role,
+                                    companyId:
+                                        (resp.user as { sales_company_id?: string; company_id?: string }).sales_company_id ||
+                                        (resp.user as { company_id?: string }).company_id,
+                                },
+                            )
+                            if (needsOnboarding) {
+                                navigateToOnboarding()
+                            } else {
+                                redirect()
+                            }
                         }
-                    } catch (error: any) {
+                    } catch (error: unknown) {
+                        const err = error as {
+                            response?: {
+                                data?: {
+                                    message?: string
+                                    error?: string
+                                    detail?: string
+                                }
+                            }
+                        }
                         setMessage?.(
-                            error?.response?.data?.message ||
-                            error?.response?.data?.error ||
-                            error?.response?.data?.detail ||
-                            error.toString() ||
-                            'Google Sign In failed',
+                            err?.response?.data?.message ||
+                            err?.response?.data?.error ||
+                            err?.response?.data?.detail ||
+                            (error instanceof Error ? error.message : 'Google Sign In failed'),
                         )
                     }
                 })

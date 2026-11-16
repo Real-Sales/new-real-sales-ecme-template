@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { SURFACE_CARD_CLASSNAME } from '@/constants/surfaceCard.constant'
 import Button from '@/components/ui/Button'
 import Tag from '@/components/ui/Tag'
 import { useAppSelector, useAppDispatch } from '@/store/hook'
@@ -18,6 +19,8 @@ type PlansProps = {
     subscriptions: ApiSubscription[]
     loading?: boolean
     currentUserSubscription?: UserSubscriptionRecord | null
+    /** When false, paid checkout is hidden (company members on a shared pot). */
+    canPurchase?: boolean
 }
 
 const billingCycleFromPaymentCycle = (cycle: PaymentCycle) =>
@@ -27,6 +30,7 @@ const Plans = ({
     subscriptions,
     loading,
     currentUserSubscription = null,
+    canPurchase = true,
 }: PlansProps) => {
     const dispatch = useAppDispatch()
     const paymentCycle = useAppSelector((state) => state.subscription.paymentCycle)
@@ -48,7 +52,10 @@ const Plans = ({
         const title = planDisplayTitle(plan)
         if (plan.is_custom || plan.plan_type.toLowerCase() === 'enterprise') {
             window.location.href =
-                'mailto:sales@realsales.com?subject=RealSales%20Enterprise%20plan'
+                'mailto:sales@saleswana.com?subject=SalesWana%20Enterprise%20plan'
+            return
+        }
+        if (!canPurchase) {
             return
         }
         dispatch(
@@ -98,7 +105,7 @@ const Plans = ({
                 const isEnterprise =
                     plan.plan_type.toLowerCase() === 'enterprise' || plan.is_custom
                 const monthlyAmount = parsePrice(plan.monthly_price)
-                const yearlyAmount = parsePrice(plan.yearly_price)
+                const yearlyAmount = parsePrice(plan.yearly_price ?? '0')
                 const isFree = monthlyAmount === 0 && yearlyAmount === 0 && !isEnterprise
 
                 const subtitle = isEnterprise
@@ -109,31 +116,32 @@ const Plans = ({
 
                 const userSub = currentUserSubscription
                 const isCurrentPlan = Boolean(
-                    userSub &&
-                        plan.subscription_id === userSub.subscription_id &&
+                    userSub?.subscription &&
+                        plan.plan_type.toLowerCase() ===
+                            userSub.subscription.plan_type.toLowerCase() &&
                         plan.billing_cycle === userSub.subscription.billing_cycle,
                 )
 
                 const ctaLabel = isCurrentPlan
                     ? 'Current plan'
-                    : isEnterprise
-                      ? 'Contact sales'
-                      : isFree
-                        ? 'Choose plan'
+                    : !canPurchase
+                      ? 'Ask owner to upgrade'
+                      : isEnterprise
+                        ? 'Contact sales'
                         : 'Choose plan'
 
                 return (
                     <div
                         key={plan.subscription_id}
                         className={classNames(
-                            'flex flex-col rounded-2xl border border-gray-200 bg-gray-100/80 p-6 dark:border-gray-700 dark:bg-gray-800/50',
+                            `flex flex-col border p-6 ${SURFACE_CARD_CLASSNAME}`,
                             plan.plan_type.toLowerCase() === 'manager' &&
                                 'ring-2 ring-primary/30',
                         )}
                     >
                         <div className="mb-4 flex flex-wrap items-center gap-2">
                             <span className="text-lg font-bold tracking-tight">
-                                RealSales
+                                SalesWana
                             </span>
                             <Tag className="rounded-full border-0 bg-amber-100 px-2.5 py-0.5 text-xs font-semibold uppercase text-amber-900 dark:bg-amber-500/20 dark:text-amber-200">
                                 Punctuate
@@ -163,7 +171,7 @@ const Plans = ({
                                             className="text-3xl font-bold heading-text"
                                             decimalScale={2}
                                             displayType="text"
-                                            prefix="$"
+                                            prefix="₹"
                                             value={
                                                 paymentCycle === 'monthly'
                                                     ? monthlyAmount
@@ -212,8 +220,18 @@ const Plans = ({
                         <div className="mt-auto pt-8">
                             <Button
                                 block
-                                disabled={isCurrentPlan}
-                                className="h-11 border-0 bg-gray-900 font-semibold uppercase tracking-wide text-amber-400 hover:bg-gray-800 dark:bg-gray-950 dark:hover:bg-black"
+                                variant={
+                                    isCurrentPlan || (!canPurchase && !isEnterprise)
+                                        ? 'default'
+                                        : 'solid'
+                                }
+                                disabled={isCurrentPlan || (!canPurchase && !isEnterprise)}
+                                className={classNames(
+                                    'h-11 font-semibold uppercase tracking-wide border-none',
+                                    isCurrentPlan || (!canPurchase && !isEnterprise)
+                                        ? '!bg-gray-50 dark:!bg-gray-800/50 !border !border-gray-200 dark:!border-white/10 !text-gray-500 dark:!text-gray-400'
+                                        : '!bg-primary hover:!bg-primary-deep dark:!bg-primary dark:hover:!bg-primary-deep !text-white',
+                                )}
                                 onClick={() => handleChoosePlan(plan)}
                             >
                                 <span className="flex items-center justify-center gap-2">

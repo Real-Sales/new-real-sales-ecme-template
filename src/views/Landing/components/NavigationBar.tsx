@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { motion, AnimatePresence } from 'framer-motion'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { TbMenu2, TbX, TbChevronDown, TbToolsKitchen2 } from 'react-icons/tb'
 import classNames from '@/utils/classNames'
 import { MODE_DARK } from '@/constants/theme.constant'
 import { useLandingTheme } from '../LandingThemeProvider'
-import { scrollToLandingSection } from '../smoothScroll'
+import { getLenis, scrollToLandingSection } from '../smoothScroll'
 import AnimatedThemeToggler from './AnimatedThemeToggler'
+import SalesWanaLogo from '@/components/template/SalesWanaLogo'
 import type { Mode } from '@/@types/theme'
 
 type NavigationProps = {
@@ -22,7 +23,7 @@ const navLinks = [
 ]
 
 const navItemClass =
-    'inline-flex items-center justify-center h-9 whitespace-nowrap rounded-full px-3.5 text-sm leading-none transition-all duration-200'
+    'relative inline-flex items-center justify-center h-9 whitespace-nowrap rounded-full px-3.5 text-sm leading-none transition-all duration-200'
 
 const industriesMenu = [
     {
@@ -32,6 +33,19 @@ const industriesMenu = [
         desc: 'Restaurant chains, distributors & beverage brands',
     },
 ]
+
+const PILL_SPRING = { type: 'spring', stiffness: 420, damping: 34, mass: 0.6 } as const
+
+/** Highlight that glides between nav items (shared layout animation). */
+const NavPill = ({ background, border }: { background: string; border: string }) => (
+    <motion.span
+        layoutId="landing-nav-pill"
+        className="absolute inset-0 rounded-full"
+        style={{ backgroundColor: background, boxShadow: `inset 0 0 0 1px ${border}` }}
+        transition={PILL_SPRING}
+    />
+)
+
 
 function getScrollTop() {
     return (
@@ -47,11 +61,17 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
     const [isSticky, setIsSticky] = useState(false)
     const [isHidden, setIsHidden] = useState(false)
     const [industriesOpen, setIndustriesOpen] = useState(false)
+    const [hoveredNav, setHoveredNav] = useState<string | null>(null)
+    const [activeNav, setActiveNav] = useState<string>('Home')
     const industriesRef = useRef<HTMLDivElement>(null)
     const lastScrollY = useRef(0)
+    const shouldReduceMotion = useReducedMotion()
     const t = useLandingTheme()
     const isDark = mode === MODE_DARK
     const navigate = useNavigate()
+    const location = useLocation()
+    const isOnLanding =
+        location.pathname === '/' || location.pathname === '/landing'
     const handleModeChange = () => toggleMode?.()
 
     useEffect(() => {
@@ -94,6 +114,35 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
     }, [menuOpen])
 
     useEffect(() => {
+        if (!isOnLanding) {
+            setActiveNav('')
+            return
+        }
+        let frame = 0
+        const update = () => {
+            frame = 0
+            const line = window.innerHeight * 0.35
+            let current = 'Home'
+            for (const link of navLinks) {
+                const el = document.querySelector(link.href)
+                if (el && el.getBoundingClientRect().top <= line) current = link.label
+            }
+            setActiveNav(current)
+        }
+        const onScroll = () => {
+            if (!frame) frame = requestAnimationFrame(update)
+        }
+        update()
+        window.addEventListener('scroll', onScroll, { passive: true })
+        document.addEventListener('scroll', onScroll, { passive: true })
+        return () => {
+            if (frame) cancelAnimationFrame(frame)
+            window.removeEventListener('scroll', onScroll)
+            document.removeEventListener('scroll', onScroll)
+        }
+    }, [isOnLanding])
+
+    useEffect(() => {
         const handleOutside = (e: MouseEvent) => {
             if (industriesRef.current && !industriesRef.current.contains(e.target as Node)) {
                 setIndustriesOpen(false)
@@ -103,12 +152,55 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
         return () => document.removeEventListener('mousedown', handleOutside)
     }, [])
 
+    useEffect(() => {
+        if (!menuOpen) return
+        const originalOverflow = document.body.style.overflow
+        document.body.style.overflow = 'hidden'
+        return () => {
+            document.body.style.overflow = originalOverflow
+        }
+    }, [menuOpen])
+
     const handleNavClick = (href: string) => {
         setMenuOpen(false)
+        if (!isOnLanding) {
+            navigate({
+                pathname: '/',
+                hash: href.replace(/^#/, ''),
+            })
+            return
+        }
         const el = document.querySelector(href) as HTMLElement | null
         if (!el) return
         scrollToLandingSection(el)
     }
+
+    const handleHomeClick = () => {
+        setMenuOpen(false)
+        if (isOnLanding) {
+            const lenis = getLenis()
+            if (lenis) {
+                lenis.scrollTo(0, { duration: 1.2 })
+            } else {
+                window.scrollTo({ top: 0, behavior: 'smooth' })
+            }
+            return
+        }
+        navigate('/')
+    }
+
+    const navColor = (label: string) =>
+        hoveredNav === label || activeNav === label ? t.text : t.isLight ? t.text : t.textMuted
+    const navItemHoverHandlers = (label: string) => ({
+        onMouseEnter: () => setHoveredNav(label),
+        onFocus: () => setHoveredNav(label),
+        onBlur: () => setHoveredNav(null),
+    })
+    const navDecor = (label: string) => (
+        <>
+            {hoveredNav === label && <NavPill background={t.surfaceHover} border={t.border} />}
+        </>
+    )
 
     return (
         <>
@@ -124,7 +216,7 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
                     opacity: isHidden && !menuOpen ? 0 : 1,
                 }}
                 transition={{
-                    duration: 0.45,
+                    duration: shouldReduceMotion ? 0.01 : 0.45,
                     ease: [0.22, 1, 0.36, 1],
                 }}
                 style={{
@@ -132,58 +224,69 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
                 }}
             >
                 <motion.nav
-                    initial={{ opacity: 0, y: -20 }}
+                    initial={shouldReduceMotion ? false : { opacity: 0, y: -20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+                    transition={{ duration: shouldReduceMotion ? 0.01 : 0.6, ease: [0.16, 1, 0.3, 1] }}
                     className={classNames(
-                        'flex flex-nowrap items-center justify-between gap-4 px-4 xl:px-5 py-2 rounded-full',
-                        'border transition-all duration-500 mx-4 w-full max-w-6xl min-h-[52px]',
+                        'relative flex flex-nowrap items-center justify-between gap-4 px-4 xl:px-5 py-2 rounded-full',
+                        'border transition-all duration-500 mx-4 w-full max-w-6xl min-h-[56px]',
                     )}
                     style={{
                         backgroundColor: isSticky ? t.navStickyBg : 'transparent',
                         borderColor: isSticky ? t.border : 'transparent',
-                        backdropFilter: isSticky ? 'blur(16px)' : undefined,
+                        backdropFilter: isSticky ? 'blur(20px) saturate(160%)' : undefined,
+                        WebkitBackdropFilter: isSticky ? 'blur(20px) saturate(160%)' : undefined,
                         boxShadow: isSticky
                             ? t.isLight
-                                ? '0 8px 32px rgba(0,0,0,0.08)'
-                                : '0 8px 32px rgba(0,0,0,0.6)'
-                            : undefined,
+                                ? '0 10px 28px rgba(17,24,39,0.08), inset 0 1px 0 rgba(255,255,255,0.7)'
+                                : '0 14px 40px rgba(0,0,0,0.48), inset 0 1px 0 rgba(255,255,255,0.07)'
+                            : 'none',
                     }}
                 >
-                    <a
-                        href="/"
-                        className="flex shrink-0 items-center justify-start min-w-[100px] xl:min-w-[110px]"
+                    <Link
+                        to="/"
+                        className="flex shrink-0 items-center justify-start"
                     >
-                        <img
-                            src={t.logoSrc}
-                            width={110}
-                            height={36}
-                            alt="RealSales"
-                            className="h-8 w-auto"
+                        <SalesWanaLogo
+                            mode={t.isLight ? 'light' : 'dark'}
+                            type="full"
+                            iconSize={48}
+                            textSize="1.75rem"
                         />
-                    </a>
+                    </Link>
 
-                    <div className="hidden lg:flex flex-1 items-center justify-center gap-1 min-w-0 px-2">
+                    <div
+                        className="hidden lg:flex flex-1 items-center justify-center gap-1 min-w-0 px-2"
+                        onMouseLeave={() => setHoveredNav(null)}
+                    >
+                        <button
+                            type="button"
+                            onClick={handleHomeClick}
+                            className={classNames(
+                                navItemClass,
+                                'shrink-0 focus-visible:outline-none focus-visible:ring-2',
+                                t.isLight ? 'font-bold' : 'font-medium',
+                            )}
+                            style={{ color: navColor('Home') }}
+                            {...navItemHoverHandlers('Home')}
+                        >
+                            {navDecor('Home')}
+                            <span className="relative">Home</span>
+                        </button>
                         {navLinks.map((link) => (
                             <button
                                 key={link.label}
                                 onClick={() => handleNavClick(link.href)}
                                 className={classNames(
                                     navItemClass,
-                                    'shrink-0',
+                                    'shrink-0 focus-visible:outline-none focus-visible:ring-2',
                                     t.isLight ? 'font-bold' : 'font-medium',
                                 )}
-                                style={{ color: t.isLight ? t.text : t.textMuted }}
-                                onMouseEnter={(e) => {
-                                    if (!t.isLight) e.currentTarget.style.color = t.text
-                                    e.currentTarget.style.backgroundColor = t.surfaceHover
-                                }}
-                                onMouseLeave={(e) => {
-                                    e.currentTarget.style.color = t.isLight ? t.text : t.textMuted
-                                    e.currentTarget.style.backgroundColor = 'transparent'
-                                }}
+                                style={{ color: navColor(link.label) }}
+                                {...navItemHoverHandlers(link.label)}
                             >
-                                {link.label}
+                                {navDecor(link.label)}
+                                <span className="relative">{link.label}</span>
                             </button>
                         ))}
 
@@ -193,24 +296,18 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
                                 onClick={() => setIndustriesOpen((v) => !v)}
                                 className={classNames(
                                     navItemClass,
-                                    'shrink-0 gap-1',
+                                    'shrink-0 gap-1 focus-visible:outline-none focus-visible:ring-2',
                                     t.isLight ? 'font-bold' : 'font-medium',
                                 )}
-                                style={{ color: industriesOpen ? t.accent : (t.isLight ? t.text : t.textMuted) }}
-                                onMouseEnter={(e) => {
-                                    if (!t.isLight) e.currentTarget.style.color = t.text
-                                    e.currentTarget.style.backgroundColor = t.surfaceHover
-                                }}
-                                onMouseLeave={(e) => {
-                                    e.currentTarget.style.color = industriesOpen ? t.accent : (t.isLight ? t.text : t.textMuted)
-                                    e.currentTarget.style.backgroundColor = 'transparent'
-                                }}
+                                style={{ color: industriesOpen ? t.accent : navColor('Industries') }}
+                                {...navItemHoverHandlers('Industries')}
                             >
-                                Industries
+                                {navDecor('Industries')}
+                                <span className="relative">Industries</span>
                                 <motion.span
                                     animate={{ rotate: industriesOpen ? 180 : 0 }}
                                     transition={{ duration: 0.2 }}
-                                    className="flex items-center"
+                                    className="relative flex items-center"
                                 >
                                     <TbChevronDown size={14} className="shrink-0" />
                                 </motion.span>
@@ -299,7 +396,7 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
                                     onModeChange={handleModeChange}
                                     variant="circle"
                                     duration={500}
-                                    className="flex shrink-0 items-center justify-center w-9 h-9 rounded-full transition-all duration-200"
+                                    className="flex shrink-0 items-center justify-center w-9 h-9 rounded-full transition-all duration-200 focus-visible:outline-none focus-visible:ring-2"
                                     style={{
                                         border: `1px solid ${t.border}`,
                                         color: t.textMuted,
@@ -310,7 +407,7 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
                                 to="/sign-in"
                                 className={classNames(
                                     navItemClass,
-                                    'shrink-0',
+                                    'shrink-0 focus-visible:outline-none focus-visible:ring-2',
                                     t.isLight ? 'font-bold' : 'font-medium',
                                 )}
                                 style={{ color: t.isLight ? t.text : t.textMuted }}
@@ -318,14 +415,17 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
                                 Sign in
                             </Link>
                             <Link
-                                to="/sign-in"
+                                to="/book-demo"
                                 className={classNames(
                                     navItemClass,
-                                    'shrink-0 px-5 font-semibold active:scale-[0.97]',
+                                    'shrink-0 px-5 font-semibold transition-all duration-200 hover:-translate-y-0.5 hover:!shadow-[0_12px_30px_rgba(12,175,96,0.35)] active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2',
                                 )}
                                 style={{
                                     backgroundColor: t.primaryBtnBg,
                                     color: t.primaryBtnText,
+                                    boxShadow: t.isLight
+                                        ? '0 10px 22px rgba(16,185,129,0.22)'
+                                        : '0 10px 26px rgba(0,0,0,0.42)',
                                 }}
                                 onMouseEnter={(e) => {
                                     e.currentTarget.style.backgroundColor = t.primaryBtnHover
@@ -340,7 +440,7 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
 
                         <button
                             type="button"
-                            className="lg:hidden flex items-center justify-center w-9 h-9 rounded-full transition-all duration-200"
+                            className="lg:hidden flex items-center justify-center w-9 h-9 rounded-full transition-all duration-200 focus-visible:outline-none focus-visible:ring-2"
                             style={{
                                 border: `1px solid ${t.border}`,
                                 color: t.textMuted,
@@ -360,7 +460,7 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        transition={{ duration: 0.2 }}
+                        transition={{ duration: shouldReduceMotion ? 0.01 : 0.2 }}
                         className="fixed inset-0 z-[60] flex flex-col backdrop-blur-2xl"
                         style={{
                             backgroundColor: t.isLight
@@ -369,15 +469,14 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
                         }}
                     >
                         <div className="flex items-center justify-between px-6 pt-6 pb-4">
-                            <a href="/">
-                                <img
-                                    src={t.logoSrc}
-                                    width={110}
-                                    height={36}
-                                    alt="RealSales"
-                                    className="h-8 w-auto"
+                            <Link to="/" onClick={() => setMenuOpen(false)}>
+                                <SalesWanaLogo
+                                    mode={t.isLight ? 'light' : 'dark'}
+                                    type="full"
+                                    iconSize={48}
+                                    textSize="1.75rem"
                                 />
-                            </a>
+                            </Link>
                             <div className="flex items-center gap-2">
                                 {toggleMode && (
                                     <AnimatedThemeToggler
@@ -394,7 +493,7 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
                                 )}
                                 <button
                                     onClick={() => setMenuOpen(false)}
-                                    className="flex items-center justify-center w-9 h-9 rounded-full"
+                                    className="flex items-center justify-center w-9 h-9 rounded-full focus-visible:outline-none focus-visible:ring-2"
                                     style={{
                                         border: `1px solid ${t.border}`,
                                         color: t.textMuted,
@@ -407,20 +506,42 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
                         </div>
 
                         <div className="flex flex-col flex-1 px-6 pt-8 gap-2">
+                            <motion.button
+                                type="button"
+                                initial={shouldReduceMotion ? false : { opacity: 0, y: 24 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 12 }}
+                                transition={{
+                                    duration: shouldReduceMotion ? 0.01 : 0.4,
+                                    delay: 0,
+                                    ease: [0.16, 1, 0.3, 1],
+                                }}
+                                onClick={handleHomeClick}
+                                className={classNames(
+                                    'text-left text-2xl py-3 transition-colors duration-200 rounded-md focus-visible:outline-none focus-visible:ring-2',
+                                    t.isLight ? 'font-bold' : 'font-semibold',
+                                )}
+                                style={{
+                                    color: t.isLight ? t.text : t.textMuted,
+                                    borderBottom: `1px solid ${t.border}`,
+                                }}
+                            >
+                                Home
+                            </motion.button>
                             {navLinks.map((link, i) => (
                                 <motion.button
                                     key={link.label}
-                                    initial={{ opacity: 0, y: 24 }}
+                                    initial={shouldReduceMotion ? false : { opacity: 0, y: 24 }}
                                     animate={{ opacity: 1, y: 0 }}
-                                    exit={{ opacity: 0, y: 12 }}
+                                    exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 12 }}
                                     transition={{
-                                        duration: 0.4,
-                                        delay: i * 0.05,
+                                        duration: shouldReduceMotion ? 0.01 : 0.4,
+                                        delay: shouldReduceMotion ? 0 : (i + 1) * 0.05,
                                         ease: [0.16, 1, 0.3, 1],
                                     }}
                                     onClick={() => handleNavClick(link.href)}
                                     className={classNames(
-                                        'text-left text-2xl py-3 transition-colors duration-200',
+                                        'text-left text-2xl py-3 transition-colors duration-200 rounded-md focus-visible:outline-none focus-visible:ring-2',
                                         t.isLight ? 'font-bold' : 'font-semibold',
                                     )}
                                     style={{
@@ -436,7 +557,7 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
                                 initial={{ opacity: 0, y: 24 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0, y: 12 }}
-                                transition={{ duration: 0.4, delay: navLinks.length * 0.05, ease: [0.16, 1, 0.3, 1] }}
+                                transition={{ duration: 0.4, delay: (navLinks.length + 1) * 0.05, ease: [0.16, 1, 0.3, 1] }}
                                 style={{ borderBottom: `1px solid ${t.border}` }}
                             >
                                 <p
@@ -475,16 +596,16 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
                         </div>
 
                         <motion.div
-                            initial={{ opacity: 0, y: 20 }}
+                            initial={shouldReduceMotion ? false : { opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0 }}
-                            transition={{ duration: 0.4, delay: 0.25 }}
+                            transition={{ duration: shouldReduceMotion ? 0.01 : 0.4, delay: shouldReduceMotion ? 0 : 0.25 }}
                             className="px-6 pb-12 flex flex-col gap-3"
                         >
                             <Link
                                 to="/sign-in"
                                 onClick={() => setMenuOpen(false)}
-                                className="flex items-center justify-center py-3.5 text-sm font-semibold rounded-full transition-all duration-200"
+                                className="flex items-center justify-center py-3.5 text-sm font-semibold rounded-full transition-all duration-200 focus-visible:outline-none focus-visible:ring-2"
                                 style={{
                                     color: t.textMuted,
                                     border: `1px solid ${t.border}`,
@@ -493,9 +614,9 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
                                 Sign in
                             </Link>
                             <Link
-                                to="/sign-in"
+                                to="/book-demo"
                                 onClick={() => setMenuOpen(false)}
-                                className="flex items-center justify-center py-3.5 text-sm font-semibold rounded-full transition-all duration-200 active:scale-[0.98]"
+                                className="flex items-center justify-center py-3.5 text-sm font-semibold rounded-full transition-all duration-200 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2"
                                 style={{
                                     backgroundColor: t.primaryBtnBg,
                                     color: t.primaryBtnText,

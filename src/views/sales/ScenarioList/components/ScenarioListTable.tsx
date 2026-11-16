@@ -1,5 +1,4 @@
 import { useCallback, useMemo, useState } from 'react'
-import Badge from '@/components/ui/Badge'
 import Tooltip from '@/components/ui/Tooltip'
 import DataTable from '@/components/shared/DataTable'
 import Progress from '@/components/ui/Progress'
@@ -12,40 +11,10 @@ import dayjs from 'dayjs'
 import type { ColumnDef } from '@/components/shared/DataTable'
 import type { Scenario } from '../types'
 
-const statusColor: Record<string, string> = {
-    active: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
-    inactive: 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-400',
-}
-
-const statusLabel: Record<string, string> = {
-    active: 'Active',
-    inactive: 'Inactive',
-}
-
 const getDerivedStatus = (row: Scenario) =>
     row.persona?.status_active && row.mode?.status_active ? 'active' : 'inactive'
 
-function sessionStatusBadgeClass(status: string) {
-    const s = status.toLowerCase()
-    if (s === 'completed') {
-        return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-    }
-    if (s === 'active') {
-        return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
-    }
-    if (s === 'pending') {
-        return 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300'
-    }
-    if (s === 'abandoned') {
-        return 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-400'
-    }
-    if (s === 'expired') {
-        return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
-    }
-    return 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300'
-}
-
-const ActionColumn = ({ 
+const ActionColumn = ({
     row, 
     onDelete,
     onEdit,
@@ -112,9 +81,13 @@ type ScenarioListTableProps = {
     onPaginationChange: (page: number) => void
     onSelectChange: (value: number) => void
     variant?: 'manager' | 'salesRep'
+    getDivisionName?: (scenario: Scenario) => string
+    /** Session currently validating / starting (disables Start / Resume). */
+    startingSessionId?: string | null
     /** Start / Resume — navigate to existing session (ephemeral token + chat_history). */
-    onSalesRepOpenSession?: (scenario: Scenario) => void
+    onSalesRepOpenSession?: (scenario: Scenario) => void | Promise<void>
     onSalesRepViewReport?: (scenario: Scenario) => void
+    onSort?: (sort: { key: string | number; order: 'asc' | 'desc' | '' }) => void
 }
 
 const ScenarioListTable = ({
@@ -131,8 +104,11 @@ const ScenarioListTable = ({
     onPaginationChange,
     onSelectChange,
     variant = 'manager',
+    getDivisionName,
+    startingSessionId = null,
     onSalesRepOpenSession,
     onSalesRepViewReport,
+    onSort,
 }: ScenarioListTableProps) => {
     const [deleteConfirmationOpen, setDeleteConfirmationOpen] = useState(false)
     const [toDeleteScenario, setToDeleteScenario] = useState<Scenario | null>(null)
@@ -160,7 +136,7 @@ const ScenarioListTable = ({
             {
                 header: 'Title',
                 accessorKey: 'title',
-                enableSorting: false,
+                enableSorting: true,
                 cell: (props) => {
                     const row = props.row.original
                     const isInactive = getDerivedStatus(row) === 'inactive'
@@ -179,18 +155,40 @@ const ScenarioListTable = ({
             },
             {
                 header: 'Type',
-                accessorKey: 'creator_role',
+                accessorKey: 'mode',
                 enableSorting: false,
                 cell: (props) => {
                     const row = props.row.original
-                    const isSystem = row.creator_role === 'super_admin'
-                    return isSystem ? (
-                        <Badge
-                            innerClass="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 px-2 py-0.5 text-xs font-medium"
-                            content="System"
-                        />
-                    ) : (
-                        <span className="text-gray-500 dark:text-gray-400">—</span>
+                    const isInactive = getDerivedStatus(row) === 'inactive'
+                    return (
+                        <span
+                            className={classNames(
+                                'capitalize font-semibold',
+                                isInactive && 'text-gray-500 dark:text-gray-500',
+                            )}
+                        >
+                            {row.mode?.name || '—'}
+                        </span>
+                    )
+                },
+            },
+            {
+                header: 'Division',
+                id: 'division',
+                enableSorting: false,
+                cell: (props) => {
+                    const row = props.row.original
+                    const isInactive = getDerivedStatus(row) === 'inactive'
+                    const name = getDivisionName?.(row)?.trim() || '—'
+                    return (
+                        <span
+                            className={classNames(
+                                'font-semibold',
+                                isInactive && 'text-gray-500 dark:text-gray-500',
+                            )}
+                        >
+                            {name}
+                        </span>
                     )
                 },
             },
@@ -237,7 +235,7 @@ const ScenarioListTable = ({
             {
                 header: 'Deadline',
                 accessorKey: 'time_limit_days',
-                enableSorting: false,
+                enableSorting: true,
                 cell: (props) => {
                     const { time_limit_days } = props.row.original
                     const isInactive = getDerivedStatus(props.row.original) === 'inactive'
@@ -252,23 +250,9 @@ const ScenarioListTable = ({
                 },
             },
             {
-                header: 'Status',
-                accessorKey: 'status',
-                enableSorting: false,
-                cell: (props) => {
-                    const status = getDerivedStatus(props.row.original)
-                    return (
-                        <Badge
-                            innerClass={`${statusColor[status]} px-2 py-0.5 text-xs font-medium`}
-                            content={statusLabel[status]}
-                        />
-                    )
-                },
-            },
-            {
                 header: 'Created',
                 accessorKey: 'created_at',
-                enableSorting: false,
+                enableSorting: true,
                 cell: (props) => {
                     const row = props.row.original
                     const isInactive = getDerivedStatus(row) === 'inactive'
@@ -296,7 +280,7 @@ const ScenarioListTable = ({
                 ),
             },
         ],
-        [handleDelete, onEdit, onShare, onRowClick],
+        [handleDelete, onEdit, onShare, onRowClick, getDivisionName],
     )
 
     const salesRepColumns: ColumnDef<Scenario>[] = useMemo(
@@ -317,24 +301,6 @@ const ScenarioListTable = ({
                         >
                             {row.title || '—'}
                         </span>
-                    )
-                },
-            },
-            {
-                header: 'Session',
-                accessorKey: 'session_status',
-                enableSorting: false,
-                cell: (props) => {
-                    const row = props.row.original
-                    if (!row.session_status) {
-                        return <span className="text-gray-500">—</span>
-                    }
-                    const label = row.session_status.replace(/_/g, ' ')
-                    return (
-                        <Badge
-                            innerClass={`${sessionStatusBadgeClass(row.session_status)} px-2 py-0.5 text-xs font-medium capitalize`}
-                            content={label}
-                        />
                     )
                 },
             },
@@ -383,11 +349,12 @@ const ScenarioListTable = ({
             },
             {
                 header: 'Created',
-                accessorKey: 'created_at',
+                id: 'assigned_at',
+                accessorFn: (row) => row.assigned_at ?? row.created_at,
                 enableSorting: false,
                 cell: (props) => (
                     <span className="font-semibold">
-                        {dayjs(props.row.original.created_at).format('DD/MM/YYYY')}
+                        {dayjs(props.row.original.assigned_at ?? props.row.original.created_at).format('DD/MM/YYYY')}
                     </span>
                 ),
             },
@@ -427,13 +394,16 @@ const ScenarioListTable = ({
                         )
                     }
 
+                    const isStarting = Boolean(sid && startingSessionId === sid)
+
                     if (st === 'pending') {
                         return (
                             <Button
                                 size="xs"
                                 variant="solid"
                                 className="h-8 min-w-[5.5rem] bg-primary hover:bg-primary-deep text-white border-none gap-1"
-                                disabled={!sid}
+                                disabled={!sid || Boolean(startingSessionId)}
+                                loading={isStarting}
                                 icon={<TbPlayerPlay className="text-sm" />}
                                 onClick={() => sid && onSalesRepOpenSession?.(row)}
                             >
@@ -448,7 +418,8 @@ const ScenarioListTable = ({
                                 size="xs"
                                 variant="solid"
                                 className="h-8 min-w-[5.5rem] bg-primary hover:bg-primary-deep text-white border-none gap-1"
-                                disabled={!sid}
+                                disabled={!sid || Boolean(startingSessionId)}
+                                loading={isStarting}
                                 icon={<TbRefresh className="text-sm" />}
                                 onClick={() => sid && onSalesRepOpenSession?.(row)}
                             >
@@ -463,6 +434,8 @@ const ScenarioListTable = ({
                                 size="xs"
                                 variant="solid"
                                 className="h-8 min-w-[5.5rem] bg-primary hover:bg-primary-deep text-white border-none gap-1"
+                                disabled={Boolean(startingSessionId)}
+                                loading={isStarting}
                                 icon={<TbPlayerPlay className="text-sm" />}
                                 onClick={() => onSalesRepOpenSession?.(row)}
                             >
@@ -475,7 +448,7 @@ const ScenarioListTable = ({
                 },
             },
         ],
-        [onRowClick, onSalesRepOpenSession, onSalesRepViewReport],
+        [onRowClick, onSalesRepOpenSession, onSalesRepViewReport, startingSessionId],
     )
 
     const columns = variant === 'salesRep' ? salesRepColumns : managerColumns
@@ -496,6 +469,7 @@ const ScenarioListTable = ({
                 pagingData={pagingData}
                 onPaginationChange={onPaginationChange}
                 onSelectChange={onSelectChange}
+                onSort={onSort}
             />
             {variant === 'manager' && (
                 <ConfirmDialog

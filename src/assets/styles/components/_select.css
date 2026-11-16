@@ -63,6 +63,26 @@
   .select-menu-list,
   .select__menu-list {
     @apply !bg-white dark:!bg-gray-900;
+    overflow-x: hidden !important;
+
+    /* Thin custom scrollbar */
+    scrollbar-width: thin;
+    scrollbar-color: rgba(156, 163, 175, 0.4) transparent;
+
+    &::-webkit-scrollbar {
+      width: 4px;
+      height: 0px;
+    }
+    &::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    &::-webkit-scrollbar-thumb {
+      background-color: rgba(156, 163, 175, 0.4);
+      border-radius: 9999px;
+    }
+    &::-webkit-scrollbar-thumb:hover {
+      background-color: rgba(156, 163, 175, 0.7);
+    }
   }
 
   .select-option {

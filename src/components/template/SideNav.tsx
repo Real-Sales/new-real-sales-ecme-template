@@ -16,6 +16,7 @@ import {
 } from '@/constants/theme.constant'
 import type { Mode } from '@/@types/theme'
 
+
 type SideNavProps = {
     translationSetup?: boolean
     background?: boolean
@@ -69,7 +70,10 @@ const SideNav = ({
                 style={{ height: HEADER_HEIGHT }}
             >
                 <Logo
-                    imgClass="max-h-10"
+                    imgClass="max-h-12"
+                    iconSize={46}
+                    textSize="1.5rem"
+                    logoWidth={46}
                     mode={mode || defaultMode}
                     type={sideNavCollapse ? 'streamline' : 'full'}
                     className={classNames(
@@ -80,23 +84,18 @@ const SideNav = ({
                     )}
                 />
             </Link>
-            <div className={classNames('side-nav-content', contentClass, 'flex flex-col flex-1 min-h-0 justify-between')}>
-                <div className="flex-1 min-h-0 overflow-hidden">
-                    <ScrollBar style={{ height: '100%', maxHeight: 'calc(100vh - 120px)' }} direction={direction}>
-                        <VerticalMenuContent
-                            collapsed={sideNavCollapse}
-                            navigationTree={navigationTree}
-                            routeKey={currentRouteKey}
-                            direction={direction}
-                            translationSetup={translationSetup}
-                            userAuthority={userAuthority || []}
-                            forceDarkCards
-                        />
-                       
-                    </ScrollBar>
-                    
-                </div>
-                
+            <div className={classNames('side-nav-content', contentClass)}>
+                <ScrollBar style={{ height: '100%' }} direction={direction}>
+                    <VerticalMenuContent
+                        collapsed={sideNavCollapse}
+                        navigationTree={navigationTree}
+                        routeKey={currentRouteKey}
+                        direction={direction}
+                        translationSetup={translationSetup}
+                        userAuthority={userAuthority || []}
+                        forceDarkCards
+                    />
+                </ScrollBar>
             </div>
         </div>
     )

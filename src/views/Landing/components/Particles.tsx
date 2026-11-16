@@ -14,6 +14,7 @@ interface ParticlesProps {
     cameraDistance?: number
     disableRotation?: boolean
     pixelRatio?: number
+    lightMode?: boolean
     className?: string
 }
 
@@ -70,6 +71,10 @@ const vertex = /* glsl */ `
     } else {
       gl_PointSize = (uBaseSize * (1.0 + uSizeRandomness * (random.x - 0.5))) / length(mvPos.xyz);
     }
+
+    // Gentle per-particle "breathing": randomized speed + phase so they desync.
+    float sizePulse = 1.0 + 0.35 * sin(uTime * (3.0 + random.w * 6.0) + random.x * 6.2831);
+    gl_PointSize *= sizePulse;
     
     gl_Position = projectionMatrix * mvPos;
   }
@@ -80,21 +85,44 @@ const fragment = /* glsl */ `
   
   uniform float uTime;
   uniform float uAlphaParticles;
+  uniform float uLightMode;
   varying vec4 vRandom;
   varying vec3 vColor;
   
   void main() {
     vec2 uv = gl_PointCoord.xy;
     float d = length(uv - vec2(0.5));
-    
+
+    // Subtle per-particle color shimmer.
+    vec3 shimmer = vColor + 0.2 * sin(uv.yxx + uTime + vRandom.y * 6.28);
+
+    // Per-particle desynced pulse (random speed + phase).
+    float pulse = 0.55 + 0.45 * sin(uTime * (4.0 + vRandom.z * 9.0) + vRandom.x * 6.2831);
+
     if(uAlphaParticles < 0.5) {
       if(d > 0.5) {
         discard;
       }
-      gl_FragColor = vec4(vColor + 0.2 * sin(uv.yxx + uTime + vRandom.y * 6.28), 1.0);
+      gl_FragColor = vec4(shimmer, 1.0);
+    } else if (uLightMode > 0.5) {
+      // Light background: crisp, saturated dots with a tight edge
+      // (wide soft halos read as blur on white).
+      if (d > 0.5) {
+        discard;
+      }
+      float disc = 1.0 - smoothstep(0.46, 0.5, d);
+      float corePulse = 0.72 + 0.28 * sin(uTime * (4.0 + vRandom.z * 9.0) + vRandom.x * 6.2831);
+      vec3 col = vColor * 0.8;
+      float alpha = disc * corePulse;
+      gl_FragColor = vec4(col, alpha);
     } else {
-      float circle = smoothstep(0.5, 0.4, d) * 0.8;
-      gl_FragColor = vec4(vColor + 0.2 * sin(uv.yxx + uTime + vRandom.y * 6.28), circle);
+      // Dark background: glowing particle with bright core + soft pulsing halo.
+      float core = smoothstep(0.5, 0.0, d);
+      float halo = pow(core, 1.8);
+      float bright = smoothstep(0.22, 0.0, d);
+      vec3 col = shimmer + bright * 0.6;
+      float alpha = clamp(halo * pulse + bright * 0.35, 0.0, 1.0);
+      gl_FragColor = vec4(col, alpha);
     }
   }
 `
@@ -112,6 +140,7 @@ const Particles: FC<ParticlesProps> = ({
     cameraDistance = 20,
     disableRotation = false,
     pixelRatio = 1,
+    lightMode = false,
     className,
 }) => {
     const containerRef = useRef<HTMLDivElement>(null)
@@ -189,6 +218,7 @@ const Particles: FC<ParticlesProps> = ({
                 uBaseSize: { value: particleBaseSize * pixelRatio },
                 uSizeRandomness: { value: sizeRandomness },
                 uAlphaParticles: { value: alphaParticles ? 1 : 0 },
+                uLightMode: { value: lightMode ? 1 : 0 },
             },
             transparent: true,
             depthTest: false,
@@ -250,6 +280,7 @@ const Particles: FC<ParticlesProps> = ({
         cameraDistance,
         disableRotation,
         pixelRatio,
+        lightMode,
         particleColors?.join(','),
     ])
 

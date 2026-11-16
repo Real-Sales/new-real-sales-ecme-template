@@ -15,6 +15,7 @@ export type UserState = {
     companyId?: string
     companyName?: string
     industry?: string
+    industryId?: string
     industryProducts?: string[]
 }
 
@@ -32,6 +33,7 @@ const initialState: UserState = {
     companyId: '',
     companyName: '',
     industry: '',
+    industryId: '',
     industryProducts: [],
 }
 
@@ -53,6 +55,7 @@ const userSlice = createSlice({
             state.companyId = action.payload?.companyId
             state.companyName = action.payload?.companyName
             state.industry = action.payload?.industry
+            state.industryId = action.payload?.industryId
             state.industryProducts = action.payload?.industryProducts
         },
         setOnboardingComplete(

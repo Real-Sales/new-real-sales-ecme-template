@@ -1,0 +1,29 @@
+# https://www.saleswana.com/robots.txt
+User-agent: *
+Allow: /
+Allow: /landing
+Allow: /about
+Allow: /faqs
+Allow: /book-demo
+Allow: /industries/
+Allow: /sign-in
+Allow: /sign-up
+Allow: /signup
+
+# App / authenticated surfaces — no value for organic search
+Disallow: /overview
+Disallow: /onboarding
+Disallow: /persona-selection
+Disallow: /audio-visualizer
+Disallow: /scenarios
+Disallow: /members
+Disallow: /teams
+Disallow: /company
+Disallow: /settings
+Disallow: /subscription
+Disallow: /performance
+Disallow: /leaderboard
+Disallow: /profile
+Disallow: /api/
+
+Sitemap: https://www.saleswana.com/sitemap.xml

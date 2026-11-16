@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Card, Badge, Spinner, Input, Button, toast, Notification } from '@/components/ui'
 import Container from '@/components/shared/Container'
 import Avatar from '@/components/ui/Avatar'
 import DataTable from '@/components/shared/DataTable'
-import { TbSearch, TbUsers, TbUserCheck, TbUserPlus, TbArrowsExchange, TbBuildingCommunity } from 'react-icons/tb'
+import { TbSearch, TbUsers, TbUserCheck, TbUserPlus } from 'react-icons/tb'
+import { HiPencil } from 'react-icons/hi'
 import { injectReducer } from '@/store'
 import { useAppSelector as useAuthSelector } from '@/store/hook'
 import companyMembersReducer, {
@@ -11,12 +13,23 @@ import companyMembersReducer, {
     useAppDispatch,
     fetchCompanyMembers,
     resetNotification,
+    updateMemberRow,
 } from './store'
-import salesDivisionsReducer, { resetSalesDivisionsData } from '@/store/slices/salesDivisions'
-import teamsReducer, { resetTeamsData } from '@/store/slices/teams'
-import AssignTeamDialog from './components/AssignTeamDialog'
-import type { CompanyMemberRow } from './types'
+import salesDivisionsReducer, { fetchSalesDivisions } from '@/store/slices/salesDivisions'
+import teamsReducer, { fetchTeams } from '@/store/slices/teams'
+import { setCurrentView } from '@/views/profile/Settings/store/settingsSlice'
+import EditMemberDrawer from './components/EditMemberDrawer'
+import {
+    formatMemberDivisions,
+    formatMemberTeams,
+    getMemberDivisions,
+    type CompanyMemberRow,
+} from './types'
 import type { ColumnDef } from '@/components/shared/DataTable'
+import { canManageCompanyMembers } from './memberRoleAccess'
+import { canSendTeamInvite } from '@/utils/inviteAccess'
+import { SEARCH_INPUT_CLASSNAME } from '@/constants/searchInput.constant'
+import { SURFACE_CARD_CLASSNAME } from '@/constants/surfaceCard.constant'
 
 injectReducer('companyMembers', companyMembersReducer)
 injectReducer('salesDivisions', salesDivisionsReducer)
@@ -28,35 +41,13 @@ const getInitials = (firstName: string, lastName: string) =>
 const formatRole = (role?: string) =>
     role ? role.replace(/_/g, ' ') : '—'
 
-const getMemberAction = (row: CompanyMemberRow) => {
-    const hasDivision = !!(row.sales_division_id || row.sales_division_name)
-    const hasTeam = !!row.team_id
-
-    if (!hasDivision) {
-        return {
-            label: 'Assign division',
-            variant: 'solid' as const,
-            icon: <TbBuildingCommunity className="text-sm" />,
-        }
-    }
-    if (!hasTeam) {
-        return {
-            label: 'Assign team',
-            variant: 'solid' as const,
-            icon: <TbUserPlus className="text-sm" />,
-        }
-    }
-    return {
-        label: 'Change team',
-        variant: 'default' as const,
-        icon: <TbArrowsExchange className="text-sm" />,
-    }
-}
-
 const MemberList = () => {
     const dispatch = useAppDispatch()
+    const navigate = useNavigate()
     const userId = useAuthSelector((state) => state.auth.user.userId)
+    const userRole = useAuthSelector((state) => state.auth.user.role)
     const companyIdFromAuth = useAuthSelector((state) => state.auth.user.companyId)
+    const canInvite = canSendTeamInvite(userRole)
 
     const {
         membersData,
@@ -64,6 +55,7 @@ const MemberList = () => {
         initialized,
         companyName,
         salesCompanyId,
+        companyManagerId,
         totalMembers,
         activeMembers,
         error,
@@ -75,6 +67,7 @@ const MemberList = () => {
                 initialized: false,
                 companyName: '',
                 salesCompanyId: null,
+                companyManagerId: null,
                 totalMembers: 0,
                 activeMembers: 0,
                 membersData: [],
@@ -86,42 +79,75 @@ const MemberList = () => {
     const [searchTerm, setSearchTerm] = useState('')
     const [currentPage, setCurrentPage] = useState(1)
     const [pageSize, setPageSize] = useState(10)
-    const [assignDialogOpen, setAssignDialogOpen] = useState(false)
-    const [memberToAssign, setMemberToAssign] = useState<CompanyMemberRow | null>(
-        null,
+    const [sortConfig, setSortConfig] = useState<{
+        key: string
+        order: 'asc' | 'desc' | ''
+    }>({ key: '', order: '' })
+    const [editDrawerOpen, setEditDrawerOpen] = useState(false)
+    const [editMemberId, setEditMemberId] = useState<string | null>(null)
+
+    const divisionsInitialized = useAppSelector(
+        (state) => state.salesDivisions?.data?.initialized ?? false,
+    )
+    const divisionsLoading = useAppSelector(
+        (state) => state.salesDivisions?.data?.divisionsLoading ?? false,
+    )
+    const teamsInitialized = useAppSelector(
+        (state) => state.teams?.data?.initialized ?? false,
+    )
+    const teamsLoading = useAppSelector(
+        (state) => state.teams?.data?.teamsLoading ?? false,
     )
 
-    const openAssignDialog = (member: CompanyMemberRow) => {
-        setMemberToAssign(member)
-        setAssignDialogOpen(true)
+    const memberToEdit = useMemo(
+        () =>
+            editMemberId
+                ? membersData.find((m) => m.user_id === editMemberId) ?? null
+                : null,
+        [membersData, editMemberId],
+    )
+
+    const openEditDrawer = (member: CompanyMemberRow) => {
+        setEditMemberId(member.user_id)
+        setEditDrawerOpen(true)
     }
 
-    const closeAssignDialog = () => {
-        setAssignDialogOpen(false)
-        setMemberToAssign(null)
+    const closeEditDrawer = () => {
+        setEditDrawerOpen(false)
+        setEditMemberId(null)
     }
 
-    const handleAssignSuccess = () => {
+    const handleMemberUpdated = (updated: CompanyMemberRow) => {
+        dispatch(updateMemberRow(updated))
+    }
+
+    useEffect(() => {
+        if (!userId && !companyIdFromAuth) return
+        if (initialized || membersLoading) return
         dispatch(
             fetchCompanyMembers({
                 userId,
                 companyId: companyIdFromAuth,
             }),
         )
-        dispatch(resetSalesDivisionsData())
-        dispatch(resetTeamsData())
-    }
+    }, [dispatch, userId, companyIdFromAuth, initialized, membersLoading])
 
     useEffect(() => {
-        if ((userId || companyIdFromAuth) && !initialized && !membersLoading) {
-            dispatch(
-                fetchCompanyMembers({
-                    userId,
-                    companyId: companyIdFromAuth,
-                }),
-            )
+        if (!salesCompanyId) return
+        if (!divisionsInitialized && !divisionsLoading) {
+            dispatch(fetchSalesDivisions(salesCompanyId))
         }
-    }, [dispatch, userId, companyIdFromAuth, initialized, membersLoading])
+        if (!teamsInitialized && !teamsLoading) {
+            dispatch(fetchTeams(salesCompanyId))
+        }
+    }, [
+        dispatch,
+        salesCompanyId,
+        divisionsInitialized,
+        divisionsLoading,
+        teamsInitialized,
+        teamsLoading,
+    ])
 
     useEffect(() => {
         if (notification) {
@@ -142,29 +168,75 @@ const MemberList = () => {
         }
     }, [notification, dispatch])
 
+    const canManageMembers = canManageCompanyMembers(userRole)
+
     const filteredMembers = useMemo(() => {
         const q = searchTerm.trim().toLowerCase()
-        if (!q) return membersData
-        return membersData.filter((m) => {
+        const matchesSearch = (m: CompanyMemberRow) => {
+            if (!q) return true
             const fullName = `${m.first_name} ${m.last_name}`.toLowerCase()
             return (
                 fullName.includes(q) ||
                 m.email.toLowerCase().includes(q) ||
                 formatRole(m.role?.name).toLowerCase().includes(q) ||
-                (m.team_name?.toLowerCase().includes(q) ?? false) ||
-                (m.sales_division_name?.toLowerCase().includes(q) ?? false)
+                formatMemberTeams(m).toLowerCase().includes(q) ||
+                formatMemberDivisions(m).toLowerCase().includes(q) ||
+                (m.teams?.some((t) => t.team_name?.toLowerCase().includes(q)) ??
+                    false)
             )
-        })
-    }, [membersData, searchTerm])
+        }
+
+        const sortValue = (m: CompanyMemberRow): string | number => {
+            switch (sortConfig.key) {
+                case 'member_name':
+                    return `${m.first_name} ${m.last_name}`.toLowerCase()
+                case 'teams':
+                    return formatMemberTeams(m).toLowerCase()
+                case 'divisions':
+                    return formatMemberDivisions(m).toLowerCase()
+                case 'sales_division_name':
+                    return (m.sales_division_name ?? '').toLowerCase()
+                case 'credits_used':
+                    return m.credits_used
+                case 'team_name':
+                    return (m.team_name ?? '').toLowerCase()
+                default:
+                    return ''
+            }
+        }
+
+        // Always pin the logged-in "You" row to the top, even if search would hide it.
+        const me = userId
+            ? membersData.find((m) => m.user_id === userId)
+            : undefined
+        const others = membersData.filter(
+            (m) => m.user_id !== userId && matchesSearch(m),
+        )
+
+        if (sortConfig.key && sortConfig.order) {
+            others.sort((a, b) => {
+                const aVal = sortValue(a)
+                const bVal = sortValue(b)
+                if (aVal < bVal) return sortConfig.order === 'asc' ? -1 : 1
+                if (aVal > bVal) return sortConfig.order === 'asc' ? 1 : -1
+                return 0
+            })
+        }
+
+        return me ? [me, ...others] : others
+    }, [membersData, searchTerm, userId, sortConfig])
 
     const columns: ColumnDef<CompanyMemberRow>[] = useMemo(
-        () => [
+        () => {
+            const baseColumns: ColumnDef<CompanyMemberRow>[] = [
             {
                 header: 'Member',
-                accessorKey: 'first_name',
+                id: 'member_name',
+                accessorFn: (row) => `${row.first_name} ${row.last_name}`,
                 enableSorting: true,
                 cell: (props) => {
                     const row = props.row.original
+                    const isMe = row.user_id === userId
                     return (
                         <div className="flex items-center gap-3">
                             <Avatar
@@ -175,9 +247,16 @@ const MemberList = () => {
                                 {getInitials(row.first_name, row.last_name)}
                             </Avatar>
                             <div>
-                                <p className="font-semibold text-gray-900 dark:text-white">
-                                    {row.first_name} {row.last_name}
-                                </p>
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                    <p className="font-semibold text-gray-900 dark:text-white">
+                                        {row.first_name} {row.last_name}
+                                    </p>
+                                    {isMe && (
+                                        <span className="text-[9px] font-bold uppercase tracking-wide text-primary bg-primary/10 rounded-full px-1.5 py-0.5 shrink-0">
+                                            You
+                                        </span>
+                                    )}
+                                </div>
                                 <p className="text-xs text-gray-500 dark:text-gray-400">
                                     {row.email}
                                 </p>
@@ -200,10 +279,31 @@ const MemberList = () => {
                 },
             },
             {
-                header: 'Team',
-                accessorKey: 'team_name',
-                enableSorting: false,
+                header: 'Teams',
+                id: 'teams',
+                accessorFn: (row) => formatMemberTeams(row),
+                enableSorting: true,
                 cell: (props) => {
+                    const teams = props.row.original.teams
+                    if (teams?.length) {
+                        return (
+                            <div className="flex flex-wrap gap-1 max-w-[220px]">
+                                {teams.map((t) => (
+                                    <span
+                                        key={t.team_id}
+                                        className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200"
+                                        title={
+                                            t.sales_division_name
+                                                ? `${t.team_name} · ${t.sales_division_name}`
+                                                : t.team_name
+                                        }
+                                    >
+                                        {t.team_name}
+                                    </span>
+                                ))}
+                            </div>
+                        )
+                    }
                     const name = props.row.original.team_name
                     return name ? (
                         <span className="text-sm text-gray-700 dark:text-gray-300">
@@ -215,17 +315,26 @@ const MemberList = () => {
                 },
             },
             {
-                header: 'Division',
-                accessorKey: 'sales_division_name',
-                enableSorting: false,
+                header: 'Divisions',
+                id: 'divisions',
+                accessorFn: (row) => formatMemberDivisions(row),
+                enableSorting: true,
                 cell: (props) => {
-                    const name = props.row.original.sales_division_name
-                    return name ? (
-                        <span className="text-sm text-gray-700 dark:text-gray-300">
-                            {name}
-                        </span>
-                    ) : (
-                        <span className="text-gray-400 text-sm">—</span>
+                    const divisions = getMemberDivisions(props.row.original)
+                    if (!divisions.length) {
+                        return <span className="text-gray-400 text-sm">—</span>
+                    }
+                    return (
+                        <div className="flex flex-wrap gap-1 max-w-[240px]">
+                            {divisions.map((d) => (
+                                <span
+                                    key={d.id}
+                                    className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200"
+                                >
+                                    {d.name}
+                                </span>
+                            ))}
+                        </div>
                     )
                 },
             },
@@ -248,44 +357,74 @@ const MemberList = () => {
                 },
             },
             {
+                header: 'Credits used',
+                accessorKey: 'credits_used',
+                enableSorting: true,
+                cell: (props) => (
+                    <span className="text-sm font-semibold text-gray-900 dark:text-white tabular-nums">
+                        {props.row.original.credits_used}
+                    </span>
+                ),
+            },
+            ]
+
+            if (canManageMembers) {
+                baseColumns.push({
                 header: 'Action',
                 id: 'actions',
                 enableSorting: false,
                 cell: (props) => {
                     const row = props.row.original
-                    const action = getMemberAction(row)
                     return (
                         <Button
                             size="xs"
-                            variant={action.variant}
-                            icon={action.icon}
-                            className="h-8 px-2.5 text-xs whitespace-nowrap"
-                            onClick={() => openAssignDialog(row)}
-                        >
-                            {action.label}
-                        </Button>
+                            variant="plain"
+                            icon={<HiPencil />}
+                            className="h-8 w-8 p-0"
+                            aria-label={`Edit ${row.first_name} ${row.last_name}`}
+                            onClick={() => openEditDrawer(row)}
+                        />
                     )
                 },
-            },
-        ],
-        [],
+                })
+            }
+
+            return baseColumns
+        },
+        [userId, canManageMembers],
     )
 
-    const loading = membersLoading
+    const loading = membersLoading && !initialized
     const displayError = error
 
     return (
         <div className="min-h-full">
             <Container className="pb-6 px-4">
-                <div className="mb-6">
-                    <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-                        Company Members
-                    </h1>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                        {companyName
-                            ? `All members in ${companyName}`
-                            : 'View everyone linked to your company'}
-                    </p>
+                <div className="mb-6 flex items-start justify-between gap-4" data-tour-id="company-members-page">
+                    <div className="min-w-0">
+                        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+                            Company Members
+                        </h1>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                            {companyName
+                                ? `All members in ${companyName}`
+                                : 'View everyone linked to your company'}
+                        </p>
+                    </div>
+                    {canInvite ? (
+                        <Button
+                            size="sm"
+                            variant="solid"
+                            icon={<TbUserPlus className="text-lg" />}
+                            className="shrink-0 bg-primary hover:bg-primary-deep text-neutral border-none rounded-md"
+                            onClick={() => {
+                                dispatch(setCurrentView('invites'))
+                                navigate('/profile/settings')
+                            }}
+                        >
+                            Invite Member
+                        </Button>
+                    ) : null}
                 </div>
 
                 {loading ? (
@@ -293,16 +432,16 @@ const MemberList = () => {
                         <Spinner size={40} />
                     </div>
                 ) : displayError ? (
-                    <Card className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
+                    <Card className={SURFACE_CARD_CLASSNAME}>
                         <p className="text-sm text-red-500 dark:text-red-400">
                             {displayError}
                         </p>
                     </Card>
                 ) : (
                     <>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                        <div className="grid grid-cols-2 gap-4 mb-6">
                             <Card
-                                className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 shadow-md"
+                                className={SURFACE_CARD_CLASSNAME}
                                 bodyClass="!p-4"
                             >
                                 <div className="flex items-center gap-3">
@@ -320,7 +459,7 @@ const MemberList = () => {
                                 </div>
                             </Card>
                             <Card
-                                className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 shadow-md"
+                                className={SURFACE_CARD_CLASSNAME}
                                 bodyClass="!p-4"
                             >
                                 <div className="flex items-center gap-3">
@@ -339,9 +478,10 @@ const MemberList = () => {
                             </Card>
                         </div>
 
-                        <Card className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 shadow-md">
+                        <Card className={SURFACE_CARD_CLASSNAME}>
                             <div className="mb-4">
                                 <Input
+                                    className={SEARCH_INPUT_CLASSNAME}
                                     prefix={<TbSearch className="text-lg" />}
                                     placeholder="Search by name, email, role, team, or division..."
                                     value={searchTerm}
@@ -364,18 +504,28 @@ const MemberList = () => {
                                     setPageSize(size)
                                     setCurrentPage(1)
                                 }}
+                                onSort={({ key, order }) => {
+                                    setSortConfig({
+                                        key: String(key ?? ''),
+                                        order: order || '',
+                                    })
+                                    setCurrentPage(1)
+                                }}
                             />
                         </Card>
                     </>
                 )}
             </Container>
 
-            <AssignTeamDialog
-                isOpen={assignDialogOpen}
-                member={memberToAssign}
+            <EditMemberDrawer
+                isOpen={editDrawerOpen}
+                member={memberToEdit}
                 salesCompanyId={salesCompanyId}
-                onClose={closeAssignDialog}
-                onSuccess={handleAssignSuccess}
+                companyManagerId={companyManagerId}
+                currentUserId={userId}
+                currentUserRole={userRole}
+                onClose={closeEditDrawer}
+                onUpdated={handleMemberUpdated}
             />
         </div>
     )

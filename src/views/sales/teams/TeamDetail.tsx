@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from 'react'
+import { SURFACE_CARD_CLASSNAME } from '@/constants/surfaceCard.constant'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Card, Button, Dialog, Progress, Spinner, toast, Notification } from '@/components/ui'
 import Container from '@/components/shared/Container'
@@ -10,13 +11,20 @@ import TeamScenariosSection from './components/TeamScenariosSection'
 import { allSalesReps } from './mockTeamData'
 import { HiArrowLeft } from 'react-icons/hi'
 import { TbUserPlus, TbUsers } from 'react-icons/tb'
+import { injectReducer } from '@/store'
+import store from '@/store'
 import { apiDeleteTeamMember } from '@/services/TeamService'
-import {
-    useAppSelector,
-    useAppDispatch,
+import teamsReducer, {
     fetchTeamPerformance,
+    removeTeamMemberLocally,
 } from '@/store/slices/teams'
+import companyMembersReducer from '@/views/sales/members/store'
+import { useAppSelector, useAppDispatch } from '@/store/hook'
+import { syncAfterTeamMemberChange } from '@/utils/syncMemberAssignmentStores'
 import dayjs from 'dayjs'
+
+injectReducer('teams', teamsReducer)
+injectReducer('companyMembers', companyMembersReducer)
 
 type TeamMember = {
     id: string
@@ -57,6 +65,8 @@ const TeamDetail = () => {
     const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null)
     const [currentPage, setCurrentPage] = useState(1)
     const [pageSize, setPageSize] = useState(10)
+    const [sortConfig, setSortConfig] = useState<{ key: string; order: 'asc' | 'desc' | '' }>({ key: '', order: '' })
+    const [removingMemberId, setRemovingMemberId] = useState<string | null>(null)
 
     const {
         teamPerformance,
@@ -76,19 +86,31 @@ const TeamDetail = () => {
     )
 
     const data = id ? teamPerformance[id] : null
-    const isLoading = performanceLoading
+    const isLoading = performanceLoading && !data
 
     useEffect(() => {
-        if (id && !teamPerformance[id]) {
-            dispatch(fetchTeamPerformance(id))
-        }
-    }, [id, dispatch, teamPerformance])
-
-    const fetchTeamData = () => {
         if (id) {
             dispatch(fetchTeamPerformance(id))
         }
+    }, [id, dispatch])
+
+    const companyId = useAppSelector((state) =>
+        typeof state.auth.user.companyId === 'string'
+            ? state.auth.user.companyId
+            : undefined,
+    )
+    const userId = useAppSelector((state) => state.auth.user.userId)
+
+    const refreshTeamMembers = async () => {
+        await syncAfterTeamMemberChange(dispatch, () => store.getState(), {
+            teamId: id,
+            salesCompanyId: data?.sales_company_id,
+            userId,
+            companyId,
+        })
     }
+
+    const fetchTeamData = () => refreshTeamMembers()
 
     const teamMembers = useMemo(() => {
         if (!data) return []
@@ -119,13 +141,33 @@ const TeamDetail = () => {
         setCurrentPage(1)
     }
 
+    const sortedMembers = useMemo(() => {
+        if (!sortConfig.key || !sortConfig.order) return teamMembers
+        return [...teamMembers].sort((a, b) => {
+            const aVal = (a as Record<string, unknown>)[sortConfig.key]
+            const bVal = (b as Record<string, unknown>)[sortConfig.key]
+            if (typeof aVal === 'number' && typeof bVal === 'number') {
+                return sortConfig.order === 'asc' ? aVal - bVal : bVal - aVal
+            }
+            const aStr = String(aVal ?? '')
+            const bStr = String(bVal ?? '')
+            return sortConfig.order === 'asc'
+                ? aStr.localeCompare(bStr)
+                : bStr.localeCompare(aStr)
+        })
+    }, [teamMembers, sortConfig])
+
     // Calculate paginated data
     const startIndex = (currentPage - 1) * pageSize
     const endIndex = startIndex + pageSize
-    const paginatedMembers = teamMembers.slice(startIndex, endIndex)
+    const paginatedMembers = sortedMembers.slice(startIndex, endIndex)
 
     const handleBack = () => {
-        navigate('/teams')
+        navigate(
+            data?.sales_division_id
+                ? `/sales-division/${data.sales_division_id}`
+                : '/sales-division',
+        )
     }
 
     const openDialog = () => {
@@ -143,15 +185,26 @@ const TeamDetail = () => {
     }
 
     const handleRemoveMember = async (memberId: string) => {
-        if (!id) return
+        if (!id || removingMemberId) return
+        setRemovingMemberId(memberId)
         try {
             await apiDeleteTeamMember(memberId, id)
+            // Drop the row immediately; sync other slices in the background.
+            dispatch(
+                removeTeamMemberLocally({ teamId: id, userId: memberId }),
+            )
+            setRemovingMemberId(null)
             toast.push(
                 <Notification title="Success" type="success">
                     Member removed from team successfully
                 </Notification>
             )
-            fetchTeamData()
+            // Don't refetch this team list — optimistic update is source of truth.
+            void syncAfterTeamMemberChange(dispatch, () => store.getState(), {
+                salesCompanyId: data?.sales_company_id,
+                userId,
+                companyId,
+            })
         } catch (error) {
             console.error('Failed to remove member:', error)
             toast.push(
@@ -159,6 +212,7 @@ const TeamDetail = () => {
                     Failed to remove member from team
                 </Notification>
             )
+            setRemovingMemberId(null)
         }
     }
 
@@ -184,7 +238,7 @@ const TeamDetail = () => {
                         onClick={handleBack}
                         className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
                     >
-                        Back to Teams
+                        Back to Division
                     </Button>
                 </div>
 
@@ -204,7 +258,10 @@ const TeamDetail = () => {
                 </div>
 
                 {/* Team Performance Section */}
-                <Card className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 shadow-md hover:shadow-xl transition-all duration-300 mb-6">
+                <Card
+                    className={`${SURFACE_CARD_CLASSNAME} hover:shadow-md transition-shadow duration-300 mb-6`}
+                    data-tour-id="team-performance"
+                >
                     <div className="p-2">
                         <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-1">
                             Team Performance
@@ -233,7 +290,7 @@ const TeamDetail = () => {
                 </div>
 
                 {/* Team Members Section */}
-                <Card className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 shadow-md hover:shadow-xl transition-all duration-300">
+                <Card className={`${SURFACE_CARD_CLASSNAME} hover:shadow-md transition-shadow duration-300`}>
                     <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
@@ -252,6 +309,7 @@ const TeamDetail = () => {
                         <TeamMembersTable 
                             members={paginatedMembers}
                             onRemoveMember={handleRemoveMember}
+                            removingMemberId={removingMemberId}
                             onRowClick={handleRowClick}
                             pagingData={{
                                 total: teamMembers.length,
@@ -260,6 +318,10 @@ const TeamDetail = () => {
                             }}
                             onPaginationChange={handlePaginationChange}
                             onSelectChange={handleSelectChange}
+                            onSort={({ key, order }) => {
+                                setSortConfig({ key: String(key), order })
+                                setCurrentPage(1)
+                            }}
                         />
                     )}
                 </Card>
@@ -273,6 +335,7 @@ const TeamDetail = () => {
                 isOpen={dialogOpen}
                 onClose={onDialogClose}
                 onRequestClose={onDialogClose}
+                contentClassName="!bg-white dark:!bg-gray-900/60 !border-gray-200 dark:!border-white/10"
             >
                 <AddTeamMemberContent
                     salesCompanyId={data?.sales_company_id || ''}

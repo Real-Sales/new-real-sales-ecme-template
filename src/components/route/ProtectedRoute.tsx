@@ -3,12 +3,14 @@ import { REDIRECT_URL_KEY } from '@/constants/app.constant'
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '@/auth'
 import { useAppSelector } from '@/store'
+import { companyOwnerNeedsOnboarding } from '@/utils/onboarding'
+import Loading from '@/components/shared/Loading'
 
-const { unAuthenticatedEntryPath } = appConfig
+const { unAuthenticatedEntryPath, authenticatedEntryPath } = appConfig
 
 const ProtectedRoute = () => {
-    const { authenticated } = useAuth()
-    const isNewUser = useAppSelector((state) => state.auth.user.isNewUser)
+    const { authenticated, isSessionReady } = useAuth()
+    const user = useAppSelector((state) => state.auth.user)
 
     const { pathname } = useLocation()
 
@@ -24,8 +26,27 @@ const ProtectedRoute = () => {
         )
     }
 
-    if (isNewUser && pathname !== '/onboarding') {
+    // companyId is not persisted — wait for profile/company restore before
+    // deciding onboarding, otherwise the form flashes on every reload.
+    if (!isSessionReady) {
+        return (
+            <div className="flex flex-auto flex-col h-[100vh]">
+                <Loading loading={true} />
+            </div>
+        )
+    }
+
+    const mustCompleteOnboarding = companyOwnerNeedsOnboarding(
+        user.role,
+        user.companyId,
+    )
+
+    if (mustCompleteOnboarding && pathname !== '/onboarding') {
         return <Navigate replace to="/onboarding" />
+    }
+
+    if (!mustCompleteOnboarding && pathname === '/onboarding') {
+        return <Navigate replace to={authenticatedEntryPath} />
     }
 
     return <Outlet />

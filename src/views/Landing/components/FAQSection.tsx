@@ -1,14 +1,14 @@
 import { useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { TbPlus, TbMinus } from 'react-icons/tb'
 import { useLandingTheme } from '../LandingThemeProvider'
 import { SectionBadge, SectionHeading, SectionDesc } from './landingUi'
 
-const faqs = [
+export const landingFaqs = [
     {
-        question: 'How is RealSales different from role-playing with a colleague?',
+        question: 'How is SalesWana different from role-playing with a colleague?',
         answer:
-            'Colleagues avoid being too harsh, forget to stay in character, and are unavailable at 11pm before a big demo. The RealSales AI buyer is always skeptical, never breaks character, and is available on demand. It also scores your performance objectively, which no colleague can do consistently.',
+            'Colleagues avoid being too harsh, forget to stay in character, and are unavailable at 11pm before a big demo. The SalesWana AI buyer is always skeptical, never breaks character, and is available on demand. It also scores your performance objectively, which no colleague can do consistently.',
     },
     {
         question: 'What types of sales scenarios can I practice?',
@@ -38,7 +38,7 @@ const faqs = [
     {
         question: 'Can I create custom scenarios specific to my industry?',
         answer:
-            'On the Professional and Enterprise plans, yes. Upload product docs, competitive battle cards, or CRM notes and RealSales will train the AI buyer to challenge you on your actual differentiators, pricing objections, and common deal blockers.',
+            'On the Professional and Enterprise plans, yes. Upload product docs, competitive battle cards, or CRM notes and SalesWana will train the AI buyer to challenge you on your actual differentiators, pricing objections, and common deal blockers.',
     },
     {
         question: 'What integrations are currently supported?',
@@ -47,20 +47,35 @@ const faqs = [
     },
 ]
 
-const FAQItem = ({ faq, index }: { faq: (typeof faqs)[0]; index: number }) => {
-    const [open, setOpen] = useState(false)
+const FAQItem = ({
+    faq,
+    index,
+    open,
+    onToggle,
+    shouldReduceMotion,
+}: {
+    faq: (typeof landingFaqs)[0]
+    index: number
+    open: boolean
+    onToggle: () => void
+    shouldReduceMotion: boolean
+}) => {
     const t = useLandingTheme()
 
     return (
         <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={shouldReduceMotion ? false : { opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: '-40px' }}
-            transition={{ duration: 0.5, delay: index * 0.05, ease: [0.16, 1, 0.3, 1] }}
+            transition={{
+                duration: shouldReduceMotion ? 0.01 : 0.5,
+                delay: shouldReduceMotion ? 0 : index * 0.05,
+                ease: [0.16, 1, 0.3, 1],
+            }}
         >
             <button
-                onClick={() => setOpen((prev) => !prev)}
-                className="w-full flex items-center justify-between gap-4 py-5 text-left group"
+                onClick={onToggle}
+                className="w-full flex items-center justify-between gap-4 py-5 text-left group focus-visible:outline-none focus-visible:ring-2 rounded-lg"
                 aria-expanded={open}
             >
                 <span
@@ -87,7 +102,10 @@ const FAQItem = ({ faq, index }: { faq: (typeof faqs)[0]; index: number }) => {
                         initial={{ height: 0, opacity: 0 }}
                         animate={{ height: 'auto', opacity: 1 }}
                         exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                        transition={{
+                            duration: shouldReduceMotion ? 0.01 : 0.3,
+                            ease: [0.16, 1, 0.3, 1],
+                        }}
                         className="overflow-hidden"
                     >
                         <p className="text-sm leading-relaxed pb-5 max-w-2xl" style={{ color: t.textFaint }}>
@@ -104,6 +122,8 @@ const FAQItem = ({ faq, index }: { faq: (typeof faqs)[0]; index: number }) => {
 
 const FAQSection = () => {
     const t = useLandingTheme()
+    const shouldReduceMotion = useReducedMotion()
+    const [openIndex, setOpenIndex] = useState<number | null>(0)
 
     return (
         <section className="py-24 md:py-32">
@@ -123,19 +143,28 @@ const FAQSection = () => {
                         >
                             {' '}
                             <a
-                                href="mailto:hello@realsales.ai"
+                                href="mailto:hello@saleswana.com"
                                 className="transition-colors underline underline-offset-2"
                                 style={{ color: t.accent }}
                             >
-                                hello@realsales.ai
+                                hello@saleswana.com
                             </a>
                         </SectionDesc>
                     </div>
 
                     <div>
                         <div className="h-px mb-0" style={{ backgroundColor: t.border }} />
-                        {faqs.map((faq, i) => (
-                            <FAQItem key={i} faq={faq} index={i} />
+                        {landingFaqs.map((faq, i) => (
+                            <FAQItem
+                                key={i}
+                                faq={faq}
+                                index={i}
+                                open={openIndex === i}
+                                onToggle={() =>
+                                    setOpenIndex((prev) => (prev === i ? null : i))
+                                }
+                                shouldReduceMotion={Boolean(shouldReduceMotion)}
+                            />
                         ))}
                     </div>
                 </div>

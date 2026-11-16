@@ -1,4 +1,6 @@
 import { useEffect } from 'react'
+import AnimatedContent from '@/components/reactbits/AnimatedContent'
+import { CountUp } from '../OverviewWidgets/common'
 import { Card, toast, Notification } from '@/components/ui'
 import Container from '@/components/shared/Container'
 import PerformanceLineChart from './PerformanceLineChart'
@@ -13,6 +15,7 @@ import performanceReducer, {
     resetNotification,
 } from '@/store/slices/performance'
 import type { PerformanceReportResponse } from '@/services/PerformanceService'
+import { SURFACE_CARD_CLASSNAME } from '@/constants/surfaceCard.constant'
 
 // Inject reducer when component mounts (lazy-loaded)
 injectReducer('performance', performanceReducer)
@@ -20,14 +23,17 @@ injectReducer('performance', performanceReducer)
 // Analytics card component
 type AnalyticsCardProps = {
     icon: React.ReactNode
-    value: string
+    value: React.ReactNode
     label: string
     iconBg: string
 }
 
 const AnalyticsCard = ({ icon, value, label, iconBg }: AnalyticsCardProps) => {
     return (
-        <Card className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 shadow-md hover:shadow-xl transition-all duration-300" bodyClass="!p-4">
+        <Card
+            className={`${SURFACE_CARD_CLASSNAME} hover:shadow-md transition-shadow duration-300`}
+            bodyClass="!p-4"
+        >
             <div className="flex items-center gap-3">
                 <div className="bg-primary/10 rounded-xl p-2 text-primary">
                     <div className="text-3xl">{icon}</div>
@@ -52,6 +58,7 @@ const Performance = () => {
     const {
         performanceReport,
         performanceLoading,
+        initialized,
         notification,
     } = useAppSelector(
         (state) =>
@@ -68,10 +75,10 @@ const Performance = () => {
     )
 
     useEffect(() => {
-        if (userId) {
+        if (userId && !initialized && !performanceLoading) {
             dispatch(fetchPerformanceByMode(userId))
         }
-    }, [dispatch, userId])
+    }, [dispatch, userId, initialized, performanceLoading])
 
     useEffect(() => {
         if (notification) {
@@ -89,48 +96,57 @@ const Performance = () => {
     const totalSessions = reportData?.total_sessions_analyzed || 0
     const averageScore = reportData?.overall_average_score || 0
     const loading = performanceLoading
+    const showEmptyState = initialized && !loading && totalSessions === 0
 
     return (
         <div className="min-h-full">
             <Container className="pb-6">
                 {/* Header */}
-                <div className="mb-6">
+                <div className="mb-6" data-tour-id="performance-page">
                     <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
                         Performance
                     </h1>
+                    {showEmptyState && (
+                        <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                            No session data yet. Complete a practice session to see your
+                            performance here.
+                        </p>
+                    )}
                 </div>
 
                 {/* Analytics Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                     <AnalyticsCard
                         icon={<TbChartBar />}
-                        value={loading ? '...' : totalSessions.toString()}
+                        value={loading ? '...' : <CountUp value={totalSessions} />}
                         label="Total Sessions"
                         iconBg="bg-gray-100 dark:bg-gray-700/50"
                     />
                     <AnalyticsCard
                         icon={<TbTrendingUp />}
-                        value={loading ? '...' : averageScore.toFixed(1)}
+                        value={loading ? '...' : <CountUp value={averageScore} decimals={1} />}
                         label="Average Score"
                         iconBg="bg-gray-100 dark:bg-gray-700/50"
                     />
                 </div>
 
                 {/* Performance Line Chart */}
-                <PerformanceLineChart />
+                <AnimatedContent trigger="mount" distance={28} duration={0.7} delay={0.1}>
+                    <PerformanceLineChart />
+                </AnimatedContent>
 
                 {/* Skill Breakdown Section */}
-                <div className="mt-6">
+                <AnimatedContent trigger="mount" distance={28} duration={0.7} delay={0.22} className="mt-6">
                     <SkillBreakdown 
                         data={reportData} 
                         loading={loading}
                     />
-                </div>
+                </AnimatedContent>
 
                 {/* Session History Section */}
-                <div className="mt-6">
+                <AnimatedContent trigger="mount" distance={28} duration={0.7} delay={0.34} className="mt-6">
                     <SessionHistorySection />
-                </div>
+                </AnimatedContent>
             </Container>
         </div>
     )

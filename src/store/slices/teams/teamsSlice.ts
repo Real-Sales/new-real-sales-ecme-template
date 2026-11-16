@@ -144,6 +144,25 @@ const teamsSlice = createSlice({
                 state.teamsData[index] = action.payload
             }
         },
+        removeTeamMemberLocally: (
+            state,
+            action: PayloadAction<{ teamId: string; userId: string }>,
+        ) => {
+            const perf = state.teamPerformance[action.payload.teamId]
+            if (perf?.members) {
+                perf.members = perf.members.filter(
+                    (m) => m.user_id !== action.payload.userId,
+                )
+            }
+            const team = state.teamsData.find(
+                (t) => t.company_team_id === action.payload.teamId,
+            )
+            if (team?.members) {
+                team.members = team.members.filter(
+                    (m) => m.user_id !== action.payload.userId,
+                )
+            }
+        },
     },
     extraReducers: (builder) => {
         builder
@@ -187,7 +206,13 @@ const teamsSlice = createSlice({
     },
 })
 
-export const { resetError, resetNotification, resetTeamsData, updateTeamInState } =
+export const {
+    resetError,
+    resetNotification,
+    resetTeamsData,
+    updateTeamInState,
+    removeTeamMemberLocally,
+} =
     teamsSlice.actions
 
 export default teamsSlice.reducer

@@ -1,4 +1,4 @@
-import { createSlice, createAsyncThunk } from '@reduxjs/toolkit'
+import { createSlice, createAsyncThunk, type PayloadAction } from '@reduxjs/toolkit'
 import {
     apiGetScenarioLibrary,
     apiGetAiPersonas,
@@ -6,6 +6,9 @@ import {
     apiCreateScenario,
     apiUpdateScenario,
     apiDeleteScenario,
+    apiGetSalesRepScenarioDashboard,
+    apiGetScenarioAssignmentStatus,
+    type AssignmentStatusMember,
 } from '@/services/ScenarioLibraryService'
 import type {
     ScenarioLibraryItem,
@@ -13,18 +16,147 @@ import type {
     InteractionModeListItem,
     CreateScenarioRequest,
     UpdateScenarioRequest,
+    Scenario,
 } from '../types'
+import { mapSalesRepDashboardRowToScenario } from '../types'
+import { formatDisplayLabel } from '@/utils/formatDisplayLabel'
+import type { ProfileProduct } from '@/@types/auth'
+import type { RootState } from '@/store'
 
 export const SLICE_NAME = 'scenarioLibrary'
+
+export type FetchPersonasParams = {
+    industryId?: string
+    customerSegmentId?: string
+    /** When set, fetch personas for each segment and merge (multi-division reps). */
+    customerSegmentIds?: string[]
+    includePersonaId?: string
+}
+
+function personasFetchSegmentKey(params?: FetchPersonasParams): string | null {
+    const ids = [
+        ...(params?.customerSegmentIds ?? []),
+        ...(params?.customerSegmentId ? [params.customerSegmentId] : []),
+    ]
+        .map((id) => id.trim())
+        .filter(Boolean)
+    if (!ids.length) return null
+    return [...new Set(ids)].sort().join(',')
+}
+
+export type AssignScenarioMemberRow = {
+    userId: string
+    name: string
+    email: string
+    salesDivision: string
+    products: { id: string; name: string }[]
+    canAssign: boolean
+    sessionId: string | null
+    sessionStatus: string | null
+}
+
+export type AssignScenarioCacheEntry = {
+    salesDivisionId?: string | null
+    salesDivisionName?: string | null
+    members: AssignScenarioMemberRow[]
+    fetchedAt: number
+}
+
+/** Cache TTL — refetch after this age. */
+export const ASSIGN_SCENARIO_CACHE_TTL_MS = 5 * 60 * 1000
+/** Max scenario keys kept in memory (oldest evicted first). */
+export const ASSIGN_SCENARIO_CACHE_MAX_KEYS = 50
+
+export function isAssignScenarioCacheFresh(
+    entry: AssignScenarioCacheEntry | undefined,
+): boolean {
+    if (!entry) return false
+    return Date.now() - entry.fetchedAt < ASSIGN_SCENARIO_CACHE_TTL_MS
+}
+
+function adjustScenarioAssignmentCount(
+    scenarios: ScenarioLibraryItem[],
+    scenarioId: string,
+    delta: number,
+) {
+    if (delta === 0) return
+
+    const scenario = scenarios.find((row) => row.scenario_id === scenarioId)
+    if (!scenario) return
+
+    const previousTotal =
+        scenario.users_assigned_count ??
+        scenario.assigned_sessions_count ??
+        0
+    const nextTotal = Math.max(0, previousTotal + delta)
+
+    scenario.assigned_sessions_count = nextTotal
+    scenario.users_assigned_count = nextTotal
+}
+
+function pruneAssignScenarioCache(
+    cache: Record<string, AssignScenarioCacheEntry>,
+) {
+    const ids = Object.keys(cache)
+    if (ids.length <= ASSIGN_SCENARIO_CACHE_MAX_KEYS) return
+
+    ids.sort(
+        (a, b) => (cache[a]?.fetchedAt ?? 0) - (cache[b]?.fetchedAt ?? 0),
+    )
+    for (let i = 0; i < ids.length - ASSIGN_SCENARIO_CACHE_MAX_KEYS; i++) {
+        delete cache[ids[i]]
+    }
+}
+
+function mapMemberProducts(products?: ProfileProduct[]) {
+    const seen = new Set<string>()
+    return (products ?? [])
+        .filter((product) => {
+            if (!product.product_id || seen.has(product.product_id)) {
+                return false
+            }
+            seen.add(product.product_id)
+            return true
+        })
+        .map((product) => ({
+            id: product.product_id,
+            name: formatDisplayLabel(product.name),
+        }))
+}
+
+function mapAssignmentStatusMember(member: AssignmentStatusMember): AssignScenarioMemberRow {
+    const name = `${member.first_name} ${member.last_name}`.trim()
+    return {
+        userId: member.user_id,
+        name: name || member.email,
+        email: member.email,
+        salesDivision: member.sales_division_name?.trim() || '—',
+        products: mapMemberProducts(member.products),
+        canAssign: member.can_assign,
+        sessionId: member.session_id,
+        sessionStatus: member.session_status,
+    }
+}
 
 export interface ScenarioLibraryState {
     scenarioLibraryLoading: boolean
     initialized: boolean
     scenariosData: ScenarioLibraryItem[]
     personasData: AiPersonaListItem[]
+    /** Segment id last used for a successful personas fetch (cache key). */
+    personasFetchedForSegmentId: string | null
     modesData: InteractionModeListItem[]
     personasLoading: boolean
     modesLoading: boolean
+    modesInitialized: boolean
+    salesRepScenarios: Scenario[]
+    salesRepTotalPending: number
+    salesRepLoading: boolean
+    salesRepInitialized: boolean
+    /** Cached assign-dialog members keyed by scenario_id. */
+    assignScenarioById: Record<string, AssignScenarioCacheEntry>
+    assignScenarioLoadingScenarioId: string | null
+    assignScenarioError: string | null
     error: string | null
     notification: { type: string; message: string } | null
 }
@@ -47,10 +179,44 @@ export const fetchScenarioLibrary = createAsyncThunk(
 
 export const fetchPersonas = createAsyncThunk(
     SLICE_NAME + '/fetchPersonas',
-    async (_, { rejectWithValue }) => {
+    async (params: FetchPersonasParams | undefined, { rejectWithValue }) => {
         try {
-            const data = await apiGetAiPersonas()
-            return Array.isArray(data) ? data : []
+            const segmentIds = [
+                ...(params?.customerSegmentIds ?? []),
+                ...(params?.customerSegmentId ? [params.customerSegmentId] : []),
+            ]
+                .map((id) => id.trim())
+                .filter(Boolean)
+            const uniqueSegmentIds = [...new Set(segmentIds)]
+
+            if (uniqueSegmentIds.length <= 1) {
+                const data = await apiGetAiPersonas({
+                    industryId: params?.industryId,
+                    customerSegmentId: uniqueSegmentIds[0],
+                    includePersonaId: params?.includePersonaId,
+                })
+                return Array.isArray(data) ? data : []
+            }
+
+            const results = await Promise.all(
+                uniqueSegmentIds.map((customerSegmentId) =>
+                    apiGetAiPersonas({
+                        industryId: params?.industryId,
+                        customerSegmentId,
+                        includePersonaId: params?.includePersonaId,
+                    }),
+                ),
+            )
+
+            const byId = new Map<string, (typeof results)[number][number]>()
+            for (const list of results) {
+                for (const persona of Array.isArray(list) ? list : []) {
+                    if (persona?.persona_id) {
+                        byId.set(persona.persona_id, persona)
+                    }
+                }
+            }
+            return [...byId.values()]
         } catch (error: unknown) {
             const err = error as { response?: { data?: { detail?: string } } }
             if (err.response?.data) {
@@ -58,7 +224,88 @@ export const fetchPersonas = createAsyncThunk(
             }
             return rejectWithValue({ detail: 'An unknown error occurred.' })
         }
-    }
+    },
+    {
+        condition: (params, { getState }) => {
+            const data = (getState() as RootState).scenarioLibrary?.data
+            if (!data) return true
+            if (data.personasLoading) return false
+
+            const segmentKey = personasFetchSegmentKey(params)
+            if (
+                !segmentKey ||
+                data.personasFetchedForSegmentId !== segmentKey ||
+                data.personasData.length === 0
+            ) {
+                return true
+            }
+
+            // Refetch only when the current edit persona is missing from cache.
+            if (params?.includePersonaId) {
+                const hasPersona = data.personasData.some(
+                    (p) => p.persona_id === params.includePersonaId,
+                )
+                if (!hasPersona) return true
+            }
+
+            return false
+        },
+    },
+)
+
+export const fetchSalesRepDashboard = createAsyncThunk(
+    SLICE_NAME + '/fetchSalesRepDashboard',
+    async (_, { rejectWithValue }) => {
+        try {
+            const data = await apiGetSalesRepScenarioDashboard()
+            const allRows = [
+                ...(data?.pending_scenarios ?? []),
+                ...(data?.active_scenarios ?? []),
+                ...(data?.completed_scenarios ?? []),
+                ...(data?.expired_scenarios ?? []),
+            ]
+            return {
+                scenarios: allRows.map(mapSalesRepDashboardRowToScenario),
+                totalPending:
+                    typeof data?.total_pending === 'number' ? data.total_pending : 0,
+            }
+        } catch (error: unknown) {
+            const err = error as { response?: { data?: { detail?: string } } }
+            if (err.response?.data) {
+                return rejectWithValue(err.response.data)
+            }
+            return rejectWithValue({ detail: 'Failed to load assigned scenarios.' })
+        }
+    },
+)
+
+export const fetchScenarioAssignmentStatus = createAsyncThunk(
+    SLICE_NAME + '/fetchScenarioAssignmentStatus',
+    async (scenarioId: string, { rejectWithValue }) => {
+        try {
+            const data = await apiGetScenarioAssignmentStatus(scenarioId)
+            return {
+                scenarioId: data.scenario_id,
+                salesDivisionId: data.sales_division_id,
+                salesDivisionName: data.sales_division_name,
+                members: (data.members ?? []).map(mapAssignmentStatusMember),
+            }
+        } catch (error: unknown) {
+            const err = error as { response?: { data?: { detail?: string } } }
+            if (err.response?.data) {
+                return rejectWithValue(err.response.data)
+            }
+            return rejectWithValue({ detail: 'Failed to load assignable members.' })
+        }
+    },
+    {
+        condition: (scenarioId, { getState }) => {
+            const data = (getState() as RootState).scenarioLibrary?.data
+            if (!data) return true
+            if (data.assignScenarioLoadingScenarioId === scenarioId) return false
+            return !isAssignScenarioCacheFresh(data.assignScenarioById[scenarioId])
+        },
+    },
 )
 
 export const fetchModes = createAsyncThunk(
@@ -133,9 +380,18 @@ const initialState: ScenarioLibraryState = {
     initialized: false,
     scenariosData: [],
     personasData: [],
+    personasFetchedForSegmentId: null,
     modesData: [],
     personasLoading: false,
     modesLoading: false,
+    modesInitialized: false,
+    salesRepScenarios: [],
+    salesRepTotalPending: 0,
+    salesRepLoading: false,
+    salesRepInitialized: false,
+    assignScenarioById: {},
+    assignScenarioLoadingScenarioId: null,
+    assignScenarioError: null,
     error: null,
     notification: null,
 }
@@ -153,13 +409,80 @@ const scenarioLibrarySlice = createSlice({
         resetScenarioLibraryData: (state) => {
             state.scenariosData = []
             state.personasData = []
+            state.personasFetchedForSegmentId = null
             state.modesData = []
+            state.salesRepScenarios = []
+            state.salesRepTotalPending = 0
+            state.salesRepInitialized = false
+            state.assignScenarioById = {}
+            state.assignScenarioLoadingScenarioId = null
+            state.assignScenarioError = null
             state.error = null
             state.notification = null
             state.scenarioLibraryLoading = false
+            state.salesRepLoading = false
             state.personasLoading = false
             state.modesLoading = false
+            state.modesInitialized = false
             state.initialized = false
+        },
+        invalidateAssignScenarioCache: (
+            state,
+            action: PayloadAction<string | undefined>,
+        ) => {
+            if (action.payload) {
+                delete state.assignScenarioById[action.payload]
+                return
+            }
+            state.assignScenarioById = {}
+        },
+        markScenarioMemberAssigned: (
+            state,
+            action: PayloadAction<{
+                scenarioId: string
+                userId: string
+                sessionId: string
+            }>,
+        ) => {
+            const entry = state.assignScenarioById[action.payload.scenarioId]
+            const member = entry?.members.find(
+                (row) => row.userId === action.payload.userId,
+            )
+            if (member?.canAssign) {
+                member.canAssign = false
+                member.sessionId = action.payload.sessionId
+                member.sessionStatus = 'pending'
+                adjustScenarioAssignmentCount(
+                    state.scenariosData,
+                    action.payload.scenarioId,
+                    1,
+                )
+            }
+        },
+        markScenarioMemberUnassigned: (
+            state,
+            action: PayloadAction<{
+                scenarioId: string
+                sessionId: string
+            }>,
+        ) => {
+            const entry = state.assignScenarioById[action.payload.scenarioId]
+            const member = entry?.members.find(
+                (row) => row.sessionId === action.payload.sessionId,
+            )
+            if (member && !member.canAssign) {
+                member.canAssign = true
+                member.sessionId = null
+                member.sessionStatus = null
+                adjustScenarioAssignmentCount(
+                    state.scenariosData,
+                    action.payload.scenarioId,
+                    -1,
+                )
+            }
+        },
+        invalidateSalesRepDashboard: (state) => {
+            state.salesRepInitialized = false
         },
     },
     extraReducers: (builder) => {
@@ -183,6 +506,9 @@ const scenarioLibrarySlice = createSlice({
             })
             .addCase(fetchPersonas.fulfilled, (state, action) => {
                 state.personasData = action.payload
+                state.personasFetchedForSegmentId = personasFetchSegmentKey(
+                    action.meta.arg,
+                )
                 state.personasLoading = false
             })
             .addCase(fetchPersonas.rejected, (state) => {
@@ -194,16 +520,91 @@ const scenarioLibrarySlice = createSlice({
             .addCase(fetchModes.fulfilled, (state, action) => {
                 state.modesData = action.payload
                 state.modesLoading = false
+                state.modesInitialized = true
             })
-            .addCase(fetchModes.rejected, (state) => {
+            .addCase(fetchModes.rejected, (state, action) => {
                 state.modesLoading = false
+                state.modesInitialized = true
+                state.notification = {
+                    type: 'danger',
+                    message:
+                        (action.payload as { detail?: string })?.detail ??
+                        'Failed to load interaction modes.',
+                }
+            })
+            .addCase(fetchSalesRepDashboard.pending, (state) => {
+                state.salesRepLoading = true
+            })
+            .addCase(fetchSalesRepDashboard.fulfilled, (state, action) => {
+                state.salesRepScenarios = action.payload.scenarios
+                state.salesRepTotalPending = action.payload.totalPending
+                state.salesRepLoading = false
+                state.salesRepInitialized = true
+            })
+            .addCase(fetchSalesRepDashboard.rejected, (state, action) => {
+                state.salesRepLoading = false
+                state.salesRepScenarios = []
+                state.salesRepTotalPending = 0
+                state.salesRepInitialized = true
+                state.notification = {
+                    type: 'danger',
+                    message:
+                        (action.payload as { detail?: string })?.detail ??
+                        'Failed to load assigned scenarios',
+                }
+            })
+            .addCase(fetchScenarioAssignmentStatus.pending, (state, action) => {
+                state.assignScenarioLoadingScenarioId = action.meta.arg
+                state.assignScenarioError = null
+            })
+            .addCase(fetchScenarioAssignmentStatus.fulfilled, (state, action) => {
+                state.assignScenarioLoadingScenarioId = null
+                state.assignScenarioById[action.payload.scenarioId] = {
+                    salesDivisionId: action.payload.salesDivisionId,
+                    salesDivisionName: action.payload.salesDivisionName,
+                    members: action.payload.members,
+                    fetchedAt: Date.now(),
+                }
+                pruneAssignScenarioCache(state.assignScenarioById)
+
+                // Keep library rows in sync so Edit / Division column stay current.
+                const scenario = state.scenariosData.find(
+                    (row) => row.scenario_id === action.payload.scenarioId,
+                )
+                if (scenario) {
+                    if (action.payload.salesDivisionId && !scenario.sales_division_id) {
+                        scenario.sales_division_id = action.payload.salesDivisionId
+                    }
+                    if (
+                        action.payload.salesDivisionName &&
+                        !scenario.sales_division_name
+                    ) {
+                        scenario.sales_division_name = action.payload.salesDivisionName
+                    }
+                }
+            })
+            .addCase(fetchScenarioAssignmentStatus.rejected, (state, action) => {
+                state.assignScenarioLoadingScenarioId = null
+                state.assignScenarioError =
+                    (action.payload as { detail?: string })?.detail ??
+                    'Failed to load team members.'
             })
             .addCase(createScenario.pending, (state) => {
                 state.scenarioLibraryLoading = true
                 state.notification = null
             })
             .addCase(createScenario.fulfilled, (state, action) => {
-                state.scenariosData = [action.payload, ...state.scenariosData]
+                state.scenariosData = [
+                    {
+                        ...action.payload,
+                        sales_division_id:
+                            action.payload.sales_division_id ??
+                            action.meta.arg.sales_division_id,
+                        sales_division_name:
+                            action.payload.sales_division_name ?? null,
+                    },
+                    ...state.scenariosData,
+                ]
                 state.scenarioLibraryLoading = false
                 state.notification = { type: 'success', message: 'Scenario created successfully!' }
             })
@@ -221,8 +622,27 @@ const scenarioLibrarySlice = createSlice({
                     (s) => s.scenario_id === action.payload.scenario_id
                 )
                 if (index > -1) {
-                    state.scenariosData[index] = action.payload
+                    const previous = state.scenariosData[index]
+                    const nextDivisionId =
+                        action.payload.sales_division_id ??
+                        action.meta.arg.payload.sales_division_id ??
+                        previous.sales_division_id
+                    const divisionChanged =
+                        Boolean(nextDivisionId) &&
+                        nextDivisionId !== previous.sales_division_id
+                    state.scenariosData[index] = {
+                        ...previous,
+                        ...action.payload,
+                        sales_division_id: nextDivisionId,
+                        sales_division_name:
+                            action.payload.sales_division_name ??
+                            (divisionChanged
+                                ? null
+                                : previous.sales_division_name ?? null),
+                    }
                 }
+                // Assign dialog caches members by division — drop so next open refetches.
+                delete state.assignScenarioById[action.payload.scenario_id]
                 state.scenarioLibraryLoading = false
                 state.notification = { type: 'success', message: 'Scenario updated successfully!' }
             })
@@ -239,6 +659,7 @@ const scenarioLibrarySlice = createSlice({
                 state.scenariosData = state.scenariosData.filter(
                     (s) => s.scenario_id !== action.payload
                 )
+                delete state.assignScenarioById[action.payload]
                 state.scenarioLibraryLoading = false
                 state.notification = { type: 'success', message: 'Scenario removed successfully!' }
             })
@@ -250,7 +671,14 @@ const scenarioLibrarySlice = createSlice({
     },
 })
 
-export const { resetError, resetNotification, resetScenarioLibraryData } =
-    scenarioLibrarySlice.actions
+export const {
+    resetError,
+    resetNotification,
+    resetScenarioLibraryData,
+    invalidateAssignScenarioCache,
+    markScenarioMemberAssigned,
+    markScenarioMemberUnassigned,
+    invalidateSalesRepDashboard,
+} = scenarioLibrarySlice.actions
 
 export default scenarioLibrarySlice.reducer

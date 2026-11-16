@@ -1,8 +1,12 @@
-import { apiGetSalesCompanyByManager } from '@/services/SalesCompanyService'
+import {
+    apiGetSalesCompanyByManager,
+    apiGetSalesCompanyDetail,
+} from '@/services/SalesCompanyService'
 
 export type ResolvedSalesCompany = {
     salesCompanyId: string
     companyName: string
+    managerId?: string
 }
 
 /** Resolve sales_company_id for owner/manager flows (matches invite settings pattern). */
@@ -17,6 +21,7 @@ export async function resolveSalesCompanyContext(
                 return {
                     salesCompanyId: company.sales_company_id,
                     companyName: company.name ?? '',
+                    managerId: company.manager_id,
                 }
             }
         } catch {
@@ -24,7 +29,16 @@ export async function resolveSalesCompanyContext(
         }
     }
     if (companyIdFromAuth) {
-        return { salesCompanyId: companyIdFromAuth, companyName: '' }
+        try {
+            const company = await apiGetSalesCompanyDetail(companyIdFromAuth)
+            return {
+                salesCompanyId: company.sales_company_id ?? companyIdFromAuth,
+                companyName: company.name ?? '',
+                managerId: company.manager_id,
+            }
+        } catch {
+            return { salesCompanyId: companyIdFromAuth, companyName: '' }
+        }
     }
     return null
 }
