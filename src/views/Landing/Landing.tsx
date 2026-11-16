@@ -21,6 +21,7 @@ import { useAppDispatch } from '@/store'
 import { setSchema } from '@/store/slices/theme/themeSlice'
 import { getLandingNavScrollOffset, scrollToLandingSection, setLenis } from './smoothScroll'
 import Seo from '@/components/shared/Seo'
+import ShaderArt from '@/components/ui/shader-art'
 import {
     faqPageJsonLd,
     organizationJsonLd,
@@ -40,7 +41,7 @@ const LandingContent = ({ mode, toggleMode }: LandingContentProps) => {
 
     return (
         <main
-            className="overflow-x-clip w-full min-h-screen transition-colors duration-300"
+            className="relative isolate overflow-x-clip w-full min-h-screen transition-colors duration-300"
             style={{
                 backgroundColor: t.bg,
                 color: t.text,
@@ -48,6 +49,15 @@ const LandingContent = ({ mode, toggleMode }: LandingContentProps) => {
                     "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
             }}
         >
+            {/* Living backdrop for the whole page: fixed to the viewport, behind every section */}
+            <ShaderArt
+                className="pointer-events-none fixed inset-0 -z-10"
+                colors={{ base: t.bg, accent: t.accent, ink: t.text }}
+                intensity={t.isLight ? 0.45 : 0.32}
+                speed={0.6}
+                scale={1.4}
+                interactive={false}
+            />
             <LandingNavSentinel />
             <NavigationBar mode={mode} toggleMode={toggleMode} />
             <SalesWanaHero />

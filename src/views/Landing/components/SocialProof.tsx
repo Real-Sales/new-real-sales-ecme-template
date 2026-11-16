@@ -1,4 +1,5 @@
 import type { CSSProperties } from 'react'
+import { glassFlat } from '../landingTheme'
 import { motion, useReducedMotion } from 'framer-motion'
 import classNames from '@/utils/classNames'
 import { Marquee } from '@/components/magicui/Marquee'
@@ -95,11 +96,8 @@ function TestimonialCard({
                 'w-[min(14.5rem,calc(100vw-2rem))] sm:w-72 md:w-80',
             )}
             style={{
-                border: `1px solid ${t.border}`,
-                backgroundColor: t.bgElevated,
-                boxShadow: t.isLight
-                    ? '0 12px 28px rgba(15,23,42,0.05)'
-                    : '0 12px 28px rgba(0,0,0,0.24)',
+                border: '1px solid transparent',
+                ...glassFlat(t),
             }}
         >
             <div
@@ -147,7 +145,7 @@ const SocialProof = () => {
             <div
                 className="pointer-events-none absolute inset-x-0 top-0 h-[340px]"
                 style={{
-                    background: `radial-gradient(ellipse 50% 100% at 50% 0%, ${t.accent}12 0%, transparent 70%)`,
+                    background: `radial-gradient(ellipse 50% 50% at 50% 50%, ${t.accent}12 0%, transparent 70%)`,
                 }}
             />
             <div className="max-w-7xl mx-auto px-4 relative z-10">
@@ -200,7 +198,10 @@ const SocialProof = () => {
                     <p className="text-xs text-center mb-8 uppercase tracking-[0.2em]" style={{ color: t.textDim }}>
                         Works with your existing stack
                     </p>
-                    <div className="overflow-hidden">
+                    <div
+                        className="overflow-hidden max-w-5xl mx-auto"
+                        style={{ maskImage: 'linear-gradient(to right, transparent 0%, #000 12%, #000 88%, transparent 100%)', WebkitMaskImage: 'linear-gradient(to right, transparent 0%, #000 12%, #000 88%, transparent 100%)' }}
+                    >
                         <div className="flex gap-8 items-center">
                             <motion.div
                                 className="flex gap-8 items-center shrink-0"
@@ -216,8 +217,8 @@ const SocialProof = () => {
                                         key={i}
                                         className="px-5 py-2.5 rounded-full text-sm font-medium whitespace-nowrap shrink-0 transition-all duration-200 hover:-translate-y-0.5 opacity-75 hover:opacity-100"
                                         style={{
-                                            border: `1px solid ${t.border}`,
-                                            backgroundColor: t.bgElevated,
+                                            border: '1px solid transparent',
+                                            ...glassFlat(t),
                                             color: t.textMuted,
                                         }}
                                     >

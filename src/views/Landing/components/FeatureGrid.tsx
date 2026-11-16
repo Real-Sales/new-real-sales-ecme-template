@@ -1,4 +1,6 @@
 import type { MouseEvent } from 'react'
+import { GlassLayers } from '@/components/ui/liquid-glass'
+import { glassCard, glassEdge } from '../landingTheme'
 import { motion, useReducedMotion } from 'framer-motion'
 import type { IconType } from 'react-icons'
 import {
@@ -40,13 +42,14 @@ const BentoCard = ({
                 onMouseMove={handleMouseMove}
                 className="group relative rounded-2xl overflow-hidden transition-all duration-300 h-full"
                 style={{
-                    border: `1px solid ${t.border}`,
-                    backgroundColor: t.bgElevated,
+                    border: '1px solid transparent',
+                    ...glassCard(t),
                     boxShadow: t.isLight
-                        ? '0 10px 24px rgba(15,23,42,0.05)'
+                        ? glassEdge(t, '')
                         : '0 14px 28px rgba(0,0,0,0.28)',
                 }}
             >
+                <GlassLayers light={t.isLight} />
                 {/* Cursor-follow spotlight */}
                 <div
                     className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
@@ -58,13 +61,6 @@ const BentoCard = ({
                 <div
                     className="pointer-events-none absolute inset-0 rounded-2xl opacity-0 transition-opacity duration-300 group-hover:opacity-100"
                     style={{ boxShadow: `inset 0 0 0 1px ${t.accent}66` }}
-                />
-                {/* Top highlight line */}
-                <div
-                    className="pointer-events-none absolute inset-x-6 top-0 h-px"
-                    style={{
-                        background: `linear-gradient(to right, transparent, ${t.borderStrong}, transparent)`,
-                    }}
                 />
                 <div className="relative h-full">{children}</div>
             </div>
@@ -106,7 +102,7 @@ const FeatureGrid = () => {
             <div
                 className="pointer-events-none absolute inset-x-0 top-0 h-[360px]"
                 style={{
-                    background: `radial-gradient(ellipse 50% 100% at 50% 0%, ${t.accent}14 0%, transparent 70%)`,
+                    background: `radial-gradient(ellipse 50% 50% at 50% 50%, ${t.accent}14 0%, transparent 70%)`,
                 }}
             />
             <div className="max-w-7xl mx-auto px-4 relative z-10">

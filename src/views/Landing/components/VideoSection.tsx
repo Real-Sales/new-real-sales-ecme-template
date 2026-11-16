@@ -1,4 +1,6 @@
 import { useEffect, useRef } from 'react'
+import { GlassLayers } from '@/components/ui/liquid-glass'
+import { glassCard, glassEdge } from '../landingTheme'
 import { motion, useScroll, useSpring, useTransform } from 'framer-motion'
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
@@ -123,10 +125,12 @@ const WorkflowSection = () => {
                                     key={i}
                                     className="workflow-step relative rounded-2xl transition-all duration-300 p-7"
                                     style={{
-                                        border: `1px solid ${t.border}`,
-                                        backgroundColor: t.surface,
+                                        border: '1px solid transparent',
+                                        ...glassCard(t),
+                                        boxShadow: glassEdge(t, 'none'),
                                     }}
                                 >
+                                    <GlassLayers light={t.isLight} />
                                     <div className="flex items-start gap-5">
                                         <div className="shrink-0">
                                             <div

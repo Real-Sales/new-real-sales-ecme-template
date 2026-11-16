@@ -1,4 +1,5 @@
 import { useLandingTheme } from '../LandingThemeProvider'
+import { glassPlain } from '../landingTheme'
 import { scrollToLandingSection } from '../smoothScroll'
 import SalesWanaLogo from '@/components/template/SalesWanaLogo'
 
@@ -40,7 +41,7 @@ const LandingFooter = () => {
     }
 
     return (
-        <footer style={{ borderTop: `1px solid ${t.border}`, backgroundColor: t.bgElevated }}>
+        <footer style={{ borderTop: `1px solid ${t.border}`, ...glassPlain(t) }}>
             <div className="max-w-7xl mx-auto px-4">
                 <div className="py-14 md:py-16 grid grid-cols-2 md:grid-cols-[240px_1fr_1fr_1fr_1fr] gap-x-8 gap-y-10">
                     <div className="col-span-2 md:col-span-1">
@@ -58,7 +59,7 @@ const LandingFooter = () => {
                         <p className="text-xs mt-5" style={{ color: t.textMuted }}>
                             <a
                                 href="mailto:hello@saleswana.com"
-                                className="hover:underline underline-offset-4"
+                                className="relative inline-block after:absolute after:left-0 after:-bottom-0.5 after:h-px after:w-full after:origin-left after:scale-x-0 after:bg-current after:transition-transform after:duration-300 hover:after:scale-x-100"
                                 style={{ color: t.textSecondary }}
                             >
                                 hello@saleswana.com
@@ -80,7 +81,7 @@ const LandingFooter = () => {
                                         {link.href.startsWith('#') ? (
                                             <button
                                                 onClick={() => handleNavClick(link.href)}
-                                                className="text-xs transition-colors duration-200 hover:underline underline-offset-4"
+                                                className="text-xs transition-colors duration-200 relative inline-block after:absolute after:left-0 after:-bottom-0.5 after:h-px after:w-full after:origin-left after:scale-x-0 after:bg-current after:transition-transform after:duration-300 hover:after:scale-x-100"
                                                 style={{ color: t.textMuted }}
                                             >
                                                 {link.label}
@@ -88,7 +89,7 @@ const LandingFooter = () => {
                                         ) : link.href.startsWith('mailto') ? (
                                             <a
                                                 href={link.href}
-                                                className="text-xs transition-colors duration-200 hover:underline underline-offset-4"
+                                                className="text-xs transition-colors duration-200 relative inline-block after:absolute after:left-0 after:-bottom-0.5 after:h-px after:w-full after:origin-left after:scale-x-0 after:bg-current after:transition-transform after:duration-300 hover:after:scale-x-100"
                                                 style={{ color: t.textMuted }}
                                             >
                                                 {link.label}
@@ -96,7 +97,7 @@ const LandingFooter = () => {
                                         ) : (
                                             <a
                                                 href={link.href}
-                                                className="text-xs transition-colors duration-200 hover:underline underline-offset-4"
+                                                className="text-xs transition-colors duration-200 relative inline-block after:absolute after:left-0 after:-bottom-0.5 after:h-px after:w-full after:origin-left after:scale-x-0 after:bg-current after:transition-transform after:duration-300 hover:after:scale-x-100"
                                                 style={{ color: t.textMuted }}
                                             >
                                                 {link.label}
@@ -119,21 +120,21 @@ const LandingFooter = () => {
                     <div className="flex items-center gap-6">
                         <a
                             href="/faqs"
-                            className="text-[11px] transition-colors duration-200 hover:underline underline-offset-4"
+                            className="text-[11px] transition-colors duration-200 relative inline-block after:absolute after:left-0 after:-bottom-0.5 after:h-px after:w-full after:origin-left after:scale-x-0 after:bg-current after:transition-transform after:duration-300 hover:after:scale-x-100"
                             style={{ color: t.textMuted }}
                         >
                             FAQs
                         </a>
                         <a
                             href="/about"
-                            className="text-[11px] transition-colors duration-200 hover:underline underline-offset-4"
+                            className="text-[11px] transition-colors duration-200 relative inline-block after:absolute after:left-0 after:-bottom-0.5 after:h-px after:w-full after:origin-left after:scale-x-0 after:bg-current after:transition-transform after:duration-300 hover:after:scale-x-100"
                             style={{ color: t.textMuted }}
                         >
                             About
                         </a>
                         <a
                             href="mailto:hello@saleswana.com"
-                            className="text-[11px] transition-colors duration-200 hover:underline underline-offset-4"
+                            className="text-[11px] transition-colors duration-200 relative inline-block after:absolute after:left-0 after:-bottom-0.5 after:h-px after:w-full after:origin-left after:scale-x-0 after:bg-current after:transition-transform after:duration-300 hover:after:scale-x-100"
                             style={{ color: t.textMuted }}
                         >
                             hello@saleswana.com

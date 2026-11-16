@@ -1,4 +1,6 @@
 import { useRef } from 'react'
+import { GlassLayers } from '@/components/ui/liquid-glass'
+import { glassCard, glassEdge } from '../landingTheme'
 import {
     motion,
     useReducedMotion,
@@ -77,13 +79,14 @@ const DashboardSection = () => {
                         <div
                             className="relative rounded-2xl overflow-hidden hover:-translate-y-1 transition-transform duration-300"
                             style={{
-                                border: `1px solid ${t.borderStrong}`,
-                                backgroundColor: t.bgElevated,
+                                border: '1px solid transparent',
+                                ...glassCard(t),
                                 boxShadow: t.isLight
-                                    ? '0 32px 64px rgba(0,0,0,0.08)'
+                                    ? glassEdge(t, '')
                                     : '0 32px 64px rgba(0,0,0,0.7)',
                             }}
                         >
+                            <GlassLayers light={t.isLight} />
                             <div
                                 className="flex items-center justify-between px-5 py-3.5"
                                 style={{ borderBottom: `1px solid ${t.border}` }}

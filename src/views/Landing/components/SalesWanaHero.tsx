@@ -9,8 +9,16 @@ import SplitText from './SplitText'
 import Particles from './Particles'
 import Aurora from './Aurora'
 import LightRays from './LightRays'
+import CountUp from '@/components/reactbits/CountUp'
+import ClickSpark from '@/components/reactbits/ClickSpark'
+import GradientText from '@/components/reactbits/GradientText'
+import BlurText from '@/components/reactbits/BlurText'
+import StarBorder from '@/components/reactbits/StarBorder'
 import { useLandingTheme } from '../LandingThemeProvider'
 import { getLenis } from '../smoothScroll'
+
+const LIGHT_RAY_MASK = 'radial-gradient(ellipse 62% 88% at 50% 0%, #000 0%, rgba(0,0,0,0.55) 45%, transparent 78%)'
+const HERO_FADE = 'linear-gradient(to bottom, #000 0%, #000 62%, transparent 100%)'
 
 const objections = [
     '"Your competitor costs half as much."',
@@ -27,29 +35,6 @@ const stats = [
     { value: 4.8, suffix: 'x', label: 'Average reported ROI', prefix: '' },
 ]
 
-function useCountUp(target: number, duration: number, start: boolean) {
-    const [count, setCount] = useState(0)
-
-    useEffect(() => {
-        if (!start) return
-        const isDecimal = target % 1 !== 0
-        const steps = 60
-        const stepTime = (duration * 1000) / steps
-        let current = 0
-        const increment = target / steps
-
-        const timer = setInterval(() => {
-            current = Math.min(current + increment, target)
-            setCount(isDecimal ? parseFloat(current.toFixed(1)) : Math.round(current))
-            if (current >= target) clearInterval(timer)
-        }, stepTime)
-
-        return () => clearInterval(timer)
-    }, [target, duration, start])
-
-    return count
-}
-
 const StatItem = ({
     stat,
     index,
@@ -59,7 +44,6 @@ const StatItem = ({
     index: number
     started: boolean
 }) => {
-    const count = useCountUp(stat.value, 1.4, started)
     const t = useLandingTheme()
 
     return (
@@ -73,9 +57,16 @@ const StatItem = ({
                 className="text-3xl md:text-4xl font-bold tracking-[-0.02em] tabular-nums"
                 style={{ color: t.text }}
             >
-                {stat.prefix}
-                {stat.value % 1 !== 0 ? (count as number).toFixed(1) : count.toLocaleString()}
-                {stat.suffix}
+                <CountUp
+                    to={stat.value}
+                    prefix={stat.prefix}
+                    suffix={stat.suffix}
+                    separator=","
+                    decimals={stat.value % 1 !== 0 ? 1 : 0}
+                    mode="roll"
+                    duration={1.6}
+                    startWhen={started}
+                />
             </span>
             <span className="mt-1.5 text-xs font-medium" style={{ color: t.textFaint }}>
                 {stat.label}
@@ -137,12 +128,18 @@ const SalesWanaHero = () => {
     return (
         <section
             className="relative min-h-[100dvh] flex flex-col items-center justify-center overflow-hidden pt-28 md:pt-32 pb-0"
-            style={{ backgroundColor: t.bg, color: t.text }}
+            style={{ color: t.text }}
         >
+            {/* Layer: solid ground under the hero's own lighting; fades out so the page backdrop returns below */}
+            <div
+                className="pointer-events-none absolute inset-0 z-[0]"
+                style={{ background: `linear-gradient(to bottom, ${t.bg} 0%, ${t.bg} 58%, transparent 100%)` }}
+            />
+
             {/* Layer: animated light rays from the top — dark mode only
                 (rays render as light over a dark backdrop; on white they muddy). */}
             {!shouldReduceMotion && !t.isLight && (
-                <div className="pointer-events-none absolute inset-0 z-[0]">
+                <div className="pointer-events-none absolute inset-0 z-[0]" style={{ maskImage: HERO_FADE, WebkitMaskImage: HERO_FADE }}>
                     <LightRays
                         raysOrigin="top-center"
                         raysColor={t.accent}
@@ -162,10 +159,19 @@ const SalesWanaHero = () => {
             {/* Layer: light-mode ambient glow (clean alternative to the rays) */}
             {t.isLight && (
                 <div className="pointer-events-none absolute inset-0 z-[0] overflow-hidden">
+                    {/* Soft green beams fanning down from the top centre (CSS, so they stay crisp on white) */}
+                    <div
+                        className="absolute inset-x-0 top-0 h-[92%] blur-[10px]"
+                        style={{
+                            background: `conic-gradient(from 132deg at 50% -6%, transparent 0deg, ${t.accent}3d 9deg, transparent 19deg, ${t.accentMild}33 29deg, transparent 38deg, ${t.accent}52 48deg, transparent 58deg, ${t.accentMild}33 67deg, transparent 77deg, ${t.accent}3d 87deg, transparent 96deg, transparent 360deg)`,
+                            maskImage: LIGHT_RAY_MASK,
+                            WebkitMaskImage: LIGHT_RAY_MASK,
+                        }}
+                    />
                     <div
                         className="absolute left-1/2 -translate-x-1/2 -top-40 w-[1100px] h-[620px] rounded-full blur-3xl"
                         style={{
-                            background: `radial-gradient(ellipse at center, ${t.accent}1f 0%, ${t.accent}10 38%, transparent 72%)`,
+                            background: `radial-gradient(ellipse at center, ${t.accent}42 0%, ${t.accent}1c 38%, transparent 72%)`,
                         }}
                     />
                     <div
@@ -184,7 +190,7 @@ const SalesWanaHero = () => {
             )}
 
             {/* Layer: WebGL aurora ambience */}
-            <div className="pointer-events-none absolute inset-0 z-[0] opacity-[0.32]">
+            <div className="pointer-events-none absolute inset-0 z-[0] opacity-[0.32]" style={{ maskImage: HERO_FADE, WebkitMaskImage: HERO_FADE }}>
                 <Aurora
                     className="h-full w-full"
                     colorStops={t.auroraStops}
@@ -199,7 +205,7 @@ const SalesWanaHero = () => {
             <div className="pointer-events-none absolute inset-0 z-[0]">
                 <Particles
                     particleColors={particleColors}
-                    particleCount={shouldReduceMotion ? 660 : t.isLight ? 740 : 820}
+                    particleCount={shouldReduceMotion ? 200 : t.isLight ? 320 : 380}
                     particleSpread={16}
                     speed={shouldReduceMotion ? 0.05 : 0.18}
                     particleBaseSize={t.isLight ? 70 : 200}
@@ -208,7 +214,7 @@ const SalesWanaHero = () => {
                     alphaParticles
                     lightMode={t.isLight}
                     disableRotation={Boolean(shouldReduceMotion)}
-                    pixelRatio={2}
+                    pixelRatio={1}
                 />
             </div>
 
@@ -219,12 +225,6 @@ const SalesWanaHero = () => {
                     className="absolute inset-x-0 -top-32 h-[520px]"
                     style={{
                         background: `radial-gradient(ellipse 55% 50% at 50% 0%, ${t.accent}22 0%, transparent 70%)`,
-                    }}
-                />
-                <div
-                    className="absolute inset-x-0 bottom-0 h-2/5"
-                    style={{
-                        background: `linear-gradient(to bottom, transparent 0%, ${t.bg} 92%)`,
                     }}
                 />
             </div>
@@ -280,33 +280,31 @@ const SalesWanaHero = () => {
                         tag="div"
                         style={{ color: t.text, display: 'block', width: '100%' }}
                     />
-                    <SplitText
-                        text="Close Faster"
-                        className="leading-[1.02]"
-                        delay={35}
-                        duration={shouldReduceMotion ? 0 : 1.1}
-                        ease="power3.out"
-                        splitType="chars"
-                        from={{ opacity: 0, y: 40 }}
-                        to={{ opacity: 1, y: 0 }}
-                        threshold={0.1}
-                        rootMargin="-100px"
-                        textAlign="center"
-                        tag="div"
-                        style={{ color: t.textMuted, display: 'block', width: '100%' }}
-                    />
+                    <motion.div
+                        initial={shouldReduceMotion ? false : { opacity: 0, y: 40 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{
+                            duration: shouldReduceMotion ? 0.01 : 1.1,
+                            delay: shouldReduceMotion ? 0 : 0.35,
+                            ease: [0.16, 1, 0.3, 1],
+                        }}
+                        className="leading-[1.02] pb-[0.1em]"
+                    >
+                        <GradientText colors={[t.accentMild, '#38D6E8', t.accent, '#A7F3D0', t.accentMild]} animationSpeed={6} glow={0.2}>
+                            Close Faster
+                        </GradientText>
+                    </motion.div>
                 </h1>
 
-                <motion.p
-                    initial={shouldReduceMotion ? false : { opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: shouldReduceMotion ? 0.01 : 0.7, delay: shouldReduceMotion ? 0 : 0.18, ease: [0.16, 1, 0.3, 1] }}
-                    className="text-base md:text-lg leading-relaxed mb-4 max-w-[620px]"
-                    style={{ color: t.textMuted }}
-                >
-                    Practice high-stakes sales conversations with AI buyers that challenge,
-                    interrupt, and negotiate like real prospects.
-                </motion.p>
+                <BlurText
+                    text="Practice high-stakes sales conversations with AI buyers that challenge, interrupt, and negotiate like real prospects."
+                    delay={40}
+                    stepDuration={0.3}
+                    distance={14}
+                    direction="bottom"
+                    color={t.textMuted}
+                    className="text-base md:text-lg leading-relaxed mb-4 max-w-[620px] justify-center text-center"
+                />
 
                 <motion.div
                     initial={shouldReduceMotion ? false : { opacity: 0 }}
@@ -335,18 +333,17 @@ const SalesWanaHero = () => {
                     transition={{ duration: shouldReduceMotion ? 0.01 : 0.7, delay: shouldReduceMotion ? 0 : 0.35, ease: [0.16, 1, 0.3, 1] }}
                     className="flex flex-col sm:flex-row gap-3 justify-center"
                 >
-                    <motion.button
+                    <ClickSpark className="!h-auto !w-auto" sparkColor={t.accent} sparkCount={10} sparkRadius={22}>
+                    <StarBorder
                         onClick={handleEnterSimulator}
-                        whileHover={shouldReduceMotion ? {} : { scale: 1.03, y: -2 }}
-                        whileTap={shouldReduceMotion ? {} : { scale: 0.97 }}
-                        transition={{ type: 'spring', stiffness: 400, damping: 20 }}
-                        className="group flex items-center justify-center gap-2.5 px-7 py-3.5 text-sm font-semibold rounded-full transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2"
+                        theme={t.isLight ? 'light' : 'dark'}
+                        color="#FFFFFF"
+                        radius={999}
+                        backgroundColor={t.primaryBtnBg}
+                        textColor={t.primaryBtnText}
+                        className="group w-full !px-7 !leading-5 text-sm !font-semibold transition-transform duration-200 hover:-translate-y-0.5 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2"
                         style={{
-                            backgroundColor: t.primaryBtnBg,
-                            color: t.primaryBtnText,
-                            boxShadow: t.isLight
-                                ? '0 12px 28px rgba(16,185,129,0.25)'
-                                : '0 12px 28px rgba(0,0,0,0.48)',
+                            boxShadow: t.isLight ? '0 12px 28px rgba(16,185,129,0.25)' : '0 12px 28px rgba(0,0,0,0.48)',
                         }}
                     >
                         Start Training Free
@@ -354,12 +351,13 @@ const SalesWanaHero = () => {
                             size={16}
                             className="group-hover:translate-x-0.5 transition-transform duration-200"
                         />
-                    </motion.button>
+                    </StarBorder>
+                    </ClickSpark>
                     <motion.button
                         whileHover={shouldReduceMotion ? {} : { scale: 1.02, y: -2 }}
                         whileTap={shouldReduceMotion ? {} : { scale: 0.97 }}
                         transition={{ type: 'spring', stiffness: 400, damping: 20 }}
-                        className="flex items-center justify-center px-7 py-3.5 text-sm font-semibold rounded-full transition-all duration-200 focus-visible:outline-none focus-visible:ring-2"
+                        className="flex items-center justify-center px-7 py-3.5 text-sm font-semibold rounded-full transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 hover:!border-[#0CAF60]/60 hover:shadow-[0_0_28px_rgba(12,175,96,0.22)]"
                         style={{
                             color: t.secondaryBtnText,
                             border: `1px solid ${t.secondaryBtnBorder}`,
@@ -385,10 +383,9 @@ const SalesWanaHero = () => {
 
             <div
                 ref={statsRef}
-                className="relative z-10 w-full border-t backdrop-blur-sm"
+                className="relative z-10 w-full border-t"
                 style={{
                     borderColor: t.border,
-                    backgroundColor: t.isLight ? 'rgba(255,255,255,0.7)' : 'rgba(5,5,5,0.6)',
                 }}
             >
                 <div className="max-w-5xl mx-auto px-4">

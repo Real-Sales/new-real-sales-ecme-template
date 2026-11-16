@@ -23,7 +23,7 @@ const navLinks = [
 ]
 
 const navItemClass =
-    'inline-flex items-center justify-center h-9 whitespace-nowrap rounded-full px-3.5 text-sm leading-none transition-all duration-200'
+    'relative inline-flex items-center justify-center h-9 whitespace-nowrap rounded-full px-3.5 text-sm leading-none transition-all duration-200'
 
 const industriesMenu = [
     {
@@ -33,6 +33,19 @@ const industriesMenu = [
         desc: 'Restaurant chains, distributors & beverage brands',
     },
 ]
+
+const PILL_SPRING = { type: 'spring', stiffness: 420, damping: 34, mass: 0.6 } as const
+
+/** Highlight that glides between nav items (shared layout animation). */
+const NavPill = ({ background, border }: { background: string; border: string }) => (
+    <motion.span
+        layoutId="landing-nav-pill"
+        className="absolute inset-0 rounded-full"
+        style={{ backgroundColor: background, boxShadow: `inset 0 0 0 1px ${border}` }}
+        transition={PILL_SPRING}
+    />
+)
+
 
 function getScrollTop() {
     return (
@@ -48,6 +61,8 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
     const [isSticky, setIsSticky] = useState(false)
     const [isHidden, setIsHidden] = useState(false)
     const [industriesOpen, setIndustriesOpen] = useState(false)
+    const [hoveredNav, setHoveredNav] = useState<string | null>(null)
+    const [activeNav, setActiveNav] = useState<string>('Home')
     const industriesRef = useRef<HTMLDivElement>(null)
     const lastScrollY = useRef(0)
     const shouldReduceMotion = useReducedMotion()
@@ -99,6 +114,35 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
     }, [menuOpen])
 
     useEffect(() => {
+        if (!isOnLanding) {
+            setActiveNav('')
+            return
+        }
+        let frame = 0
+        const update = () => {
+            frame = 0
+            const line = window.innerHeight * 0.35
+            let current = 'Home'
+            for (const link of navLinks) {
+                const el = document.querySelector(link.href)
+                if (el && el.getBoundingClientRect().top <= line) current = link.label
+            }
+            setActiveNav(current)
+        }
+        const onScroll = () => {
+            if (!frame) frame = requestAnimationFrame(update)
+        }
+        update()
+        window.addEventListener('scroll', onScroll, { passive: true })
+        document.addEventListener('scroll', onScroll, { passive: true })
+        return () => {
+            if (frame) cancelAnimationFrame(frame)
+            window.removeEventListener('scroll', onScroll)
+            document.removeEventListener('scroll', onScroll)
+        }
+    }, [isOnLanding])
+
+    useEffect(() => {
         const handleOutside = (e: MouseEvent) => {
             if (industriesRef.current && !industriesRef.current.contains(e.target as Node)) {
                 setIndustriesOpen(false)
@@ -145,16 +189,18 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
         navigate('/')
     }
 
-    const navItemHoverHandlers = {
-        onMouseEnter: (e: React.MouseEvent<HTMLElement>) => {
-            if (!t.isLight) e.currentTarget.style.color = t.text
-            e.currentTarget.style.backgroundColor = t.surfaceHover
-        },
-        onMouseLeave: (e: React.MouseEvent<HTMLElement>) => {
-            e.currentTarget.style.color = t.isLight ? t.text : t.textMuted
-            e.currentTarget.style.backgroundColor = 'transparent'
-        },
-    }
+    const navColor = (label: string) =>
+        hoveredNav === label || activeNav === label ? t.text : t.isLight ? t.text : t.textMuted
+    const navItemHoverHandlers = (label: string) => ({
+        onMouseEnter: () => setHoveredNav(label),
+        onFocus: () => setHoveredNav(label),
+        onBlur: () => setHoveredNav(null),
+    })
+    const navDecor = (label: string) => (
+        <>
+            {hoveredNav === label && <NavPill background={t.surfaceHover} border={t.border} />}
+        </>
+    )
 
     return (
         <>
@@ -182,17 +228,18 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: shouldReduceMotion ? 0.01 : 0.6, ease: [0.16, 1, 0.3, 1] }}
                     className={classNames(
-                        'flex flex-nowrap items-center justify-between gap-4 px-4 xl:px-5 py-2 rounded-full',
+                        'relative flex flex-nowrap items-center justify-between gap-4 px-4 xl:px-5 py-2 rounded-full',
                         'border transition-all duration-500 mx-4 w-full max-w-6xl min-h-[56px]',
                     )}
                     style={{
                         backgroundColor: isSticky ? t.navStickyBg : 'transparent',
                         borderColor: isSticky ? t.border : 'transparent',
-                        backdropFilter: isSticky ? 'blur(16px)' : undefined,
+                        backdropFilter: isSticky ? 'blur(20px) saturate(160%)' : undefined,
+                        WebkitBackdropFilter: isSticky ? 'blur(20px) saturate(160%)' : undefined,
                         boxShadow: isSticky
                             ? t.isLight
-                                ? '0 10px 28px rgba(17,24,39,0.08)'
-                                : '0 14px 40px rgba(0,0,0,0.48)'
+                                ? '0 10px 28px rgba(17,24,39,0.08), inset 0 1px 0 rgba(255,255,255,0.7)'
+                                : '0 14px 40px rgba(0,0,0,0.48), inset 0 1px 0 rgba(255,255,255,0.07)'
                             : 'none',
                     }}
                 >
@@ -208,7 +255,10 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
                         />
                     </Link>
 
-                    <div className="hidden lg:flex flex-1 items-center justify-center gap-1 min-w-0 px-2">
+                    <div
+                        className="hidden lg:flex flex-1 items-center justify-center gap-1 min-w-0 px-2"
+                        onMouseLeave={() => setHoveredNav(null)}
+                    >
                         <button
                             type="button"
                             onClick={handleHomeClick}
@@ -217,10 +267,11 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
                                 'shrink-0 focus-visible:outline-none focus-visible:ring-2',
                                 t.isLight ? 'font-bold' : 'font-medium',
                             )}
-                            style={{ color: t.isLight ? t.text : t.textMuted }}
-                            {...navItemHoverHandlers}
+                            style={{ color: navColor('Home') }}
+                            {...navItemHoverHandlers('Home')}
                         >
-                            Home
+                            {navDecor('Home')}
+                            <span className="relative">Home</span>
                         </button>
                         {navLinks.map((link) => (
                             <button
@@ -231,12 +282,11 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
                                     'shrink-0 focus-visible:outline-none focus-visible:ring-2',
                                     t.isLight ? 'font-bold' : 'font-medium',
                                 )}
-                                style={{
-                                    color: t.isLight ? t.text : t.textMuted,
-                                }}
-                                {...navItemHoverHandlers}
+                                style={{ color: navColor(link.label) }}
+                                {...navItemHoverHandlers(link.label)}
                             >
-                                {link.label}
+                                {navDecor(link.label)}
+                                <span className="relative">{link.label}</span>
                             </button>
                         ))}
 
@@ -249,21 +299,15 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
                                     'shrink-0 gap-1 focus-visible:outline-none focus-visible:ring-2',
                                     t.isLight ? 'font-bold' : 'font-medium',
                                 )}
-                                style={{ color: industriesOpen ? t.accent : (t.isLight ? t.text : t.textMuted) }}
-                                onMouseEnter={(e) => {
-                                    if (!t.isLight) e.currentTarget.style.color = t.text
-                                    e.currentTarget.style.backgroundColor = t.surfaceHover
-                                }}
-                                onMouseLeave={(e) => {
-                                    e.currentTarget.style.color = industriesOpen ? t.accent : (t.isLight ? t.text : t.textMuted)
-                                    e.currentTarget.style.backgroundColor = 'transparent'
-                                }}
+                                style={{ color: industriesOpen ? t.accent : navColor('Industries') }}
+                                {...navItemHoverHandlers('Industries')}
                             >
-                                Industries
+                                {navDecor('Industries')}
+                                <span className="relative">Industries</span>
                                 <motion.span
                                     animate={{ rotate: industriesOpen ? 180 : 0 }}
                                     transition={{ duration: 0.2 }}
-                                    className="flex items-center"
+                                    className="relative flex items-center"
                                 >
                                     <TbChevronDown size={14} className="shrink-0" />
                                 </motion.span>
@@ -374,7 +418,7 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
                                 to="/book-demo"
                                 className={classNames(
                                     navItemClass,
-                                    'shrink-0 px-5 font-semibold active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2',
+                                    'shrink-0 px-5 font-semibold transition-all duration-200 hover:-translate-y-0.5 hover:!shadow-[0_12px_30px_rgba(12,175,96,0.35)] active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2',
                                 )}
                                 style={{
                                     backgroundColor: t.primaryBtnBg,

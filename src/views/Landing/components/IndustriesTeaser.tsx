@@ -1,9 +1,11 @@
 import { useRef, useState } from 'react'
+import { GlassLayers } from '@/components/ui/liquid-glass'
 import { useNavigate } from 'react-router-dom'
 import { motion, useInView, AnimatePresence } from 'framer-motion'
 import { TbArrowRight, TbToolsKitchen2, TbPlayerPlay, TbChevronRight } from 'react-icons/tb'
 import { useLandingTheme } from '../LandingThemeProvider'
 import type { LandingTheme } from '../landingTheme'
+import { glassCard, glassHairline } from '../landingTheme'
 import { SectionBadge, SectionHeading, SectionDesc, useSmoothParallax } from './landingUi'
 import personaIntros from '../../../../persona_intros/index.json'
 
@@ -123,13 +125,9 @@ const IndustryCard = ({ navigate, t }: { navigate: (path: string) => void; t: La
     const [hovered, setHovered] = useState(false)
     const { ref: parallaxRef, y: parallaxY } = useSmoothParallax(55)
 
-    const cardBg = t.isLight
-        ? 'linear-gradient(150deg, #ffffff 0%, #f8fafb 100%)'
-        : 'linear-gradient(150deg, rgba(16,16,16,0.98) 0%, rgba(8,8,8,0.99) 100%)'
-
     const cardBorder = hovered
         ? 'rgba(12,175,96,0.32)'
-        : t.isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.07)'
+        : glassHairline(t)
 
     const cardShadow = hovered
         ? `0 0 60px rgba(12,175,96,0.1), 0 40px 80px ${t.isLight ? 'rgba(0,0,0,0.12)' : 'rgba(0,0,0,0.7)'}`
@@ -168,12 +166,13 @@ const IndustryCard = ({ navigate, t }: { navigate: (path: string) => void; t: La
             <div
                 className="relative rounded-3xl overflow-hidden"
                 style={{
-                    background: cardBg,
+                    ...glassCard(t),
                     border: `1px solid ${cardBorder}`,
                     boxShadow: cardShadow,
                     transition: 'border 0.4s, box-shadow 0.4s',
                 }}
             >
+                <GlassLayers light={t.isLight} />
                 {/* Top shimmer line */}
                 <motion.div
                     className="absolute top-0 left-0 right-0 h-px"

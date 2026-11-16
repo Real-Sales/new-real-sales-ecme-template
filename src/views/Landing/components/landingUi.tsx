@@ -9,6 +9,7 @@ import {
 } from 'framer-motion'
 import type { LandingTheme } from '../landingTheme'
 import DiaTextReveal from './DiaTextReveal'
+import ShinyText from '@/components/reactbits/ShinyText'
 
 const EASE_OUT = [0.22, 1, 0.36, 1] as const
 
@@ -141,9 +142,14 @@ export function SectionBadge({ t, label }: { t: LandingTheme; label: string }) {
                     style={{ backgroundColor: t.accent }}
                 />
             </span>
-            <span className="text-xs font-medium tracking-wide" style={{ color: t.textMuted }}>
-                {label}
-            </span>
+            <ShinyText
+                text={label}
+                color={t.textMuted}
+                shineColor={t.text}
+                speed={3}
+                delay={1.5}
+                className="text-xs font-medium tracking-wide"
+            />
         </motion.div>
     )
 }

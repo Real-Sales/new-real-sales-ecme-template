@@ -1,11 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import RollingCount from '@/components/reactbits/CountUp'
 import type { ReactNode } from 'react'
-import {
-    motion,
-    useReducedMotion,
-    useInView,
-    animate,
-} from 'framer-motion'
+import { motion, useReducedMotion } from 'framer-motion'
 import classNames from '@/utils/classNames'
 
 /** Standard easing curves used across the Overview page (Emil Kowalski: never use built-in ease-in for UI). */
@@ -176,31 +171,16 @@ export const CountUp = ({
     duration?: number
     className?: string
 }) => {
-    const ref = useRef<HTMLSpanElement>(null)
-    const inView = useInView(ref, { once: true, amount: 0.6 })
-    const reduce = useReducedMotion()
-    const [display, setDisplay] = useState(reduce ? value : 0)
-
-    useEffect(() => {
-        if (!inView) return
-        if (reduce) {
-            setDisplay(value)
-            return
-        }
-        const controls = animate(0, value, {
-            duration,
-            ease: EASE_OUT,
-            onUpdate: (v) => setDisplay(v),
-        })
-        return () => controls.stop()
-    }, [inView, value, duration, reduce])
-
     return (
-        <span ref={ref} className={classNames('tabular-nums', className)}>
-            {prefix}
-            {display.toFixed(decimals)}
-            {suffix}
-        </span>
+        <RollingCount
+            to={value}
+            decimals={decimals}
+            prefix={prefix}
+            suffix={suffix}
+            duration={duration}
+            mode="roll"
+            className={classNames('tabular-nums', className)}
+        />
     )
 }
 

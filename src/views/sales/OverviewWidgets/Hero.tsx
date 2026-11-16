@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import GradientText from '@/components/reactbits/GradientText'
 import { motion, useReducedMotion } from 'framer-motion'
 import {
     TbBolt,
@@ -107,7 +108,11 @@ const Hero = ({ data }: { data: OverviewData }) => {
                         </div>
 
                         <h1 className="text-4xl font-bold leading-[1.08] tracking-tight text-white sm:text-5xl">
-                            {greeting}, {data.firstName}.
+                            {greeting},{' '}
+                            <GradientText colors={['#34C779', '#38D6E8', '#0CAF60', '#A7F3D0', '#34C779']} animationSpeed={6}>
+                                {data.firstName}
+                            </GradientText>
+                            .
                         </h1>
                         <p className="mt-5 max-w-lg text-base leading-relaxed text-white/60">
                             You are {improvementLabel} on last month and{' '}

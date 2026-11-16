@@ -1,4 +1,6 @@
 import { useEffect } from 'react'
+import AnimatedContent from '@/components/reactbits/AnimatedContent'
+import { CountUp } from '../OverviewWidgets/common'
 import { Card, toast, Notification } from '@/components/ui'
 import Container from '@/components/shared/Container'
 import PerformanceLineChart from './PerformanceLineChart'
@@ -21,7 +23,7 @@ injectReducer('performance', performanceReducer)
 // Analytics card component
 type AnalyticsCardProps = {
     icon: React.ReactNode
-    value: string
+    value: React.ReactNode
     label: string
     iconBg: string
 }
@@ -116,33 +118,35 @@ const Performance = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                     <AnalyticsCard
                         icon={<TbChartBar />}
-                        value={loading ? '...' : totalSessions.toString()}
+                        value={loading ? '...' : <CountUp value={totalSessions} />}
                         label="Total Sessions"
                         iconBg="bg-gray-100 dark:bg-gray-700/50"
                     />
                     <AnalyticsCard
                         icon={<TbTrendingUp />}
-                        value={loading ? '...' : averageScore.toFixed(1)}
+                        value={loading ? '...' : <CountUp value={averageScore} decimals={1} />}
                         label="Average Score"
                         iconBg="bg-gray-100 dark:bg-gray-700/50"
                     />
                 </div>
 
                 {/* Performance Line Chart */}
-                <PerformanceLineChart />
+                <AnimatedContent trigger="mount" distance={28} duration={0.7} delay={0.1}>
+                    <PerformanceLineChart />
+                </AnimatedContent>
 
                 {/* Skill Breakdown Section */}
-                <div className="mt-6">
+                <AnimatedContent trigger="mount" distance={28} duration={0.7} delay={0.22} className="mt-6">
                     <SkillBreakdown 
                         data={reportData} 
                         loading={loading}
                     />
-                </div>
+                </AnimatedContent>
 
                 {/* Session History Section */}
-                <div className="mt-6">
+                <AnimatedContent trigger="mount" distance={28} duration={0.7} delay={0.34} className="mt-6">
                     <SessionHistorySection />
-                </div>
+                </AnimatedContent>
             </Container>
         </div>
     )
