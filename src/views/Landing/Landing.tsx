@@ -4,6 +4,7 @@ import Lenis from 'lenis'
 import SalesWanaHero from './components/SalesWanaHero'
 import NavigationBar from './components/NavigationBar'
 import LandingNavSentinel from './components/LandingNavSentinel'
+import ProductTour from './components/ProductTour'
 import FeatureGrid from './components/FeatureGrid'
 import VideoSection from './components/VideoSection'
 import DashboardSection from './components/DashboardSection'
@@ -61,6 +62,7 @@ const LandingContent = ({ mode, toggleMode }: LandingContentProps) => {
             <LandingNavSentinel />
             <NavigationBar mode={mode} toggleMode={toggleMode} />
             <SalesWanaHero />
+            <ProductTour />
             <FeatureGrid />
             <VideoSection />
             <IndustriesTeaser />

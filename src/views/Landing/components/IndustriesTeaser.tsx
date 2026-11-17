@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { GlassLayers } from '@/components/ui/liquid-glass'
 import { useNavigate } from 'react-router-dom'
-import { motion, useInView, AnimatePresence } from 'framer-motion'
+import { motion, useInView } from 'framer-motion'
 import { TbArrowRight, TbToolsKitchen2, TbPlayerPlay, TbChevronRight } from 'react-icons/tb'
 import { useLandingTheme } from '../LandingThemeProvider'
 import type { LandingTheme } from '../landingTheme'
@@ -68,33 +68,56 @@ const MiniWave = ({ active }: { active: boolean }) => (
 )
 
 // Rotating persona preview inside the teaser card
-const PersonaStack = ({ hovered, t }: { hovered: boolean; t: LandingTheme }) => {
+const PersonaStack = ({ t }: { t: LandingTheme }) => {
     const [activeIdx, setActiveIdx] = useState(0)
     const [playingIdx, setPlayingIdx] = useState<number | null>(null)
+    // Set while a clicked intro is still downloading/buffering, so the row can show a spinner
+    const [loadingIdx, setLoadingIdx] = useState<number | null>(null)
     const audioRef = useRef<HTMLAudioElement | null>(null)
+    const cache = useRef<Record<number, HTMLAudioElement>>({})
+
+    // One audio element per persona. Called on hover/touch too, so the file starts
+    // downloading before the click and playback begins sooner.
+    const prepare = (i: number) => {
+        if (!cache.current[i]) {
+            const audio = new Audio(PREVIEW_PERSONAS[i].audio)
+            audio.preload = 'auto'
+            audio.load()
+            cache.current[i] = audio
+        }
+        return cache.current[i]
+    }
 
     const stopAudio = () => {
         audioRef.current?.pause()
         audioRef.current = null
         setPlayingIdx(null)
+        setLoadingIdx(null)
     }
 
-    // Click a persona to hear their intro; click the one that is playing to stop it.
+    // Click a persona to hear their intro; click the one that is playing (or loading) to stop it.
     const handleSelect = (i: number) => {
         setActiveIdx(i)
-        if (playingIdx === i) {
+        if (playingIdx === i || loadingIdx === i) {
             stopAudio()
             return
         }
         audioRef.current?.pause()
-        const audio = new Audio(PREVIEW_PERSONAS[i].audio)
+        const audio = prepare(i)
         audioRef.current = audio
-        audio.addEventListener('ended', () => {
+        audio.currentTime = 0
+        audio.onended = () => {
             if (audioRef.current === audio) stopAudio()
-        })
+        }
+        setPlayingIdx(null)
+        setLoadingIdx(i)
         audio
             .play()
-            .then(() => setPlayingIdx(i))
+            .then(() => {
+                if (audioRef.current !== audio) return
+                setLoadingIdx(null)
+                setPlayingIdx(i)
+            })
             .catch(() => {
                 if (audioRef.current === audio) stopAudio()
             })
@@ -110,7 +133,10 @@ const PersonaStack = ({ hovered, t }: { hovered: boolean; t: LandingTheme }) => 
                     <motion.button
                         key={p.id}
                         onClick={() => handleSelect(i)}
+                        onPointerEnter={() => prepare(i)}
+                        onTouchStart={() => prepare(i)}
                         aria-label={`Play intro from ${p.name}`}
+                        aria-busy={loadingIdx === i}
                         className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all duration-200"
                         style={{
                             background: isActive
@@ -156,23 +182,21 @@ const PersonaStack = ({ hovered, t }: { hovered: boolean; t: LandingTheme }) => 
                             </p>
                         </div>
 
-                        {/* Play indicator */}
-                        <AnimatePresence>
-                            {isActive && (
-                                <motion.div
-                                    initial={{ opacity: 0, scale: 0.7 }}
-                                    animate={{ opacity: 1, scale: 1 }}
-                                    exit={{ opacity: 0, scale: 0.7 }}
-                                    transition={{ duration: 0.2 }}
-                                >
-                                    <MiniWave active={playingIdx === i || (hovered && playingIdx === null)} />
-                                </motion.div>
+                        {/* Right side: spinner while loading, waveform only while the voice plays, play button otherwise */}
+                        <span className="flex items-center justify-center flex-shrink-0" style={{ minWidth: 16, height: 18 }}>
+                            {loadingIdx === i ? (
+                                <span
+                                    role="status"
+                                    aria-label="Loading intro"
+                                    className="block w-4 h-4 rounded-full border-2 animate-spin"
+                                    style={{ borderColor: 'rgba(12,175,96,0.25)', borderTopColor: '#0CAF60' }}
+                                />
+                            ) : playingIdx === i ? (
+                                <MiniWave active />
+                            ) : (
+                                <TbPlayerPlay size={isActive ? 12 : 10} style={{ color: isActive ? '#0CAF60' : t.textFaint }} />
                             )}
-                        </AnimatePresence>
-
-                        {!isActive && (
-                            <TbPlayerPlay size={10} style={{ color: t.textFaint, flexShrink: 0 }} />
-                        )}
+                        </span>
                     </motion.button>
                 )
             })}
@@ -284,7 +308,7 @@ const IndustryCard = ({ navigate, t }: { navigate: (path: string) => void; t: La
                     </div>
 
                     {/* Persona list */}
-                    <PersonaStack hovered={hovered} t={t} />
+                    <PersonaStack t={t} />
 
                     {/* Avatar overflow row */}
                     <div className="flex items-center gap-3 mt-4 pt-4" style={{ borderTop: `1px solid ${footerBorder}` }}>

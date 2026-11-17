@@ -377,7 +377,7 @@ const SalesWanaHero = () => {
 
             <div
                 ref={statsRef}
-                className="relative z-10 w-full border-t border-b lg:border-b-0"
+                className="relative z-10 w-full border-t border-b"
                 style={{
                     borderColor: t.border,
                 }}
