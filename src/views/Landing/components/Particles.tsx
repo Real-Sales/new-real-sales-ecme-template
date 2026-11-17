@@ -230,10 +230,18 @@ const Particles: FC<ParticlesProps> = ({
         let lastTime = performance.now()
         let elapsed = 0
 
+        // Skip drawing while scrolled off screen
+        let visible = true
+        const visibility = new IntersectionObserver(([entry]) => {
+            visible = entry.isIntersecting
+        })
+        visibility.observe(container)
+
         const update = (t: number) => {
             animationFrameId = requestAnimationFrame(update)
             const delta = t - lastTime
             lastTime = t
+            if (!visible) return
             elapsed += delta * speed
 
             program.uniforms.uTime.value = elapsed * 0.001
@@ -263,6 +271,7 @@ const Particles: FC<ParticlesProps> = ({
                 container.removeEventListener('mousemove', handleMouseMove)
             }
             cancelAnimationFrame(animationFrameId)
+            visibility.disconnect()
             if (container.contains(gl.canvas)) {
                 container.removeChild(gl.canvas)
             }

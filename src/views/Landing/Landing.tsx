@@ -113,7 +113,9 @@ const Landing = () => {
         const prefersReducedMotion = window.matchMedia(
             '(prefers-reduced-motion: reduce)',
         ).matches
-        if (prefersReducedMotion) return
+        // Touch screens already scroll smoothly; Lenis there only adds per-frame scroll reads
+        const isTouch = window.matchMedia('(pointer: coarse)').matches
+        if (prefersReducedMotion || isTouch) return
 
         const lenis = new Lenis({
             duration: 1.15,

@@ -97,13 +97,21 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
             lastScrollY.current = scrollY
         }
 
+        // At most once per frame (the scroll event also reaches window from document)
+        let frame = 0
+        const onScroll = () => {
+            if (!frame)
+                frame = requestAnimationFrame(() => {
+                    frame = 0
+                    updateFromScroll()
+                })
+        }
         updateFromScroll()
-        window.addEventListener('scroll', updateFromScroll, { passive: true })
-        document.addEventListener('scroll', updateFromScroll, { passive: true })
+        window.addEventListener('scroll', onScroll, { passive: true })
 
         return () => {
-            window.removeEventListener('scroll', updateFromScroll)
-            document.removeEventListener('scroll', updateFromScroll)
+            if (frame) cancelAnimationFrame(frame)
+            window.removeEventListener('scroll', onScroll)
         }
     }, [menuOpen])
 
@@ -118,27 +126,40 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
             setActiveNav('')
             return
         }
+        // Section positions are measured on load/resize only, so scrolling never forces a layout here
         let frame = 0
+        let tops: { label: string; top: number }[] = []
+        const measure = () => {
+            tops = navLinks.flatMap((link) => {
+                const el = document.querySelector(link.href)
+                return el ? [{ label: link.label, top: el.getBoundingClientRect().top + window.scrollY }] : []
+            })
+        }
         const update = () => {
             frame = 0
-            const line = window.innerHeight * 0.35
+            const line = window.scrollY + window.innerHeight * 0.35
             let current = 'Home'
-            for (const link of navLinks) {
-                const el = document.querySelector(link.href)
-                if (el && el.getBoundingClientRect().top <= line) current = link.label
-            }
+            for (const s of tops) if (s.top <= line) current = s.label
             setActiveNav(current)
         }
         const onScroll = () => {
             if (!frame) frame = requestAnimationFrame(update)
         }
+        const onResize = () => {
+            measure()
+            onScroll()
+        }
+        measure()
         update()
+        const observer = new ResizeObserver(onResize)
+        observer.observe(document.body)
         window.addEventListener('scroll', onScroll, { passive: true })
-        document.addEventListener('scroll', onScroll, { passive: true })
+        window.addEventListener('resize', onResize)
         return () => {
             if (frame) cancelAnimationFrame(frame)
+            observer.disconnect()
             window.removeEventListener('scroll', onScroll)
-            document.removeEventListener('scroll', onScroll)
+            window.removeEventListener('resize', onResize)
         }
     }, [isOnLanding])
 

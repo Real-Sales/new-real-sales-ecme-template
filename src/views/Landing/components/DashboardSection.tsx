@@ -1,16 +1,10 @@
 import { useRef, useState } from 'react'
 import { GlassLayers } from '@/components/ui/liquid-glass'
 import { glassCard, glassHairline } from '../landingTheme'
-import {
-    motion,
-    useReducedMotion,
-    useScroll,
-    useSpring,
-    useTransform,
-} from 'framer-motion'
+import { motion, useReducedMotion } from 'framer-motion'
 import { TbTargetArrow, TbPlayerPlay, TbReportAnalytics, TbBolt } from 'react-icons/tb'
 import { useLandingTheme } from '../LandingThemeProvider'
-import { SectionBadge, SectionHeading, SectionDesc, PARALLAX_SPRING, useIsNarrow } from './landingUi'
+import { SectionBadge, SectionHeading, SectionDesc, ParallaxBlock, useIsNarrow, useParallaxY } from './landingUi'
 
 const metrics = [
     { label: 'Confidence Score', value: '87%', bar: 87, trend: '+12%' },
@@ -45,9 +39,8 @@ const bullets = [
 const DashboardSection = () => {
     const t = useLandingTheme()
     const prefersReducedMotion = useReducedMotion()
-    // No parallax drift on phones: the stacked mockup and copy would slide over each other.
+    const shouldReduceMotion = prefersReducedMotion
     const isNarrow = useIsNarrow()
-    const shouldReduceMotion = prefersReducedMotion || isNarrow
 
     // Same hover treatment as the industry preview card: green border, glow and brighter top shimmer.
     const [hovered, setHovered] = useState(false)
@@ -57,24 +50,19 @@ const DashboardSection = () => {
         : `0 20px 60px ${t.isLight ? 'rgba(0,0,0,0.08)' : 'rgba(0,0,0,0.6)'}`
 
     const sectionRef = useRef<HTMLElement>(null)
-    const { scrollYProgress } = useScroll({
-        target: sectionRef,
-        offset: ['start end', 'end start'],
-    })
-    // Mockup drifts up, supporting copy drifts down → layered parallax depth.
-    const mockupParallaxRaw = useTransform(scrollYProgress, [0, 1], [70, -70])
-    const copyParallaxRaw = useTransform(scrollYProgress, [0, 1], [-40, 40])
-    const mockupParallax = useSpring(mockupParallaxRaw, PARALLAX_SPRING)
-    const copyParallax = useSpring(copyParallaxRaw, PARALLAX_SPRING)
+    // Desktop: mockup drifts up, supporting copy drifts down → layered parallax depth.
+    // Phones: the column stays put and the mockup (placed inside it) drifts on its own.
+    const mockupParallax = useParallaxY(sectionRef, 70)
+    const copyParallax = useParallaxY(sectionRef, -40)
 
     // The analytics mockup. Rendered beside the copy on desktop and directly under the intro text on smaller screens.
     const renderMockup = (placement: string) => (
             <motion.div
-                initial={shouldReduceMotion ? false : { opacity: 0, x: -40 }}
+                initial={shouldReduceMotion ? false : isNarrow ? { opacity: 0 } : { opacity: 0, x: -40 }}
                 whileInView={{ opacity: 1, x: 0 }}
                 viewport={{ once: true, margin: '-80px' }}
                 transition={{ duration: shouldReduceMotion ? 0.01 : 0.7, ease: [0.16, 1, 0.3, 1] }}
-                style={shouldReduceMotion ? undefined : { y: mockupParallax }}
+                style={shouldReduceMotion || isNarrow ? undefined : { y: mockupParallax }}
                 className={`relative will-change-transform ${placement}`}
                 onMouseEnter={() => setHovered(true)}
                 onMouseLeave={() => setHovered(false)}
@@ -236,7 +224,7 @@ const DashboardSection = () => {
                     {renderMockup('hidden lg:block')}
 
                     <motion.div
-                        initial={shouldReduceMotion ? false : { opacity: 0, x: 40 }}
+                        initial={shouldReduceMotion ? false : isNarrow ? { opacity: 0 } : { opacity: 0, x: 40 }}
                         whileInView={{ opacity: 1, x: 0 }}
                         viewport={{ once: true, margin: '-80px' }}
                         transition={{
@@ -244,7 +232,7 @@ const DashboardSection = () => {
                             delay: shouldReduceMotion ? 0 : 0.15,
                             ease: [0.16, 1, 0.3, 1],
                         }}
-                        style={shouldReduceMotion ? undefined : { y: copyParallax }}
+                        style={shouldReduceMotion || isNarrow ? undefined : { y: copyParallax }}
                         className="will-change-transform"
                     >
                         <SectionBadge t={t} label="Sales intelligence" />
@@ -259,7 +247,9 @@ const DashboardSection = () => {
                             className="leading-relaxed mb-10"
                         />
 
-                        {renderMockup('lg:hidden mb-10')}
+                        <ParallaxBlock enabled={isNarrow} className="lg:hidden mb-10">
+                            {renderMockup('')}
+                        </ParallaxBlock>
 
                         <div className="space-y-6">
                             {bullets.map((b, i) => {

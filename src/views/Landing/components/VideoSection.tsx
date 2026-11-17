@@ -1,14 +1,11 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { GlassLayers } from '@/components/ui/liquid-glass'
 import { glassCard, glassEdge, glassHairline } from '../landingTheme'
-import { motion, useScroll, useSpring, useTransform } from 'framer-motion'
-import gsap from 'gsap'
-import { ScrollTrigger } from 'gsap/ScrollTrigger'
+import { motion } from 'framer-motion'
 import { TbSettings2, TbMessageChatbot, TbTrendingUp } from 'react-icons/tb'
 import { useLandingTheme } from '../LandingThemeProvider'
-import { SectionBadge, SectionHeading, SectionDesc, PARALLAX_SPRING, useIsNarrow } from './landingUi'
+import { SectionBadge, SectionHeading, SectionDesc, ParallaxBlock, useIsNarrow, useParallaxY } from './landingUi'
 
-gsap.registerPlugin(ScrollTrigger)
 
 const steps = [
     {
@@ -41,45 +38,14 @@ const WorkflowSection = () => {
     const sectionRef = useRef<HTMLDivElement>(null)
     const t = useLandingTheme()
     const [hoveredStep, setHoveredStep] = useState<number | null>(null)
-    const isNarrow = useIsNarrow()
     const prefersReducedMotion =
         typeof window !== 'undefined' &&
         window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
-    // Steps column drifts against the sticky intro for layered depth.
-    const { scrollYProgress } = useScroll({
-        target: sectionRef,
-        offset: ['start end', 'end start'],
-    })
-    const stepsYRaw = useTransform(scrollYProgress, [0, 1], [70, -70])
-    const stepsY = useSpring(stepsYRaw, PARALLAX_SPRING)
+    // Desktop: the steps column drifts against the sticky intro. Phones: each step card drifts on its own.
+    const stepsY = useParallaxY(sectionRef, 70)
+    const isNarrow = useIsNarrow()
 
-    useEffect(() => {
-        if (prefersReducedMotion || !sectionRef.current) return
-
-        const ctx = gsap.context(() => {
-            gsap.utils.toArray<HTMLElement>('.workflow-step').forEach((step, i) => {
-                gsap.fromTo(
-                    step,
-                    { opacity: 0, y: 48 },
-                    {
-                        opacity: 1,
-                        y: 0,
-                        duration: 0.7,
-                        ease: 'power3.out',
-                        scrollTrigger: {
-                            trigger: step,
-                            start: 'top 82%',
-                            once: true,
-                        },
-                        delay: i * 0.08,
-                    },
-                )
-            })
-        }, sectionRef)
-
-        return () => ctx.revert()
-    }, [prefersReducedMotion])
 
     return (
         <section ref={sectionRef} className="py-24 md:py-32">
@@ -124,8 +90,13 @@ const WorkflowSection = () => {
                             const Icon = step.icon
                             const isHovered = hoveredStep === i
                             return (
-                                <div
-                                    key={i}
+                                <ParallaxBlock key={i} enabled={isNarrow} distance={i % 2 ? 100 : 70}>
+                                <motion.div
+                                    // Fades up once as it scrolls into view (IntersectionObserver: no per-frame scroll reads)
+                                    initial={prefersReducedMotion ? false : { opacity: 0, y: 48 }}
+                                    whileInView={{ opacity: 1, y: 0 }}
+                                    viewport={{ once: true, margin: '0px 0px -18% 0px' }}
+                                    transition={{ duration: 0.7, delay: i * 0.08, ease: [0.215, 0.61, 0.355, 1] }}
                                     className="workflow-step relative rounded-2xl p-7"
                                     style={{
                                         ...glassCard(t),
@@ -190,7 +161,8 @@ const WorkflowSection = () => {
                                             </div>
                                         </div>
                                     </div>
-                                </div>
+                                </motion.div>
+                                </ParallaxBlock>
                             )
                         })}
                     </motion.div>

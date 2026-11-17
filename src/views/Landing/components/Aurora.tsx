@@ -198,10 +198,16 @@ export default function Aurora(props: AuroraProps) {
         ctn.appendChild(gl.canvas)
 
         let animateId = 0
+        // Skip drawing while scrolled off screen
+        let visible = true
+        const visibility = new IntersectionObserver(([entry]) => {
+            visible = entry.isIntersecting
+        })
+        visibility.observe(ctn)
         const update = (t: number) => {
             animateId = requestAnimationFrame(update)
             const { time = t * 0.01, speed = 1.0 } = propsRef.current
-            if (!program) return
+            if (!program || !visible) return
 
             program.uniforms.uTime.value = time * speed * 0.1
             program.uniforms.uAmplitude.value = propsRef.current.amplitude ?? 1.0
@@ -220,6 +226,7 @@ export default function Aurora(props: AuroraProps) {
 
         return () => {
             cancelAnimationFrame(animateId)
+            visibility.disconnect()
             window.removeEventListener('resize', resize)
             if (gl.canvas.parentNode === ctn) {
                 ctn.removeChild(gl.canvas)
