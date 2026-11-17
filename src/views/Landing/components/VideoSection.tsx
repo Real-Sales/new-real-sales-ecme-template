@@ -1,12 +1,12 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { GlassLayers } from '@/components/ui/liquid-glass'
-import { glassCard, glassEdge } from '../landingTheme'
+import { glassCard, glassEdge, glassHairline } from '../landingTheme'
 import { motion, useScroll, useSpring, useTransform } from 'framer-motion'
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { TbSettings2, TbMessageChatbot, TbTrendingUp } from 'react-icons/tb'
 import { useLandingTheme } from '../LandingThemeProvider'
-import { SectionBadge, SectionHeading, SectionDesc, PARALLAX_SPRING } from './landingUi'
+import { SectionBadge, SectionHeading, SectionDesc, PARALLAX_SPRING, useIsNarrow } from './landingUi'
 
 gsap.registerPlugin(ScrollTrigger)
 
@@ -40,6 +40,8 @@ const steps = [
 const WorkflowSection = () => {
     const sectionRef = useRef<HTMLDivElement>(null)
     const t = useLandingTheme()
+    const [hoveredStep, setHoveredStep] = useState<number | null>(null)
+    const isNarrow = useIsNarrow()
     const prefersReducedMotion =
         typeof window !== 'undefined' &&
         window.matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -116,21 +118,36 @@ const WorkflowSection = () => {
 
                     <motion.div
                         className="space-y-6 will-change-transform"
-                        style={prefersReducedMotion ? undefined : { y: stepsY }}
+                        style={prefersReducedMotion || isNarrow ? undefined : { y: stepsY }}
                     >
                         {steps.map((step, i) => {
                             const Icon = step.icon
+                            const isHovered = hoveredStep === i
                             return (
                                 <div
                                     key={i}
-                                    className="workflow-step relative rounded-2xl transition-all duration-300 p-7"
+                                    className="workflow-step relative rounded-2xl p-7"
                                     style={{
-                                        border: '1px solid transparent',
                                         ...glassCard(t),
-                                        boxShadow: glassEdge(t, 'none'),
+                                        // Same hover treatment as the industry preview card
+                                        border: `1px solid ${isHovered ? 'rgba(12,175,96,0.32)' : glassHairline(t)}`,
+                                        boxShadow: isHovered
+                                            ? `0 0 60px rgba(12,175,96,0.1), 0 24px 48px ${t.isLight ? 'rgba(0,0,0,0.1)' : 'rgba(0,0,0,0.5)'}`
+                                            : glassEdge(t, 'none'),
+                                        transition: 'border 0.4s, box-shadow 0.4s',
                                     }}
+                                    onMouseEnter={() => setHoveredStep(i)}
+                                    onMouseLeave={() => setHoveredStep((cur) => (cur === i ? null : cur))}
                                 >
                                     <GlassLayers light={t.isLight} />
+                                    {/* Top shimmer line */}
+                                    <div
+                                        className="pointer-events-none absolute top-0 left-4 right-4 h-px transition-opacity duration-[400ms]"
+                                        style={{
+                                            opacity: isHovered ? 1 : 0.4,
+                                            background: 'linear-gradient(90deg, transparent, rgba(12,175,96,0.7) 30%, rgba(52,199,121,1) 50%, rgba(12,175,96,0.7) 70%, transparent)',
+                                        }}
+                                    />
                                     <div className="flex items-start gap-5">
                                         <div className="shrink-0">
                                             <div

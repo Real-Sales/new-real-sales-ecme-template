@@ -14,7 +14,29 @@ import { useLandingTheme } from '../LandingThemeProvider'
 import type { LandingTheme } from '../landingTheme'
 import { SectionBadge, SectionHeading, SectionDesc, ParallaxReveal } from './landingUi'
 
-const waveHeights = [12, 22, 32, 22, 16, 28, 36, 26, 16, 22, 30, 18, 32, 22, 12]
+// Voice waveform: thin bars whose resting heights follow a speech-like envelope
+const WAVE_BARS = Array.from({ length: 44 }, (_, i) => {
+    const envelope = 0.35 + 0.65 * Math.abs(Math.sin(i * 0.37) * Math.cos(i * 0.11 + 0.6))
+    return {
+        height: Math.round(6 + envelope * 26),
+        duration: 0.9 + ((i * 7) % 5) * 0.14,
+        delay: -((i * 13) % 17) * 0.09,
+    }
+})
+
+const SCENARIOS = ['Cold call', 'Discovery', 'Objection handling', 'Negotiation']
+const SCORE_BARS = [38, 52, 46, 63, 58, 74, 88]
+
+// Shared keyframes for the card infographics (transform/opacity only, so they stay cheap)
+const INFOGRAPHIC_CSS = `
+@keyframes fg-wave { 0%, 100% { transform: scaleY(0.28); } 50% { transform: scaleY(1); } }
+@keyframes fg-pulse { 0%, 100% { transform: scale(1); opacity: 0.55; } 50% { transform: scale(1.9); opacity: 0; } }
+@keyframes fg-pick { 0%, 20% { opacity: 1; } 25%, 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .fg-wave, .fg-pulse, .fg-pick { animation: none !important; }
+  .fg-pick:first-child { opacity: 1; }
+}
+`
 
 const BentoCard = ({
     children,
@@ -42,7 +64,6 @@ const BentoCard = ({
                 onMouseMove={handleMouseMove}
                 className="group relative rounded-2xl overflow-hidden transition-all duration-300 h-full"
                 style={{
-                    border: '1px solid transparent',
                     ...glassCard(t),
                     boxShadow: t.isLight
                         ? glassEdge(t, '')
@@ -99,6 +120,7 @@ const FeatureGrid = () => {
 
     return (
         <section id="features" className="py-24 md:py-32 relative overflow-hidden">
+            <style>{INFOGRAPHIC_CSS}</style>
             <div
                 className="pointer-events-none absolute inset-x-0 top-0 h-[360px]"
                 style={{
@@ -120,8 +142,8 @@ const FeatureGrid = () => {
                     />
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-4 auto-rows-fr gap-4 grid-flow-dense">
-                    <BentoCard className="md:col-span-2 min-h-[280px]" delay={0} distance={45}>
+                <div className="grid grid-cols-1 md:grid-cols-4 md:auto-rows-fr gap-4 grid-flow-dense">
+                    <BentoCard className="md:col-span-2 md:min-h-[280px]" delay={0} distance={45}>
                         <div className="p-7 h-full flex flex-col justify-between">
                             <div>
                                 <IconBox icon={TbBrain} t={t} />
@@ -146,8 +168,8 @@ const FeatureGrid = () => {
                                             className="px-3 py-2 rounded-xl text-xs"
                                             style={{
                                                 color: t.textSecondary,
-                                                backgroundColor: line.align === 'right' ? t.surfaceStrong : t.bgCard,
-                                                border: line.align === 'right' ? `1px solid ${t.border}` : undefined,
+                                                backgroundColor: line.align === 'right' ? `${t.accent}1f` : t.surface,
+                                                border: `1px solid ${line.align === 'right' ? `${t.accent}40` : t.border}`,
                                             }}
                                         >
                                             {line.msg}
@@ -158,7 +180,7 @@ const FeatureGrid = () => {
                         </div>
                     </BentoCard>
 
-                    <BentoCard className="md:col-span-2 min-h-[280px]" delay={0.08} distance={80}>
+                    <BentoCard className="md:col-span-2 md:min-h-[280px]" delay={0.08} distance={80}>
                         <div className="p-7 h-full flex flex-col justify-between">
                             <div>
                                 <IconBox icon={TbMicrophone} t={t} />
@@ -171,53 +193,60 @@ const FeatureGrid = () => {
                             </div>
 
                             <div
-                                className="mt-6 flex items-center gap-2 px-3 py-3 rounded-xl"
+                                className="mt-6 flex items-center gap-3 px-3.5 py-3 rounded-xl"
                                 style={{
                                     border: `1px solid ${t.border}`,
                                     backgroundColor: t.surface,
                                 }}
                             >
-                                <div
-                                    className="w-6 h-6 rounded-full flex items-center justify-center shrink-0"
-                                    style={{ backgroundColor: t.accentSubtle }}
-                                >
-                                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: t.accent }} />
+                                {/* Recording dot with a soft pulse ring */}
+                                <div className="relative w-7 h-7 shrink-0 flex items-center justify-center">
+                                    <span
+                                        className="fg-pulse absolute inset-1 rounded-full"
+                                        style={{ backgroundColor: t.accent, animation: 'fg-pulse 1.8s ease-out infinite' }}
+                                    />
+                                    <span className="relative w-2.5 h-2.5 rounded-full" style={{ backgroundColor: t.accent }} />
                                 </div>
-                                <div className="flex items-end gap-[3px] flex-1 h-8">
-                                    {waveHeights.map((h, i) => (
-                                        <motion.div
+
+                                {/* Waveform: thin centred bars, fading out at both ends */}
+                                <div
+                                    className="flex items-center justify-between flex-1 h-9"
+                                    style={{
+                                        maskImage: 'linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent)',
+                                        WebkitMaskImage: 'linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent)',
+                                    }}
+                                >
+                                    {WAVE_BARS.map((bar, i) => (
+                                        <span
                                             key={i}
-                                            className="flex-1 rounded-full"
-                                            style={{ minWidth: 2, backgroundColor: t.accent }}
-                                            animate={
-                                                shouldReduceMotion
-                                                    ? { height: h, opacity: 0.65 }
-                                                    : {
-                                                          height: [h * 0.5, h, h * 0.6, h],
-                                                          opacity: [0.35, 0.85, 0.45, 0.85],
-                                                      }
-                                            }
-                                            transition={
-                                                shouldReduceMotion
-                                                    ? { duration: 0.01 }
-                                                    : {
-                                                          duration: 1.3 + i * 0.04,
-                                                          repeat: Infinity,
-                                                          ease: 'easeInOut',
-                                                          delay: i * 0.06,
-                                                      }
-                                            }
+                                            className="fg-wave rounded-full"
+                                            style={{
+                                                width: 3,
+                                                height: bar.height,
+                                                background: `linear-gradient(180deg, ${t.accentMild}, ${t.accent})`,
+                                                opacity: 0.55 + (bar.height / 32) * 0.45,
+                                                transformOrigin: 'center',
+                                                animation: shouldReduceMotion
+                                                    ? undefined
+                                                    : `fg-wave ${bar.duration}s ease-in-out ${bar.delay}s infinite`,
+                                            }}
                                         />
                                     ))}
                                 </div>
-                                <span className="text-[10px] font-mono shrink-0" style={{ color: t.accent }}>
-                                    LIVE
-                                </span>
+
+                                <div className="shrink-0 text-right leading-none">
+                                    <span className="block text-[10px] font-mono font-semibold" style={{ color: t.accent }}>
+                                        LIVE
+                                    </span>
+                                    <span className="block text-[9px] font-mono mt-1 tabular-nums" style={{ color: t.textDim }}>
+                                        02:14
+                                    </span>
+                                </div>
                             </div>
                         </div>
                     </BentoCard>
 
-                    <BentoCard className="md:col-span-1 min-h-[220px]" delay={0.16} distance={55}>
+                    <BentoCard className="md:col-span-1 md:min-h-[220px]" delay={0.16} distance={55}>
                         <div className="p-6 h-full flex flex-col">
                             <IconBox icon={TbLayersLinked} t={t} className="mb-4" />
                             <h3 className="text-base font-semibold mb-2 tracking-tight leading-snug" style={{ color: t.text }}>
@@ -226,10 +255,36 @@ const FeatureGrid = () => {
                             <p className="text-xs leading-relaxed" style={{ color: t.textFaint }}>
                                 Cold calls, discovery, objection handling, negotiations - pick the exact moment you need to master.
                             </p>
+
+                            {/* Scenario picker: the highlight steps through the list */}
+                            <div className="mt-auto pt-5 space-y-1.5">
+                                {SCENARIOS.map((name, i) => (
+                                    <div
+                                        key={name}
+                                        className="relative flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[11px]"
+                                        style={{ border: `1px solid ${t.border}`, color: t.textMuted }}
+                                    >
+                                        <span
+                                            className="fg-pick absolute inset-0 rounded-lg"
+                                            style={{
+                                                opacity: 0,
+                                                backgroundColor: `${t.accent}1f`,
+                                                boxShadow: `inset 0 0 0 1px ${t.accent}66`,
+                                                animation: `fg-pick ${SCENARIOS.length * 1.6}s linear ${i * 1.6}s infinite`,
+                                            }}
+                                        />
+                                        <span className="relative w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: t.accent }} />
+                                        <span className="relative truncate">{name}</span>
+                                        <span className="relative ml-auto text-[9px] font-mono" style={{ color: t.textDim }}>
+                                            {String(i + 1).padStart(2, '0')}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                     </BentoCard>
 
-                    <BentoCard className="md:col-span-1 min-h-[220px]" delay={0.2} distance={95}>
+                    <BentoCard className="md:col-span-1 md:min-h-[220px]" delay={0.2} distance={95}>
                         <div className="p-6 h-full flex flex-col">
                             <IconBox icon={TbChartBar} t={t} className="mb-4" />
                             <h3 className="text-base font-semibold mb-2 tracking-tight leading-snug" style={{ color: t.text }}>
@@ -238,10 +293,54 @@ const FeatureGrid = () => {
                             <p className="text-xs leading-relaxed" style={{ color: t.textFaint }}>
                                 Every session turns into scored, actionable coaching data. Know what to fix before the next real call.
                             </p>
+
+                            {/* Session scores climbing over the last seven sessions */}
+                            <div className="mt-auto pt-5">
+                                <div className="flex items-end justify-between mb-2">
+                                    <div>
+                                        <p className="text-xl font-bold tracking-tight leading-none tabular-nums" style={{ color: t.text }}>
+                                            88
+                                        </p>
+                                        <p className="text-[9px] mt-1" style={{ color: t.textDim }}>
+                                            Latest score
+                                        </p>
+                                    </div>
+                                    <span
+                                        className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md"
+                                        style={{ color: t.accent, backgroundColor: `${t.accent}1f` }}
+                                    >
+                                        +23%
+                                    </span>
+                                </div>
+                                <div className="flex items-end gap-1.5 h-14">
+                                    {SCORE_BARS.map((score, i) => (
+                                        <motion.div
+                                            key={i}
+                                            className="flex-1 rounded-t-sm"
+                                            style={{
+                                                height: `${score}%`,
+                                                transformOrigin: 'bottom',
+                                                background:
+                                                    i === SCORE_BARS.length - 1
+                                                        ? `linear-gradient(180deg, ${t.accentMild}, ${t.accent})`
+                                                        : `${t.accent}${i > 3 ? '73' : '40'}`,
+                                            }}
+                                            initial={{ scaleY: shouldReduceMotion ? 1 : 0 }}
+                                            whileInView={{ scaleY: 1 }}
+                                            viewport={{ once: true }}
+                                            transition={{
+                                                duration: shouldReduceMotion ? 0.01 : 0.7,
+                                                delay: shouldReduceMotion ? 0 : 0.25 + i * 0.07,
+                                                ease: [0.16, 1, 0.3, 1],
+                                            }}
+                                        />
+                                    ))}
+                                </div>
+                            </div>
                         </div>
                     </BentoCard>
 
-                    <BentoCard className="md:col-span-2 min-h-[220px]" delay={0.24} distance={60}>
+                    <BentoCard className="md:col-span-2 md:min-h-[220px]" delay={0.24} distance={60}>
                         <div className="p-6 h-full flex flex-col justify-between">
                             <div>
                                 <IconBox icon={TbUsers} t={t} className="mb-4" />

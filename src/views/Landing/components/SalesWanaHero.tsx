@@ -8,7 +8,7 @@ import type { ConversationMode } from '@/components/shared/SessionSetupPanel'
 import SplitText from './SplitText'
 import Particles from './Particles'
 import Aurora from './Aurora'
-import LightRays from './LightRays'
+import SideRays from '@/components/reactbits/SideRays'
 import CountUp from '@/components/reactbits/CountUp'
 import ClickSpark from '@/components/reactbits/ClickSpark'
 import GradientText from '@/components/reactbits/GradientText'
@@ -17,7 +17,6 @@ import StarBorder from '@/components/reactbits/StarBorder'
 import { useLandingTheme } from '../LandingThemeProvider'
 import { getLenis } from '../smoothScroll'
 
-const LIGHT_RAY_MASK = 'radial-gradient(ellipse 62% 88% at 50% 0%, #000 0%, rgba(0,0,0,0.55) 45%, transparent 78%)'
 const HERO_FADE = 'linear-gradient(to bottom, #000 0%, #000 62%, transparent 100%)'
 
 const objections = [
@@ -136,38 +135,31 @@ const SalesWanaHero = () => {
                 style={{ background: `linear-gradient(to bottom, ${t.bg} 0%, ${t.bg} 58%, transparent 100%)` }}
             />
 
-            {/* Layer: animated light rays from the top — dark mode only
-                (rays render as light over a dark backdrop; on white they muddy). */}
-            {!shouldReduceMotion && !t.isLight && (
-                <div className="pointer-events-none absolute inset-0 z-[0]" style={{ maskImage: HERO_FADE, WebkitMaskImage: HERO_FADE }}>
-                    <LightRays
-                        raysOrigin="top-center"
-                        raysColor={t.accent}
-                        raysSpeed={1}
-                        lightSpread={0.6}
-                        rayLength={3}
+            {/* Layer: light shafts fanning down from the top centre, in the theme greens.
+                Light mode draws them as tinted ink on the pale page instead of additive light.
+                Dimmed on phones, where the fan fills the whole narrow screen. */}
+            {!shouldReduceMotion && (
+                <div className="pointer-events-none absolute inset-0 z-[0] opacity-60 md:opacity-100" style={{ maskImage: HERO_FADE, WebkitMaskImage: HERO_FADE }}>
+                    <SideRays
+                        rayColor1={t.accent}
+                        rayColor2={t.accentMild}
+                        origin="top-center"
+                        speed={2.5}
+                        intensity={1.2}
+                        spread={3}
+                        density={5}
+                        blend={0.5}
                         followMouse={false}
-                        mouseInfluence={0}
-                        noiseAmount={0.05}
-                        distortion={0}
-                        fadeDistance={1.1}
-                        saturation={1}
+                        lightMode={t.isLight}
+                        opacity={t.isLight ? 0.6 : 1}
+                        maxDevicePixelRatio={1}
                     />
                 </div>
             )}
 
-            {/* Layer: light-mode ambient glow (clean alternative to the rays) */}
+            {/* Layer: light-mode ambient glow under the rays */}
             {t.isLight && (
                 <div className="pointer-events-none absolute inset-0 z-[0] overflow-hidden">
-                    {/* Soft green beams fanning down from the top centre (CSS, so they stay crisp on white) */}
-                    <div
-                        className="absolute inset-x-0 top-0 h-[92%] blur-[10px]"
-                        style={{
-                            background: `conic-gradient(from 132deg at 50% -6%, transparent 0deg, ${t.accent}3d 9deg, transparent 19deg, ${t.accentMild}33 29deg, transparent 38deg, ${t.accent}52 48deg, transparent 58deg, ${t.accentMild}33 67deg, transparent 77deg, ${t.accent}3d 87deg, transparent 96deg, transparent 360deg)`,
-                            maskImage: LIGHT_RAY_MASK,
-                            WebkitMaskImage: LIGHT_RAY_MASK,
-                        }}
-                    />
                     <div
                         className="absolute left-1/2 -translate-x-1/2 -top-40 w-[1100px] h-[620px] rounded-full blur-3xl"
                         style={{
@@ -331,7 +323,7 @@ const SalesWanaHero = () => {
                     initial={shouldReduceMotion ? false : { opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: shouldReduceMotion ? 0.01 : 0.7, delay: shouldReduceMotion ? 0 : 0.35, ease: [0.16, 1, 0.3, 1] }}
-                    className="flex flex-col sm:flex-row gap-3 justify-center"
+                    className="flex flex-row flex-nowrap gap-2 sm:gap-3 justify-center"
                 >
                     <ClickSpark className="!h-auto !w-auto" sparkColor={t.accent} sparkCount={10} sparkRadius={22}>
                     <StarBorder
@@ -341,7 +333,7 @@ const SalesWanaHero = () => {
                         radius={999}
                         backgroundColor={t.primaryBtnBg}
                         textColor={t.primaryBtnText}
-                        className="group w-full !px-7 !leading-5 text-sm !font-semibold transition-transform duration-200 hover:-translate-y-0.5 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2"
+                        className="group w-full !px-4 sm:!px-7 !leading-5 text-[13px] sm:text-sm whitespace-nowrap !font-semibold transition-transform duration-200 hover:-translate-y-0.5 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2"
                         style={{
                             boxShadow: t.isLight ? '0 12px 28px rgba(16,185,129,0.25)' : '0 12px 28px rgba(0,0,0,0.48)',
                         }}
@@ -357,11 +349,13 @@ const SalesWanaHero = () => {
                         whileHover={shouldReduceMotion ? {} : { scale: 1.02, y: -2 }}
                         whileTap={shouldReduceMotion ? {} : { scale: 0.97 }}
                         transition={{ type: 'spring', stiffness: 400, damping: 20 }}
-                        className="flex items-center justify-center px-7 py-3.5 text-sm font-semibold rounded-full transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 hover:!border-[#0CAF60]/60 hover:shadow-[0_0_28px_rgba(12,175,96,0.22)]"
+                        className="flex items-center justify-center px-4 sm:px-7 py-3.5 text-[13px] sm:text-sm whitespace-nowrap font-semibold rounded-full transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 hover:!border-[#0CAF60]/60 hover:shadow-[0_0_28px_rgba(12,175,96,0.22)]"
                         style={{
                             color: t.secondaryBtnText,
                             border: `1px solid ${t.secondaryBtnBorder}`,
-                            backgroundColor: t.bgElevated,
+                            backgroundColor: t.isLight ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.045)',
+                            backdropFilter: 'blur(12px) saturate(150%)',
+                            WebkitBackdropFilter: 'blur(12px) saturate(150%)',
                         }}
                         onClick={handleWorkflowScroll}
                     >
@@ -383,12 +377,12 @@ const SalesWanaHero = () => {
 
             <div
                 ref={statsRef}
-                className="relative z-10 w-full border-t"
+                className="relative z-10 w-full border-t border-b lg:border-b-0"
                 style={{
                     borderColor: t.border,
                 }}
             >
-                <div className="max-w-5xl mx-auto px-4">
+                <div className="max-w-5xl mx-auto px-0 lg:px-4">
                     <div className="grid grid-cols-2 lg:grid-cols-4">
                         {stats.map((stat, i) => (
                             <div

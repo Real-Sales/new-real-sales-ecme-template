@@ -1,6 +1,6 @@
 import { motion, useReducedMotion } from 'framer-motion'
 import { GlassLayers } from '@/components/ui/liquid-glass'
-import { glassCard, glassEdge } from '../landingTheme'
+import { glassCard, glassHairline } from '../landingTheme'
 import GradientText from '@/components/reactbits/GradientText'
 import StarBorder from '@/components/reactbits/StarBorder'
 import ClickSpark from '@/components/reactbits/ClickSpark'
@@ -24,6 +24,13 @@ const FinalCTA = () => {
     const navigate = useNavigate()
     const t = useLandingTheme()
     const [isSetupOpen, setIsSetupOpen] = useState(false)
+
+    // Same hover treatment as the industry preview card: green border, glow and brighter top shimmer.
+    const [hovered, setHovered] = useState(false)
+    const cardBorder = hovered ? 'rgba(12,175,96,0.32)' : glassHairline(t)
+    const cardShadow = hovered
+        ? `0 0 60px rgba(12,175,96,0.1), 0 40px 80px ${t.isLight ? 'rgba(0,0,0,0.12)' : 'rgba(0,0,0,0.7)'}`
+        : `0 20px 60px ${t.isLight ? 'rgba(0,0,0,0.08)' : 'rgba(0,0,0,0.6)'}`
     const shouldReduceMotion = useReducedMotion()
     const signedIn = useAppSelector((state) => state.auth.session.signedIn)
     const { ref: parallaxRef, y: parallaxY } = useSmoothParallax(45)
@@ -65,6 +72,17 @@ const FinalCTA = () => {
                 className="max-w-7xl mx-auto px-4 relative z-10 will-change-transform"
                 style={parallaxY ? { y: parallaxY } : undefined}
             >
+                {/* Ambient outer glow */}
+                <motion.div
+                    className="absolute rounded-3xl pointer-events-none"
+                    animate={{ opacity: hovered ? 1 : 0.5 }}
+                    transition={{ duration: 0.5 }}
+                    style={{
+                        background: 'radial-gradient(ellipse at 50% 0%, rgba(12,175,96,0.14) 0%, transparent 65%)',
+                        filter: 'blur(20px)',
+                        inset: '-20px 0',
+                    }}
+                />
                 <motion.div
                     initial={shouldReduceMotion ? false : { opacity: 0, y: 32 }}
                     whileInView={{ opacity: 1, y: 0 }}
@@ -72,14 +90,22 @@ const FinalCTA = () => {
                     transition={{ duration: shouldReduceMotion ? 0.01 : 0.7, ease: [0.16, 1, 0.3, 1] }}
                     className="relative rounded-3xl overflow-hidden px-8 py-16 md:py-20 text-center"
                     style={{
-                        border: '1px solid transparent',
                         ...glassCard(t),
-                        boxShadow: t.isLight
-                            ? glassEdge(t, '')
-                            : '0 24px 56px rgba(0,0,0,0.4)',
+                        border: `1px solid ${cardBorder}`,
+                        boxShadow: cardShadow,
+                        transition: 'border 0.4s, box-shadow 0.4s',
                     }}
+                    onMouseEnter={() => setHovered(true)}
+                    onMouseLeave={() => setHovered(false)}
                 >
                     <GlassLayers light={t.isLight} />
+                    {/* Top shimmer line */}
+                    <motion.div
+                        className="absolute top-0 left-0 right-0 h-px"
+                        animate={{ opacity: hovered ? 1 : 0.4 }}
+                        transition={{ duration: 0.4 }}
+                        style={{ background: 'linear-gradient(90deg, transparent, rgba(12,175,96,0.7) 30%, rgba(52,199,121,1) 50%, rgba(12,175,96,0.7) 70%, transparent)' }}
+                    />
                     <div
                         style={{
                             backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40' width='40' height='40' fill='none'%3e%3ccircle cx='20' cy='20' r='1' fill='${encodeURIComponent(t.gridPattern)}'/%3e%3c/svg%3e")`,
@@ -156,7 +182,9 @@ const FinalCTA = () => {
                                 style={{
                                     color: t.secondaryBtnText,
                                     border: `1px solid ${t.secondaryBtnBorder}`,
-                                    backgroundColor: t.surface,
+                                    backgroundColor: t.isLight ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.045)',
+                                    backdropFilter: 'blur(12px) saturate(150%)',
+                                    WebkitBackdropFilter: 'blur(12px) saturate(150%)',
                                 }}
                             >
                                 Talk to the team

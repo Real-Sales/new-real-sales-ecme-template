@@ -1,4 +1,4 @@
-import { useRef, type ReactNode, type CSSProperties } from 'react'
+import { useEffect, useRef, useState, type ReactNode, type CSSProperties } from 'react'
 import {
     motion,
     useInView,
@@ -22,12 +22,29 @@ export const PARALLAX_SPRING = {
     mass: 0.4,
 } as const
 
+/** True below the `md` breakpoint. Parallax drift is switched off there: on phones the cards stack in one
+ * column, and neighbours drifting by different amounts slide over each other. */
+export function useIsNarrow() {
+    const [narrow, setNarrow] = useState(
+        () => typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches,
+    )
+    useEffect(() => {
+        const mq = window.matchMedia('(max-width: 767px)')
+        const onChange = () => setNarrow(mq.matches)
+        onChange()
+        mq.addEventListener('change', onChange)
+        return () => mq.removeEventListener('change', onChange)
+    }, [])
+    return narrow
+}
+
 /** Scroll-linked, spring-smoothed parallax `y`. Attach the returned `ref` to the
  * element you want to track, then spread `style={{ y }}` onto the moving node.
  * Returns `undefined` for `y` when the user prefers reduced motion. */
 export function useSmoothParallax(distance = 60) {
     const ref = useRef<HTMLDivElement>(null)
     const shouldReduceMotion = useReducedMotion()
+    const isNarrow = useIsNarrow()
     const { scrollYProgress } = useScroll({
         target: ref,
         offset: ['start end', 'end start'],
@@ -35,7 +52,7 @@ export function useSmoothParallax(distance = 60) {
     const yRaw = useTransform(scrollYProgress, [0, 1], [distance, -distance])
     const y = useSpring(yRaw, PARALLAX_SPRING)
 
-    return { ref, y: shouldReduceMotion ? undefined : y, shouldReduceMotion }
+    return { ref, y: shouldReduceMotion || isNarrow ? undefined : y, shouldReduceMotion }
 }
 
 /** Shared reveal timing — badge → heading → description cascade.
@@ -83,6 +100,7 @@ export function ParallaxReveal({
 }) {
     const ref = useRef<HTMLDivElement>(null)
     const shouldReduceMotion = useReducedMotion()
+    const isNarrow = useIsNarrow()
     const isInView = useInView(ref, { once: true, margin: '-60px' })
     const { scrollYProgress } = useScroll({
         target: ref,
@@ -101,7 +119,7 @@ export function ParallaxReveal({
                 delay: shouldReduceMotion ? 0 : delay,
                 ease: EASE_OUT,
             }}
-            style={shouldReduceMotion ? style : { ...style, y }}
+            style={shouldReduceMotion || isNarrow ? style : { ...style, y }}
             className={className}
         >
             {children}

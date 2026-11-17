@@ -59,12 +59,12 @@
       "gender": "male",
       "geography": "us",
       "company_size": "Large Company (5,000+):",
-      "voice_used": "Zephyr",
+      "voice_used": "Charon",
       "voice_id_db": "JBFqnCBsd6RMkjVDRZzb",
       "intro_text": "I'm Seth Garbo, IT Operations Manager here at the plant. My job is to keep our IT and OT systems running smoothly so production never stops.",
       "audio_path": "scripts/output/persona_intros/1bf821d8-4447-441f-9473-f97e03f798f3.wav",
       "audio_format": "wav",
-      "duration_ms": 10170
+      "duration_ms": 9531
     },
     {
       "persona_id": "30cd4f6c-75fc-4b56-b94a-51d184eea012",
@@ -254,12 +254,12 @@
       "gender": "male",
       "geography": "us",
       "company_size": "Medium Company (501-5,000):",
-      "voice_used": "Zephyr",
+      "voice_used": "Orus",
       "voice_id_db": "nPczCjzI2devNBz1zQrb",
       "intro_text": "Hey there, I'm Ryan Blender, I manage operations here for our manufacturing side. Most of my day is spent figuring out how to keep everything running smoothly, especially with all the long lead times we deal with.",
       "audio_path": "scripts/output/persona_intros/b17417d5-f26c-457c-98ae-355bab7ff8e8.wav",
       "audio_format": "wav",
-      "duration_ms": 12680
+      "duration_ms": 12771
     },
     {
       "persona_id": "d75084af-4bb2-400f-a0ea-0fcaa8e48e22",

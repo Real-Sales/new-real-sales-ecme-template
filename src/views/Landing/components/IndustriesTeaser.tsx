@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { GlassLayers } from '@/components/ui/liquid-glass'
 import { useNavigate } from 'react-router-dom'
 import { motion, useInView, AnimatePresence } from 'framer-motion'
@@ -10,13 +10,40 @@ import { SectionBadge, SectionHeading, SectionDesc, useSmoothParallax } from './
 import personaIntros from '../../../../persona_intros/index.json'
 
 // Stable persona subset for the teaser card
-const PREVIEW_PERSONAS = personaIntros.personas.slice(0, 8).map(p => ({
+// Personas whose stored photo can't be downloaded; they are left out of the teaser so no avatar falls back to initials
+const NO_PHOTO = new Set([
+    '697445bb-45de-4648-9a1b-3d05c91a8d2f', // Steve Jefferson
+    '93dbb4e7-5729-4919-9b28-e457cf3a153d', // Michela Spices
+    'b17417d5-f26c-457c-98ae-355bab7ff8e8', // Ryan Blender
+])
+const PREVIEW_PERSONAS = personaIntros.personas
+    .filter(p => !NO_PHOTO.has(p.persona_id))
+    .slice(0, 8)
+    .map(p => ({
     id: p.persona_id,
     name: p.name,
     role: p.ai_role.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
     initials: p.name.split(' ').map(n => n[0]).slice(0, 2).join(''),
     gender: p.gender,
+    // Photos are bundled in /public (the personas API needs a login, so the landing page can't fetch them)
+    photo: `/img/personas/${p.persona_id}.jpg`,
+    audio: `/persona_intros/${p.persona_id}.wav`,
 }))
+
+// Persona photo with the initials underneath as a fallback if the image is missing
+const PersonaPhoto = ({ src, alt }: { src: string; alt: string }) => {
+    const [failed, setFailed] = useState(false)
+    if (failed) return null
+    return (
+        <img
+            src={src}
+            alt={alt}
+            loading="lazy"
+            className="absolute inset-0 w-full h-full rounded-full object-cover"
+            onError={() => setFailed(true)}
+        />
+    )
+}
 
 // Mini waveform bars — purely decorative, animated when `active`
 const MiniWave = ({ active }: { active: boolean }) => (
@@ -43,6 +70,37 @@ const MiniWave = ({ active }: { active: boolean }) => (
 // Rotating persona preview inside the teaser card
 const PersonaStack = ({ hovered, t }: { hovered: boolean; t: LandingTheme }) => {
     const [activeIdx, setActiveIdx] = useState(0)
+    const [playingIdx, setPlayingIdx] = useState<number | null>(null)
+    const audioRef = useRef<HTMLAudioElement | null>(null)
+
+    const stopAudio = () => {
+        audioRef.current?.pause()
+        audioRef.current = null
+        setPlayingIdx(null)
+    }
+
+    // Click a persona to hear their intro; click the one that is playing to stop it.
+    const handleSelect = (i: number) => {
+        setActiveIdx(i)
+        if (playingIdx === i) {
+            stopAudio()
+            return
+        }
+        audioRef.current?.pause()
+        const audio = new Audio(PREVIEW_PERSONAS[i].audio)
+        audioRef.current = audio
+        audio.addEventListener('ended', () => {
+            if (audioRef.current === audio) stopAudio()
+        })
+        audio
+            .play()
+            .then(() => setPlayingIdx(i))
+            .catch(() => {
+                if (audioRef.current === audio) stopAudio()
+            })
+    }
+
+    useEffect(() => () => audioRef.current?.pause(), [])
 
     return (
         <div className="space-y-2">
@@ -51,7 +109,8 @@ const PersonaStack = ({ hovered, t }: { hovered: boolean; t: LandingTheme }) => 
                 return (
                     <motion.button
                         key={p.id}
-                        onClick={() => setActiveIdx(i)}
+                        onClick={() => handleSelect(i)}
+                        aria-label={`Play intro from ${p.name}`}
                         className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all duration-200"
                         style={{
                             background: isActive
@@ -66,7 +125,7 @@ const PersonaStack = ({ hovered, t }: { hovered: boolean; t: LandingTheme }) => 
                     >
                         {/* Avatar */}
                         <div
-                            className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold"
+                            className="relative flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold overflow-hidden"
                             style={{
                                 background: isActive
                                     ? 'linear-gradient(135deg, rgba(12,175,96,0.25), rgba(12,175,96,0.08))'
@@ -78,6 +137,7 @@ const PersonaStack = ({ hovered, t }: { hovered: boolean; t: LandingTheme }) => 
                             }}
                         >
                             {p.initials}
+                            <PersonaPhoto src={p.photo} alt={p.name} />
                         </div>
 
                         {/* Name + role */}
@@ -105,7 +165,7 @@ const PersonaStack = ({ hovered, t }: { hovered: boolean; t: LandingTheme }) => 
                                     exit={{ opacity: 0, scale: 0.7 }}
                                     transition={{ duration: 0.2 }}
                                 >
-                                    <MiniWave active={hovered && isActive} />
+                                    <MiniWave active={playingIdx === i || (hovered && playingIdx === null)} />
                                 </motion.div>
                             )}
                         </AnimatePresence>
@@ -181,7 +241,7 @@ const IndustryCard = ({ navigate, t }: { navigate: (path: string) => void; t: La
                     style={{ background: 'linear-gradient(90deg, transparent, rgba(12,175,96,0.7) 30%, rgba(52,199,121,1) 50%, rgba(12,175,96,0.7) 70%, transparent)' }}
                 />
 
-                <div className="p-6">
+                <div className="p-4 sm:p-6">
                     {/* Card header */}
                     <div className="flex items-center justify-between mb-5">
                         <div className="flex items-center gap-3">
@@ -232,7 +292,7 @@ const IndustryCard = ({ navigate, t }: { navigate: (path: string) => void; t: La
                             {PREVIEW_PERSONAS.slice(5, 8).map((p) => (
                                 <div
                                     key={p.id}
-                                    className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0"
+                                    className="relative overflow-hidden w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0"
                                     style={{
                                         background: 'linear-gradient(135deg, rgba(12,175,96,0.2), rgba(12,175,96,0.06))',
                                         border: `1.5px solid ${avatarBorder}`,
@@ -240,6 +300,7 @@ const IndustryCard = ({ navigate, t }: { navigate: (path: string) => void; t: La
                                     }}
                                 >
                                     {p.initials}
+                                    <PersonaPhoto src={p.photo} alt={p.name} />
                                 </div>
                             ))}
                             <div
@@ -306,9 +367,65 @@ const IndustriesTeaser = () => {
                             className="text-base leading-relaxed max-w-[420px] mb-8"
                         />
 
-                        {/* Industry pill list */}
+                        {/* Phones and tablets: industry switcher above the preview card. Swipes sideways;
+                            the live industry is highlighted, the rest are marked Soon. */}
+                        <div
+                            className="lg:hidden -mx-4 mb-4 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                            style={{
+                                maskImage: 'linear-gradient(90deg, #000 85%, transparent)',
+                                WebkitMaskImage: 'linear-gradient(90deg, #000 85%, transparent)',
+                            }}
+                        >
+                            <div className="flex w-max gap-2 px-4 pr-10">
+                                {industries.map((ind) => {
+                                    const Icon = ind.icon
+                                    return (
+                                        <button
+                                            key={ind.label}
+                                            type="button"
+                                            disabled={!ind.active}
+                                            onClick={() => ind.active && navigate(ind.href)}
+                                            className="inline-flex items-center gap-2 h-10 pl-2 pr-3 rounded-full text-[13px] font-medium whitespace-nowrap"
+                                            style={{
+                                                background: ind.active ? 'rgba(12,175,96,0.12)' : t.surface,
+                                                border: `1px solid ${ind.active ? 'rgba(12,175,96,0.35)' : t.border}`,
+                                                color: ind.active ? t.text : t.textFaint,
+                                                boxShadow: ind.active ? '0 0 18px rgba(12,175,96,0.15)' : undefined,
+                                            }}
+                                        >
+                                            <span
+                                                className="w-6 h-6 rounded-full flex items-center justify-center"
+                                                style={{
+                                                    background: ind.active ? '#0CAF60' : t.surfaceHover,
+                                                    color: ind.active ? '#fff' : t.textFaint,
+                                                }}
+                                            >
+                                                {Icon ? <Icon size={13} /> : <span className="w-1.5 h-1.5 rounded-full" style={{ background: t.textFaint }} />}
+                                            </span>
+                                            {ind.label}
+                                            <span
+                                                className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
+                                                style={{
+                                                    background: ind.active ? 'rgba(12,175,96,0.18)' : t.surfaceHover,
+                                                    color: ind.active ? '#0CAF60' : t.textDim,
+                                                }}
+                                            >
+                                                {ind.count}
+                                            </span>
+                                        </button>
+                                    )
+                                })}
+                            </div>
+                        </div>
+
+                        {/* Phones and tablets: the preview card sits right under the intro text */}
+                        <div className="lg:hidden mb-8">
+                            <IndustryCard navigate={navigate} t={t} />
+                        </div>
+
+                        {/* Industry pill list (desktop) */}
                         <motion.div
-                            className="flex flex-col gap-2 mb-10"
+                            className="hidden lg:flex flex-col gap-2 mb-10"
                             initial={{ opacity: 0 }}
                             animate={inView ? { opacity: 1 } : {}}
                             transition={{ delay: 1.4, duration: 0.5 }}
@@ -387,7 +504,7 @@ const IndustriesTeaser = () => {
                                     color: t.primaryBtnText,
                                 }}
                             >
-                                Explore Food & Beverage Personas
+                                Explore Personas
                                 <TbArrowRight
                                     size={16}
                                     className="group-hover:translate-x-0.5 transition-transform duration-200"
@@ -396,8 +513,10 @@ const IndustriesTeaser = () => {
                         </motion.div>
                     </div>
 
-                    {/* ── Right: industry card ── */}
-                    <IndustryCard navigate={navigate} t={t} />
+                    {/* ── Right: industry card (desktop) ── */}
+                    <div className="hidden lg:block">
+                        <IndustryCard navigate={navigate} t={t} />
+                    </div>
                 </div>
             </div>
         </section>

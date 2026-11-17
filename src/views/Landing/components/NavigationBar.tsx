@@ -208,7 +208,7 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
                 data-landing-nav
                 className={classNames(
                     'fixed inset-x-0 top-0 z-50 flex justify-center',
-                    isSticky ? 'pt-4' : 'pt-6',
+                    isSticky ? 'pt-2 lg:pt-4' : 'pt-3 lg:pt-6',
                 )}
                 initial={false}
                 animate={{
@@ -228,8 +228,8 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: shouldReduceMotion ? 0.01 : 0.6, ease: [0.16, 1, 0.3, 1] }}
                     className={classNames(
-                        'relative flex flex-nowrap items-center justify-between gap-4 px-4 xl:px-5 py-2 rounded-full',
-                        'border transition-all duration-500 mx-4 w-full max-w-6xl min-h-[56px]',
+                        'relative flex flex-nowrap items-center justify-between gap-4 px-2 lg:px-4 xl:px-5 py-2 rounded-full',
+                        'border transition-all duration-500 mx-2 lg:mx-4 w-full max-w-6xl min-h-[56px]',
                     )}
                     style={{
                         backgroundColor: isSticky ? t.navStickyBg : 'transparent',
@@ -388,7 +388,7 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
                         </div>
                     </div>
 
-                    <div className="flex shrink-0 items-center justify-end gap-3 min-w-[100px] xl:min-w-[110px]">
+                    <div className="flex shrink-0 items-center justify-end gap-2 lg:gap-3 lg:min-w-[100px] xl:min-w-[110px]">
                         <div className="hidden lg:flex items-center gap-3">
                             {toggleMode && (
                                 <AnimatedThemeToggler
@@ -438,6 +438,20 @@ const Navigation = ({ mode, toggleMode }: NavigationProps) => {
                             </Link>
                         </div>
 
+                        {/* Mobile: theme toggle sits right beside the menu button */}
+                        {toggleMode && (
+                            <AnimatedThemeToggler
+                                isDark={isDark}
+                                onModeChange={handleModeChange}
+                                variant="circle"
+                                duration={500}
+                                className="lg:hidden flex shrink-0 items-center justify-center w-9 h-9 rounded-full transition-all duration-200 focus-visible:outline-none focus-visible:ring-2"
+                                style={{
+                                    border: `1px solid ${t.border}`,
+                                    color: t.textMuted,
+                                }}
+                            />
+                        )}
                         <button
                             type="button"
                             className="lg:hidden flex items-center justify-center w-9 h-9 rounded-full transition-all duration-200 focus-visible:outline-none focus-visible:ring-2"
