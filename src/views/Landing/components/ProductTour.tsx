@@ -18,22 +18,27 @@ const CHIPS = [
     { icon: TbVolume, label: 'Narrated walkthrough' },
 ]
 
-/** A beam of light that travels around the frame, a soft copy of it behind as the glow, and the breathing
- * halo under the video. Angle is a registered custom property so the gradient itself can animate. */
+/** A beam of light that travels around the frame, and the breathing halo under the video.
+ * Everything here animates with transform/opacity only, so the compositor moves ready-made layers and nothing
+ * is repainted per frame (an animated gradient angle or an animated blur repaints the whole card, which
+ * made scrolling stutter on phones). */
 const TOUR_CSS = `
-@property --tour-angle { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
-@keyframes tour-spin { to { --tour-angle: 360deg; } }
+@keyframes tour-spin { to { transform: translate(-50%, -50%) rotate(360deg); } }
 @keyframes tour-breathe { 0%, 100% { opacity: 0.55; transform: scale(0.96); } 50% { opacity: 1; transform: scale(1.03); } }
 @keyframes tour-ring { 0% { transform: scale(1); opacity: 0.55; } 100% { transform: scale(2.1); opacity: 0; } }
 @keyframes tour-sheen { 0%, 60% { transform: translateX(-130%) skewX(-18deg); } 100% { transform: translateX(330%) skewX(-18deg); } }
 .tour-beam {
-    background: conic-gradient(from var(--tour-angle),
+    /* A square wider than the card's diagonal, spun behind it; the card's 1.5px padding shows it as the border */
+    position: absolute; left: 50%; top: 50%; width: 125%; aspect-ratio: 1;
+    transform: translate(-50%, -50%);
+    background: conic-gradient(
         rgba(12,175,96,0.14) 0deg, rgba(12,175,96,0.14) 200deg,
         rgba(52,199,121,0.9) 270deg, #b9ffd9 300deg, rgba(34,211,238,0.9) 325deg,
         rgba(12,175,96,0.14) 360deg);
     animation: tour-spin 6s linear infinite;
+    will-change: transform;
 }
-.tour-halo { animation: tour-breathe 5s ease-in-out infinite; }
+.tour-halo { animation: tour-breathe 5s ease-in-out infinite; will-change: transform, opacity; }
 .tour-ring { animation: tour-ring 2.4s cubic-bezier(0.2, 0.6, 0.3, 1) infinite; }
 .tour-sheen { animation: tour-sheen 5.5s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) {
@@ -129,32 +134,41 @@ const ProductTour = () => {
                             style={{ opacity: shouldReduceMotion ? 1 : glow }}
                         >
                             <div
-                                className="tour-halo absolute inset-0 blur-3xl"
+                                className="tour-halo absolute inset-0"
                                 style={{
                                     background:
-                                        'radial-gradient(55% 55% at 50% 55%, rgba(12,175,96,0.42), rgba(34,211,238,0.12) 55%, transparent 75%)',
+                                        'radial-gradient(50% 50% at 50% 52%, rgba(12,175,96,0.4), rgba(12,175,96,0.22) 45%, rgba(34,211,238,0.07) 68%, transparent 100%)',
                                 }}
                             />
                         </motion.div>
                         {/* Pool of light under the frame */}
                         <div
                             aria-hidden
-                            className="pointer-events-none absolute left-[12%] right-[12%] -bottom-10 h-16 blur-2xl rounded-[100%]"
-                            style={{ background: 'rgba(12,175,96,0.45)' }}
+                            className="pointer-events-none absolute left-[4%] right-[4%] -bottom-14 h-28"
+                            style={{
+                                background:
+                                    'radial-gradient(50% 50% at 50% 50%, rgba(12,175,96,0.4), transparent 100%)',
+                            }}
                         />
 
-                        {/* Soft glowing copy of the travelling beam */}
+                        {/* Glow that travels with the beam: the same spinning gradient, clipped to the card's outline
+                            and blurred. The spin runs on the compositor, so nothing is repainted per frame.
+                            Laptop screens only: phones keep the fixed glow below, which costs their GPU nothing. */}
                         <div
                             aria-hidden
-                            className="tour-beam pointer-events-none absolute -inset-[3px] rounded-[20px] md:rounded-[28px] blur-xl opacity-70"
-                        />
+                            className="pointer-events-none absolute -inset-[3px] hidden md:block overflow-hidden rounded-[28px] opacity-80"
+                            style={{ filter: 'blur(16px)' }}
+                        >
+                            <div className="tour-beam" />
+                        </div>
                         {/* Beam border: the gradient shows through a 1.5px gap around the video */}
                         <div
-                            className="tour-beam relative h-full w-full rounded-2xl md:rounded-3xl p-[1.5px]"
+                            className="relative h-full w-full overflow-hidden rounded-2xl md:rounded-3xl p-[1.5px]"
                             style={{
-                                boxShadow: `0 30px 80px ${t.isLight ? 'rgba(0,0,0,0.18)' : 'rgba(0,0,0,0.6)'}`,
+                                boxShadow: `0 0 ${isNarrow ? '28px rgba(12,175,96,0.32)' : '24px rgba(12,175,96,0.16)'}, 0 30px 80px ${t.isLight ? 'rgba(0,0,0,0.18)' : 'rgba(0,0,0,0.6)'}`,
                             }}
                         >
+                            <div aria-hidden className="tour-beam pointer-events-none" />
                             <div
                                 className="relative h-full w-full overflow-hidden rounded-[15px] md:rounded-[23px]"
                                 style={{ backgroundColor: '#050806' }}
@@ -189,7 +203,7 @@ const ProductTour = () => {
                                                     'linear-gradient(90deg, transparent, rgba(255,255,255,0.09), transparent)',
                                             }}
                                         />
-                                        <span className="relative flex flex-col items-center gap-3 md:gap-5">
+                                        <span className="relative flex flex-col items-center">
                                             <span className="relative flex items-center justify-center">
                                                 <span
                                                     className="tour-ring absolute h-14 w-14 md:h-24 md:w-24 rounded-full"
@@ -213,17 +227,6 @@ const ProductTour = () => {
                                                 >
                                                     <TbPlayerPlayFilled className="text-white text-xl md:text-4xl translate-x-[2px]" />
                                                 </span>
-                                            </span>
-                                            <span
-                                                className="rounded-full px-3.5 py-1.5 text-[11px] md:text-sm font-semibold text-white"
-                                                style={{
-                                                    background: 'rgba(255,255,255,0.1)',
-                                                    border: '1px solid rgba(255,255,255,0.18)',
-                                                    backdropFilter: 'blur(10px)',
-                                                    WebkitBackdropFilter: 'blur(10px)',
-                                                }}
-                                            >
-                                                Watch the tour
                                             </span>
                                         </span>
                                     </button>
