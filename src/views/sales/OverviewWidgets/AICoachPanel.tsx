@@ -19,7 +19,7 @@ const AICoachPanel = ({
         <section className="px-4 py-16 md:py-20">
             <div className="max-w-7xl mx-auto">
                 <Reveal>
-                    <div className="relative overflow-hidden rounded-[2rem] bg-gray-950 px-6 py-10 sm:px-10 sm:py-12">
+                    <div className="relative overflow-hidden rounded-[2rem] app-liquid px-6 py-10 sm:px-10 sm:py-12">
                         <motion.div
                             className="pointer-events-none absolute -left-16 top-1/2 h-72 w-72 -translate-y-1/2 rounded-full bg-primary/20 blur-3xl"
                             animate={{ opacity: [0.4, 0.7, 0.4] }}
@@ -35,10 +35,10 @@ const AICoachPanel = ({
                                 <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
                                     AI coach recommendation
                                 </p>
-                                <p className="mt-2 max-w-xl text-lg sm:text-xl font-semibold leading-snug text-white">
+                                <p className="mt-2 max-w-xl text-lg sm:text-xl font-semibold leading-snug text-gray-900 dark:text-white">
                                     Based on your recent sessions, practice {mode.toLowerCase()}.
                                 </p>
-                                <p className="mt-1 text-sm text-white/50">
+                                <p className="mt-1 text-sm text-gray-500 dark:text-white/50">
                                     This is the single highest-leverage rep for you this week.
                                 </p>
                             </div>
@@ -48,7 +48,7 @@ const AICoachPanel = ({
                                     <p className="text-3xl font-bold text-primary tabular-nums">
                                         +<CountUp value={improvement} suffix="%" />
                                     </p>
-                                    <p className="text-xs text-white/50">Estimated improvement</p>
+                                    <p className="text-xs text-gray-500 dark:text-white/50">Estimated improvement</p>
                                 </div>
                                 <motion.button
                                     whileHover={{ scale: 1.03 }}

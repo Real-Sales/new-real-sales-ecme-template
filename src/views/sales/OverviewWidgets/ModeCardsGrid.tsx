@@ -70,7 +70,7 @@ const ModeCardsGrid = ({
                             whileTap={{ scale: 0.985 }}
                             transition={{ duration: 0.35, ease: EASE_OUT }}
                             data-tour-id={`mode-${mode.id}`}
-                            className={`group relative w-full overflow-hidden rounded-[1.75rem] border border-gray-200 dark:border-white/10 bg-white dark:bg-gray-900/60 text-left shadow-sm hover:shadow-xl hover:border-primary/40 transition-shadow duration-300 ${
+                            className={`group relative w-full overflow-hidden rounded-[1.75rem] border app-liquid-dark text-left hover:shadow-[0_0_40px_rgba(12,175,96,0.14)] transition-shadow duration-300 ${
                                 compact ? 'p-5' : 'p-7'
                             }`}
                         >

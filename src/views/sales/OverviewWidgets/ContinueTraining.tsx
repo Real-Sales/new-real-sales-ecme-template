@@ -45,7 +45,7 @@ const ContinueTraining = ({ data }: { data: OverviewData }) => {
                                 <motion.div
                                     whileHover={{ y: -5 }}
                                     transition={{ duration: 0.3, ease: EASE_OUT }}
-                                    className="group flex h-full flex-col rounded-[1.5rem] border border-gray-200 dark:border-white/10 bg-white dark:bg-gray-900/60 p-5 shadow-sm hover:shadow-lg hover:border-primary/30 transition-shadow duration-300"
+                                    className="group flex h-full flex-col rounded-[1.5rem] border app-liquid-dark p-5 shadow-sm hover:shadow-lg hover:border-primary/30 transition-shadow duration-300"
                                 >
                                     <div className="flex items-start justify-between gap-2">
                                         <div className="flex items-center gap-2.5 min-w-0">

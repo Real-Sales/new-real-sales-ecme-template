@@ -95,8 +95,8 @@ const UpgradeCard = ({ forceDark = false }: UpgradeCardProps) => {
     const showDash = loading || !userId
 
     const containerCls = forceDark
-        ? 'p-2.5 mx-4 mt-4 mb-2 rounded-lg border border-gray-700/80 bg-gray-900/75 shadow-md backdrop-blur-sm transition-all duration-300 hover:border-gray-600 hover:shadow-lg'
-        : 'p-2.5 mx-4 mt-4 mb-2 rounded-lg bg-gray-100 border border-gray-200 shadow-md hover:shadow-lg transition-all duration-300 dark:bg-gray-900/90 dark:border-gray-700'
+        ? 'p-3 mx-4 mt-4 mb-2 app-liquid rounded-xl transition-all duration-300'
+        : 'p-3 mx-4 mt-4 mb-2 app-liquid rounded-xl transition-all duration-300'
     const titleCls = forceDark
         ? 'font-bold text-sm text-white'
         : 'font-bold text-sm text-gray-900 dark:text-white'
@@ -107,8 +107,8 @@ const UpgradeCard = ({ forceDark = false }: UpgradeCardProps) => {
         ? 'text-xs font-bold text-white'
         : 'text-xs font-bold text-gray-900 dark:text-white'
     const buttonCls = forceDark
-        ? 'border border-gray-600 bg-gray-800/90 px-2.5 py-1.5 h-auto rounded-lg text-gray-100 transition-all hover:border-gray-500 hover:bg-gray-700 flex items-center justify-between'
-        : 'bg-gray-200/90 hover:bg-gray-300 text-gray-800 hover:text-gray-900 border border-gray-300 flex justify-between items-center px-2.5 py-1.5 h-auto rounded-lg transition-all dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-200 dark:hover:text-white dark:border-gray-600'
+        ? 'app-liquid-btn px-2.5 py-1.5 h-auto rounded-lg text-gray-100 transition-all flex items-center justify-between'
+        : 'app-liquid-btn px-2.5 py-1.5 h-auto rounded-lg text-gray-800 dark:text-gray-100 transition-all flex items-center justify-between'
 
     return (
         <div className={containerCls}>

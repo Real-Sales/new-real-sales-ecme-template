@@ -136,7 +136,7 @@ export const TeamCard = ({
                 )}
             </div>
 
-            <div className="absolute top-16 left-1/2 -translate-x-1/2 z-10 h-17 w-17 rounded-full border-2 border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-primary flex items-center justify-center shadow-lg">
+            <div className="absolute top-16 left-1/2 -translate-x-1/2 z-10 h-17 w-17 rounded-full border border-gray-200 dark:border-white/20 bg-white backdrop-blur-md backdrop-saturate-150 dark:bg-black/45 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_8px_24px_rgba(0,0,0,0.35)] text-emerald-700 dark:text-white flex items-center justify-center shadow-lg">
                 <HiUserGroup className="text-4xl" />
             </div>
 

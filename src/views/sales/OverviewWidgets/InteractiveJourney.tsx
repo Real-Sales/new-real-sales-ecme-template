@@ -133,7 +133,8 @@ const InteractiveJourney = () => {
                                     onHoverEnd={() => setActiveStep(null)}
                                     className="relative z-10 flex flex-col items-start"
                                 >
-                                    <div className="relative z-10 rounded-full bg-white dark:bg-gray-900 p-[3px]">
+                                    {/* Frosted disc: blurs the connecting line away behind each step icon */}
+                                    <div className="relative z-10 rounded-full bg-white dark:bg-black/45 dark:backdrop-blur-md p-[3px]">
                                         <motion.div
                                             animate={{ scale: isActive ? 1.08 : 1 }}
                                             transition={{

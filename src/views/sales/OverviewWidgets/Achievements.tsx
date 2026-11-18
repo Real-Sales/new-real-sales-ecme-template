@@ -31,7 +31,7 @@ const Achievements = ({ data }: { data: OverviewData }) => {
                 </Reveal>
 
                 <Reveal delay={0.1}>
-                    <div className="rounded-[1.75rem] border border-gray-200 dark:border-white/10 bg-white dark:bg-gray-900/60 p-6 sm:p-8 shadow-sm">
+                    <div className="rounded-[1.75rem] border app-liquid-dark p-6 sm:p-8 shadow-sm">
                         <div className="grid gap-8 lg:grid-cols-[auto_1fr] lg:items-center">
                             <div className="flex items-center gap-5">
                                 <Progress

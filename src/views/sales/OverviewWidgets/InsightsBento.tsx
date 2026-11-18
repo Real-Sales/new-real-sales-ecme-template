@@ -62,7 +62,7 @@ const Tile = ({
     children: React.ReactNode
 }) => (
     <StaggerItem className={className}>
-        <div className="h-full rounded-[1.5rem] border border-gray-200 dark:border-white/10 bg-white dark:bg-gray-900/60 p-5 shadow-sm hover:shadow-md transition-shadow duration-300">
+        <div className="h-full rounded-[1.5rem] border app-liquid-dark p-5 shadow-sm hover:shadow-md transition-shadow duration-300">
             {children}
         </div>
     </StaggerItem>

@@ -1,26 +1,47 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Dialog } from '@/components/ui'
 import { TbPlayerPlayFilled, TbX, TbPlayerTrackNextFilled } from 'react-icons/tb'
 import { Reveal, SectionHeading, EASE_OUT } from './common'
 
-const VIDEO_ID = '4zd9hzngFwY'
+// Same product tour as the landing page
+const VIDEO_SRC = '/video/saleswana-tour.mp4'
+const POSTER_SRC = '/video/saleswana-tour-poster.jpg'
 
+// Start times (seconds) of the six steps shown in the video
 const chapters = [
-    { label: 'Choose a scenario', at: 0 },
-    { label: 'Live AI conversation', at: 38 },
-    { label: 'Objection handling', at: 95 },
-    { label: 'Performance report', at: 142 },
+    { label: 'Invite your team', at: 58 },
+    { label: 'Divisions & teams', at: 67 },
+    { label: 'Scenario library', at: 84 },
+    { label: 'Assign scenarios', at: 99 },
+    { label: 'Practice with an AI buyer', at: 112 },
+    { label: 'Report card', at: 153 },
 ]
 
 const ProductWalkthrough = () => {
     const [open, setOpen] = useState(false)
     const [startAt, setStartAt] = useState(0)
+    const videoRef = useRef<HTMLVideoElement>(null)
 
     const openAt = (seconds: number) => {
         setStartAt(seconds)
         setOpen(true)
     }
+
+    // Jump to a chapter while the player is open
+    const jumpTo = (seconds: number) => {
+        setStartAt(seconds)
+        const video = videoRef.current
+        if (video) {
+            video.currentTime = seconds
+            void video.play().catch(() => undefined)
+        }
+    }
+
+    // Stop playback when the dialog closes
+    useEffect(() => {
+        if (!open) videoRef.current?.pause()
+    }, [open])
 
     return (
         <section className="px-4 py-16 md:py-20">
@@ -28,7 +49,7 @@ const ProductWalkthrough = () => {
                 <Reveal className="mb-10">
                     <SectionHeading
                         heading="How SalesWana works"
-                        description="A two-and-a-half minute walkthrough of a full training loop, from scenario to scored feedback."
+                        description="A three-minute walkthrough of the full training loop, from inviting your team to the scored report card."
                     />
                 </Reveal>
 
@@ -38,7 +59,7 @@ const ProductWalkthrough = () => {
                             className="pointer-events-none absolute -inset-6 rounded-[2.5rem] bg-primary/10 blur-3xl"
                             aria-hidden="true"
                         />
-                        <div className="relative rounded-[2rem] bg-black/[0.03] dark:bg-white/[0.04] p-2 ring-1 ring-black/5 dark:ring-white/10">
+                        <div className="relative rounded-[2rem] border app-liquid-dark p-2">
                             <div className="relative overflow-hidden rounded-[1.6rem] bg-gray-950 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
                                 <button
                                     onClick={() => openAt(0)}
@@ -47,14 +68,14 @@ const ProductWalkthrough = () => {
                                     <div
                                         className="absolute inset-0 bg-cover bg-center opacity-70 transition-transform duration-700 group-hover:scale-105"
                                         style={{
-                                            backgroundImage: `url("https://img.youtube.com/vi/${VIDEO_ID}/hqdefault.jpg")`,
+                                            backgroundImage: `url("${POSTER_SRC}")`,
                                         }}
                                     />
                                     <div className="absolute inset-0 bg-gradient-to-t from-gray-950 via-gray-950/30 to-transparent" />
 
                                     <div className="absolute left-5 top-5 flex items-center gap-2">
                                         <span className="rounded-full bg-black/50 px-3 py-1 text-[11px] font-semibold text-white ring-1 ring-white/15 backdrop-blur-sm">
-                                            2:30 min
+                                            3:06 min
                                         </span>
                                         <span className="rounded-full bg-primary/20 px-3 py-1 text-[11px] font-semibold text-primary ring-1 ring-primary/30 backdrop-blur-sm">
                                             Product tour
@@ -88,9 +109,9 @@ const ProductWalkthrough = () => {
                                     <button
                                         key={chapter.label}
                                         onClick={() => openAt(chapter.at)}
-                                        className="group flex items-center gap-2 rounded-full border border-gray-200 dark:border-white/10 bg-white dark:bg-white/[0.03] px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-400 hover:border-primary/40 hover:text-primary transition-colors"
+                                        className="group flex items-center gap-2 rounded-full border border-white/80 dark:border-white/10 bg-white/25 dark:bg-white/[0.03] backdrop-blur-md shadow-[inset_0_1px_0_rgba(255,255,255,0.9)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-400 hover:border-primary/50 hover:text-primary hover:shadow-[0_0_18px_rgba(12,175,96,0.16)] transition-all"
                                     >
-                                        <span className="flex h-4 w-4 items-center justify-center rounded-full bg-gray-100 dark:bg-white/10 text-[9px] font-semibold text-gray-500 dark:text-gray-400 group-hover:bg-primary/10 group-hover:text-primary">
+                                        <span className="flex h-4 w-4 items-center justify-center rounded-full bg-black/[0.06] dark:bg-white/10 text-[9px] font-semibold text-gray-500 dark:text-gray-400 group-hover:bg-primary/10 group-hover:text-primary">
                                             {i + 1}
                                         </span>
                                         {chapter.label}
@@ -118,26 +139,31 @@ const ProductWalkthrough = () => {
                     </button>
                     <AnimatePresence>
                         {open && (
-                            <motion.iframe
-                                key={startAt}
+                            <motion.video
+                                ref={videoRef}
+                                autoPlay
+                                controls
+                                playsInline
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
                                 title="SalesWana product tour"
-                                className="h-full w-full"
-                                src={`https://www.youtube.com/embed/${VIDEO_ID}?autoplay=1&start=${startAt}`}
-                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                allowFullScreen
+                                className="h-full w-full bg-black"
+                                src={VIDEO_SRC}
+                                poster={POSTER_SRC}
+                                onLoadedMetadata={(e) => {
+                                    e.currentTarget.currentTime = startAt
+                                }}
                             />
                         )}
                     </AnimatePresence>
                 </div>
-                <div className="flex items-center justify-between border-t border-white/10 bg-gray-950 px-5 py-3">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-t border-white/10 bg-gray-950 px-5 py-3">
                     <p className="text-xs text-white/50">Jump to a chapter</p>
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex flex-wrap items-center gap-1.5">
                         {chapters.map((chapter) => (
                             <button
                                 key={chapter.label}
-                                onClick={() => setStartAt(chapter.at)}
+                                onClick={() => jumpTo(chapter.at)}
                                 className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium text-white/60 hover:bg-white/10 hover:text-white transition-colors"
                             >
                                 <TbPlayerTrackNextFilled className="h-3 w-3" />

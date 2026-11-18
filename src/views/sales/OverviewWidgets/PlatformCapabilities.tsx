@@ -44,7 +44,7 @@ const PlatformCapabilities = () => {
                         const Icon = cap.icon
                         return (
                             <StaggerItem key={cap.title}>
-                                <div className="group relative overflow-hidden rounded-[1.5rem] border border-gray-200 dark:border-white/10 bg-white dark:bg-gray-900/60 p-6 shadow-sm hover:shadow-xl hover:border-primary/30 transition-shadow duration-300">
+                                <div className="group relative overflow-hidden rounded-[1.5rem] border app-liquid-dark p-6 shadow-sm hover:shadow-xl hover:border-primary/30 transition-shadow duration-300">
                                     <div className="pointer-events-none absolute -right-8 -top-8 h-32 w-32 rounded-full bg-primary/10 blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
 
                                     <div className="relative flex items-start gap-4">

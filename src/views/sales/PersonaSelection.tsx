@@ -38,6 +38,7 @@ import scenarioLibraryReducer, {
 import { useUserDivisionSegment } from '@/utils/hooks/useUserDivisionSegment'
 import { canLoadAllPersonas } from '@/utils/inviteAccess'
 import { SEARCH_NATIVE_INPUT_CLASSNAME } from '@/constants/searchInput.constant'
+import AppPremium from '@/components/layouts/PostLoginLayout/components/AppPremium'
 
 injectReducer('scenarioLibrary', scenarioLibraryReducer)
 
@@ -565,7 +566,9 @@ const PersonaSelection = () => {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 font-sans">
+        <div className="app-premium app-glass-scope relative isolate min-h-screen bg-white dark:bg-[#050505]">
+            {/* Same aurora backdrop and glass styles as the rest of the app */}
+            <AppPremium />
             {/* Header */}
             <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border-b border-gray-200/80 dark:border-gray-800 sticky top-0 z-30 shadow-sm">
                 <div className="w-full mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 2xl:px-16 py-4 sm:py-6">
@@ -742,7 +745,7 @@ const PersonaSelection = () => {
                                         aria-busy={isBusy}
                                         aria-label={`Select persona ${persona.name}`}
                                         className={`
-                                            group relative h-full flex flex-col ${SURFACE_CARD_CLASSNAME} transition-all duration-300 overflow-hidden border
+                                            group relative h-full flex flex-col ${SURFACE_CARD_CLASSNAME} app-liquid-dark transition-all duration-300 overflow-hidden border
                                             ${
                                                 creatingPersonaId
                                                     ? 'cursor-wait opacity-90'
@@ -751,7 +754,7 @@ const PersonaSelection = () => {
                                             ${
                                                 isBusy
                                                     ? '!border-primary shadow-xl shadow-primary/10'
-                                                    : 'hover:shadow-md hover:translate-y-[-4px]'
+                                                    : 'hover:shadow-[0_0_40px_rgba(12,175,96,0.14)] hover:translate-y-[-4px]'
                                             }
                                         `}
                                     >

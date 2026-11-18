@@ -10,6 +10,8 @@ import classNames from '@/utils/classNames'
 import useScrollTop from '@/utils/hooks/useScrollTop'
 import useResponsive from '@/utils/hooks/useResponsive'
 import { LAYOUT_FRAMELESS_SIDE } from '@/constants/theme.constant'
+import AppPremium from './AppPremium'
+import { useAppSelector } from '@/store'
 import type { CommonProps } from '@/@types/common'
 import type { FooterPageContainerType } from '@/components/template/Footer'
 
@@ -17,12 +19,13 @@ const FrameLessSide = ({ children }: CommonProps) => {
     const { isSticky } = useScrollTop()
 
     const { larger, smaller } = useResponsive()
+    const isDark = useAppSelector((state) => state.theme.mode) === 'dark'
 
     return (
         <LayoutBase
             adaptiveCardActive
             type={LAYOUT_FRAMELESS_SIDE}
-            className="app-layout-frameless-side flex flex-auto flex-col bg-gray-950"
+            className="app-layout-frameless-side app-premium relative isolate flex flex-auto flex-col bg-white dark:bg-[#050505]"
             pageContainerReassemble={({
                 pageContainerType,
                 pageBackgroundType,
@@ -40,8 +43,8 @@ const FrameLessSide = ({ children }: CommonProps) => {
                     className={classNames(
                         defaultClass,
                         'rounded-2xl',
-                        pageBackgroundType === 'plain' &&
-                            'bg-white dark:bg-gray-900',
+                        // 'plain' pages sit straight on the glass panel
+                        pageBackgroundType === 'plain' && 'bg-transparent',
                     )}
                 >
                     <main className="h-full">
@@ -75,20 +78,21 @@ const FrameLessSide = ({ children }: CommonProps) => {
                 </div>
             )}
         >
+            <AppPremium />
             <div className="flex flex-auto min-w-0">
                 {larger.lg && (
                     <SideNav
                         background={false}
-                        className={classNames('contrast-dark pt-6')}
+                        className={classNames(isDark && 'contrast-dark', 'pt-6')}
                         contentClass="h-[calc(100vh-8rem)]"
-                        mode="dark"
+                        mode={isDark ? 'dark' : 'light'}
                     />
                 )}
                 <FrameLessGap className="min-h-screen min-w-0 relative w-full">
-                    <div className="bg-white dark:bg-gray-900 flex flex-col flex-1 h-full rounded-2xl">
+                    <div className="app-panel app-glass-scope flex flex-col flex-1 h-full rounded-2xl">
                         <Header
                             className={classNames(
-                                'rounded-t-2xl dark:bg-gray-900',
+                                'rounded-t-2xl',
                                 isSticky && 'shadow-sm rounded-none!',
                             )}
                             headerStart={

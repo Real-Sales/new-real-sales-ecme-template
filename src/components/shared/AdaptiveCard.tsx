@@ -16,7 +16,8 @@ const AdaptiveCard = (props: AdaptableCardProps) => {
             className={classNames(
                 !adaptiveCardActive && SURFACE_CARD_CLASSNAME,
                 className,
-                adaptiveCardActive && 'border-none dark:bg-transparent',
+                // app-card-plain: a layout wrapper, not a visible surface (skipped by the glass card styles)
+                adaptiveCardActive && 'app-card-plain border-none bg-transparent',
             )}
             bodyClass={classNames(bodyClass, adaptiveCardActive && 'p-0')}
             {...rest}

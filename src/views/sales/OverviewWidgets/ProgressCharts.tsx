@@ -68,7 +68,7 @@ const ProgressCharts = ({ data }: { data: OverviewData }) => {
                 </Reveal>
 
                 <Reveal delay={0.1}>
-                    <div className="rounded-[1.75rem] border border-gray-200 dark:border-white/10 bg-white dark:bg-gray-900/60 p-5 sm:p-7 shadow-sm">
+                    <div className="rounded-[1.75rem] border app-liquid-dark p-5 sm:p-7 shadow-sm">
                         <div className="mb-6 flex flex-wrap items-center gap-6">
                             <div className="flex items-center gap-2">
                                 <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">

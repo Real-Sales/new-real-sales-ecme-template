@@ -103,14 +103,15 @@ export const GlassPanel = ({
 }) => (
     <div
         className={classNames(
-            'relative rounded-[1.75rem] bg-black/[0.03] dark:bg-white/[0.04] ring-1 ring-black/5 dark:ring-white/10',
+            // Same clear glass as every other card in the app
+            'relative rounded-[1.75rem] border app-liquid-dark',
             padding,
             className,
         )}
     >
         <div
             className={classNames(
-                'relative rounded-[1.4rem] bg-white dark:bg-gray-900/60 shadow-[inset_0_1px_0_rgba(255,255,255,0.6)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] overflow-hidden',
+                'relative rounded-[1.4rem] overflow-hidden',
                 innerClassName,
             )}
         >

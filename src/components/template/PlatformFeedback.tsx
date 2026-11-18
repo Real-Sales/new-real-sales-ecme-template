@@ -25,8 +25,8 @@ const PlatformFeedback = ({ forceDark = false }: PlatformFeedbackProps) => {
     }
 
     const containerCls = forceDark
-        ? 'p-2.5 mx-4 mb-2 rounded-lg border border-gray-700/80 bg-gray-900/75 shadow-md backdrop-blur-sm transition-all duration-300 hover:border-gray-600 hover:shadow-lg'
-        : 'p-2.5 mx-4 mb-2 rounded-lg bg-gray-100 border border-gray-200 shadow-md hover:shadow-lg transition-all duration-300 dark:bg-gray-900/90 dark:border-gray-700'
+        ? 'p-3 mx-4 mb-2 app-liquid rounded-xl transition-all duration-300'
+        : 'p-3 mx-4 mb-2 app-liquid rounded-xl transition-all duration-300'
     const titleCls = forceDark
         ? 'mb-1 font-bold text-sm text-white'
         : 'mb-1 font-bold text-sm text-gray-900 dark:text-white'

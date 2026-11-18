@@ -1,5 +1,6 @@
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
+import AppPremium from '@/components/layouts/PostLoginLayout/components/AppPremium';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLocation, useParams, useNavigate } from 'react-router-dom';
 import { HiStop, HiPaperAirplane, HiPaperClip, HiLightBulb, HiChevronLeft, HiChevronRight } from 'react-icons/hi2';
@@ -243,7 +244,7 @@ const CircularAvatarVisualizer = ({
   }, [analyzer, isMicActive]);
 
   return (
-    <div className="relative w-full h-full flex items-center justify-center bg-gray-50 dark:bg-gray-900 overflow-hidden">
+    <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
       {/* Ripples + avatar + labels shift up together so background rings stay locked to the portrait */}
       <div className="absolute inset-0 flex items-center justify-center -translate-y-[15px]">
         {/* 1. Continuous Background Ripple Animation */}
@@ -935,7 +936,9 @@ export default function InteractiveVisualizerSession() {
   }
 
   return (
-    <div className="flex h-screen w-screen flex-col bg-gray-100 dark:bg-gray-900 overflow-hidden fixed inset-0">
+    <div className="app-premium app-glass-scope isolate flex h-screen w-screen flex-col bg-white dark:bg-[#050505] overflow-hidden fixed inset-0">
+      {/* Same aurora backdrop and glass styles as the rest of the app */}
+      <AppPremium />
       <div className="pointer-events-none absolute overflow-hidden w-px h-px opacity-0 -z-10" aria-hidden>
         {React.createElement('gdm-live-audio', {
           ref: liveAudioRef,
@@ -1105,12 +1108,12 @@ export default function InteractiveVisualizerSession() {
       <div
         className={
           isChatPanelOpen
-            ? 'relative z-0 flex min-h-0 min-w-0 flex-col overflow-hidden border-l border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900'
-            : 'pointer-events-none relative z-0 flex min-h-0 min-w-0 flex-col overflow-hidden border-l border-transparent bg-white dark:border-transparent dark:bg-gray-900'
+            ? 'relative z-0 flex min-h-0 min-w-0 flex-col overflow-hidden border-l border-gray-200 bg-white/30 backdrop-blur-xl dark:border-gray-700 dark:bg-gray-900'
+            : 'pointer-events-none relative z-0 flex min-h-0 min-w-0 flex-col overflow-hidden border-l border-transparent bg-white/30 dark:border-transparent dark:bg-gray-900'
         }
       >
         {/* Header */}
-        <div className="flex-shrink-0 px-5 py-4 border-b border-gray-200 dark:border-gray-700/60 bg-gray-100/95 dark:bg-gray-800/70 backdrop-blur-xl">
+        <div className="flex-shrink-0 px-5 py-4 border-b border-gray-200 dark:border-gray-700/60 bg-white/30 dark:bg-gray-800/70">
           <div className="flex items-center gap-3">
             {userAvatar ? (
               <img src={userAvatar} alt={userName} className="w-11 h-11 rounded-full border border-primary/30 object-cover flex-shrink-0" />
@@ -1141,7 +1144,7 @@ export default function InteractiveVisualizerSession() {
         {/* Transcript Area */}
         <div className="flex-1 min-h-0 overflow-hidden">
           <ScrollBar className="h-full max-h-full" style={{ height: '100%', maxHeight: '100%' }} direction={direction}>
-            <div className="px-6 py-4 space-y-4 min-h-full box-border bg-white dark:bg-gray-900">
+            <div className="px-6 py-4 space-y-4 min-h-full box-border">
               {messages.length === 0 ? (
                 <div className="min-h-[min(100%,24rem)] flex items-center justify-center">
                   <p className="text-gray-500 dark:text-gray-400 text-center text-sm">Transcript will appear here<br /><span className="text-xs text-gray-400 dark:text-gray-500">User's input + AI's response</span></p>
@@ -1249,7 +1252,7 @@ export default function InteractiveVisualizerSession() {
         )}
 
         {/* Bottom Bar Container */}
-        <div className="flex-shrink-0 px-4 py-3 bg-gray-100/95 dark:bg-gray-800/70 backdrop-blur-2xl border-t border-gray-200 dark:border-gray-700/60">
+        <div className="flex-shrink-0 px-4 py-3 bg-white/30 dark:bg-gray-800/70 border-t border-gray-200 dark:border-gray-700/60">
           <AnimatePresence mode="wait">
             {!sessionStarted ? (
               <motion.div key="start" initial={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }}>

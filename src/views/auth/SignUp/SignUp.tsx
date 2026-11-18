@@ -1,9 +1,7 @@
-import Logo from '@/components/template/Logo'
 import Alert from '@/components/ui/Alert'
 import SignUpForm from './components/SignUpForm'
 import ActionLink from '@/components/shared/ActionLink'
 import useTimeOutMessage from '@/utils/hooks/useTimeOutMessage'
-import { useAppSelector } from '@/store'
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { apiValidateInvite } from '@/services/InviteService'
@@ -26,8 +24,6 @@ export const SignUpBase = ({
         null,
     )
     const [isInviteLoading, setInviteLoading] = useState(false)
-
-    const mode = useAppSelector((state) => state.theme.mode)
 
     useEffect(() => {
         if (!inviteToken) {
@@ -62,12 +58,7 @@ export const SignUpBase = ({
 
     return (
         <div className="flex flex-col h-full min-h-0 justify-center">
-            <div className="flex-shrink-0 mb-6 flex items-center gap-4">
-                <Logo
-                    type="streamline"
-                    mode={mode}
-                    logoWidth={60}
-                />
+            <div className="flex-shrink-0 mb-6">
                 <div>
                     <h3 className="mb-1">Sign Up</h3>
                     <p className="font-semibold heading-text">
