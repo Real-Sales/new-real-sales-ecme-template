@@ -40,6 +40,11 @@ BaseService.interceptors.request.use(
             ] = `${TOKEN_TYPE}${accessToken}`
         }
 
+        // Free ngrok tunnels answer browser requests with a warning page unless this header is present
+        if (appConfig.apiPrefix.includes('ngrok')) {
+            config.headers['ngrok-skip-browser-warning'] = 'true'
+        }
+
         return config
     },
     (error) => {
