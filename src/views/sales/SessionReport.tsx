@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import type { ReactNode } from 'react'
 import Container from '@/components/shared/Container'
+import AppPremium from '@/components/layouts/PostLoginLayout/components/AppPremium'
 import Loading from '@/components/shared/Loading'
 import Card from '@/components/ui/Card'
 import {
@@ -341,7 +342,9 @@ const SessionReport = () => {
             (coaching.areas_for_improvement?.length ?? 0) > 0)
 
     return (
-        <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
+        <div className="app-premium app-glass-scope relative isolate min-h-screen w-full bg-white dark:bg-[#050505]">
+            {/* Same aurora backdrop and glass styles as the rest of the app */}
+            <AppPremium />
             <Container className="px-4 py-8 md:px-8 md:py-10 max-w-5xl">
                 <div className="flex items-start justify-between gap-4 mb-6">
                     <div>
