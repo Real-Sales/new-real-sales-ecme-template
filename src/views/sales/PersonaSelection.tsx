@@ -1,17 +1,11 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
-import { SURFACE_CARD_CLASSNAME } from '@/constants/surfaceCard.constant'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { injectReducer } from '@/store'
-import { Button, Select, Avatar, Spinner } from '@/components/ui'
+import { Button, Select, Spinner } from '@/components/ui'
 import toast from '@/components/ui/toast'
 import Notification from '@/components/ui/Notification'
-import {
-    HiOutlineSearch,
-    HiOutlineOfficeBuilding,
-    HiOutlineBriefcase,
-    HiArrowLeft,
-} from 'react-icons/hi'
+import { HiOutlineSearch, HiArrowLeft } from 'react-icons/hi'
 import { useAppSelector, useAppDispatch } from '@/store'
 import { fetchIndustries } from '@/store/slices/industriesCatalogSlice'
 import { fetchUserProfile } from '@/views/profile/Settings/store/settingsSlice'
@@ -20,7 +14,11 @@ import type {
     ConversationMode,
 } from '@/components/shared/SessionSetupPanel'
 import ModeSelectDialog from '@/views/sales/components/ModeSelectDialog'
-import { apiCreateSession } from '@/services/SessionService'
+import {
+    apiCreateSession,
+    apiRegenerateSessionMemory,
+    type SessionResponse,
+} from '@/services/SessionService'
 import {
     apiGetCreditsRemaining,
     apiGetMySubscription,
@@ -37,8 +35,11 @@ import scenarioLibraryReducer, {
 } from '@/views/sales/ScenarioList/store'
 import { useUserDivisionSegment } from '@/utils/hooks/useUserDivisionSegment'
 import { canLoadAllPersonas } from '@/utils/inviteAccess'
-import { SEARCH_NATIVE_INPUT_CLASSNAME } from '@/constants/searchInput.constant'
 import AppPremium from '@/components/layouts/PostLoginLayout/components/AppPremium'
+import { JourneyCard, PersonaCard } from '@/views/sales/components/PersonaCards'
+import JourneyResumeDialog from '@/views/sales/components/JourneyResumeDialog'
+import ConfirmDialog from '@/components/shared/ConfirmDialog'
+import { usePersonaJourneys, type PersonaJourney } from '@/views/sales/personaJourneys'
 
 injectReducer('scenarioLibrary', scenarioLibraryReducer)
 
@@ -211,6 +212,8 @@ const PersonaSelection = () => {
         continueFromSessionId?: string
         /** Persona to auto-continue with, so the rep isn't asked to re-pick who they were talking to. */
         prefillPersonaId?: string
+        /** Open on the journeys tab. */
+        tab?: 'all' | 'journeys'
     } | null
     const autoContinueTriggeredRef = useRef(false)
 
@@ -219,9 +222,18 @@ const PersonaSelection = () => {
     )
     const [pendingPersona, setPendingPersona] = useState<AIPersona | null>(null)
     const [modeDialogOpen, setModeDialogOpen] = useState(false)
+    /** Persona the rep picked while part-way through a journey with them: continue, or start new? */
+    const [resumePersona, setResumePersona] = useState<AIPersona | null>(null)
+    const [discardTarget, setDiscardTarget] = useState<{
+        persona: AIPersona
+        journey: PersonaJourney
+    } | null>(null)
     const [searchQuery, setSearchQuery] = useState('')
     const [selectedRole, setSelectedRole] = useState('')
     const [selectedIndustry, setSelectedIndustry] = useState('')
+    const [activeTab, setActiveTab] = useState<'all' | 'journeys'>(
+        sessionData?.tab === 'journeys' ? 'journeys' : 'all',
+    )
 
     const lastPersonasFetchKeyRef = useRef<string | null>(null)
     const modesFetchDispatchedRef = useRef(false)
@@ -292,6 +304,60 @@ const PersonaSelection = () => {
         if (!storeModes?.length) return []
         return storeModes.filter((m) => m.status_active)
     }, [storeModes])
+
+    // Personas the rep has already practised with, and the mode each one is up to
+    const {
+        journeys,
+        loading: journeysLoading,
+        discard: discardJourney,
+        restore: restoreJourney,
+    } = usePersonaJourneys(
+        authUser?.userId || undefined,
+        storeModes,
+    )
+    const personaById = useMemo(() => {
+        const map = new Map<string, AIPersona>()
+        for (const p of storePersonas ?? []) map.set(p.persona_id, mapPersona(p))
+        return map
+    }, [storePersonas])
+    const journeyRows = useMemo(
+        () =>
+            journeys
+                .map((journey) => ({ journey, persona: personaById.get(journey.personaId) }))
+                .filter((row): row is { journey: PersonaJourney; persona: AIPersona } =>
+                    Boolean(row.persona),
+                ),
+        [journeys, personaById],
+    )
+    // A persona can have several journeys; the list is already most-recent-first
+    const openJourneysByPersonaId = useMemo(() => {
+        const map = new Map<string, PersonaJourney[]>()
+        for (const { persona, journey } of journeyRows) {
+            if (journey.completed || !journey.nextMode || !journey.continueFrom) continue
+            const list = map.get(persona.id)
+            if (list) list.push(journey)
+            else map.set(persona.id, [journey])
+        }
+        return map
+    }, [journeyRows])
+    const completedPersonaIds = useMemo(
+        () => new Set(journeyRows.filter((r) => r.journey.completed).map((r) => r.persona.id)),
+        [journeyRows],
+    )
+    const resumeJourneys = resumePersona
+        ? (openJourneysByPersonaId.get(resumePersona.id) ?? [])
+        : []
+    const inProgressCount = journeyRows.filter((row) => !row.journey.completed).length
+    const visibleJourneyRows = useMemo(() => {
+        const q = searchQuery.trim().toLowerCase()
+        if (!q) return journeyRows
+        return journeyRows.filter(
+            ({ persona }) =>
+                persona.name.toLowerCase().includes(q) ||
+                persona.role.toLowerCase().includes(q) ||
+                persona.industry.toLowerCase().includes(q),
+        )
+    }, [journeyRows, searchQuery])
 
     const isLoading =
         (personasLoading ?? false) || (modesLoading ?? false) || divisionSegmentLoading
@@ -414,6 +480,8 @@ const PersonaSelection = () => {
     const handleStartSession = async (
         persona: AIPersona,
         modeOverride?: ConversationMode | string,
+        /** Completed session of the previous mode, when continuing a journey from this page. */
+        continueFrom?: SessionResponse | null,
     ) => {
         if (creatingPersonaId) return
 
@@ -457,11 +525,21 @@ const PersonaSelection = () => {
                 return
             }
 
+            // The next mode inherits what the persona remembers; build that summary first if it is missing
+            if (continueFrom && !continueFrom.session_memory) {
+                try {
+                    await apiRegenerateSessionMemory(continueFrom.session_id)
+                } catch {
+                    /* the create call below reports the reason */
+                }
+            }
+
             const session = await apiCreateSession({
                 persona_id: persona.id,
                 mode_id: matchedMode.mode_id,
-                scenario_id: sessionData?.scenarios?.[0],
-                continue_from_session_id: sessionData?.continueFromSessionId,
+                scenario_id: continueFrom ? undefined : sessionData?.scenarios?.[0],
+                continue_from_session_id:
+                    continueFrom?.session_id ?? sessionData?.continueFromSessionId,
             })
 
             try {
@@ -512,8 +590,41 @@ const PersonaSelection = () => {
             void handleStartSession(persona)
             return
         }
+        // Already part-way through with this persona: ask before starting over
+        if (openJourneysByPersonaId.get(persona.id)?.length) {
+            setResumePersona(persona)
+            return
+        }
         setPendingPersona(persona)
         setModeDialogOpen(true)
+    }
+
+    const handleContinueJourney = (persona: AIPersona, journey: PersonaJourney) => {
+        if (creatingPersonaId || !journey.nextMode || !journey.continueFrom) return
+        void handleStartSession(persona, journey.nextMode, journey.continueFrom)
+    }
+
+    const handleConfirmDiscard = () => {
+        if (!discardTarget) return
+        const { persona, journey } = discardTarget
+        discardJourney(journey.journeyId)
+        setDiscardTarget(null)
+        // Last open journey with this persona gone: nothing left to ask about
+        if ((openJourneysByPersonaId.get(persona.id)?.length ?? 0) <= 1) setResumePersona(null)
+        toast.push(
+            <Notification title="Journey discarded" type="success" duration={6000}>
+                <div className="flex items-center justify-between gap-3">
+                    <span>Your scores and reports are kept.</span>
+                    <button
+                        type="button"
+                        className="font-bold text-primary hover:underline"
+                        onClick={() => restoreJourney(journey.journeyId)}
+                    >
+                        Undo
+                    </button>
+                </div>
+            </Notification>,
+        )
     }
 
     const handleModeSelected = (mode: ConversationMode) => {
@@ -552,114 +663,168 @@ const PersonaSelection = () => {
         setSelectedIndustry(profilePersonaIndustry || '')
     }
 
-    const getDifficultyColor = (difficulty: string) => {
-        switch (difficulty) {
-            case 'Easy':
-                return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300'
-            case 'Medium':
-                return 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300'
-            case 'Hard':
-                return 'bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300'
-            default:
-                return 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
-        }
-    }
-
     return (
         <div className="app-premium app-glass-scope relative isolate min-h-screen bg-white dark:bg-[#050505]">
             {/* Same aurora backdrop and glass styles as the rest of the app */}
             <AppPremium />
             {/* Header */}
-            <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border-b border-gray-200/80 dark:border-gray-800 sticky top-0 z-30 shadow-sm">
-                <div className="w-full mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 2xl:px-16 py-4 sm:py-6">
-                    <div className="flex items-start justify-between gap-4 mb-4">
-                        <div className="min-w-0 flex-1 pr-2">
-                            <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight mb-1">
-                                Select Your AI Persona
-                            </h1>
-                            <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 max-w-2xl">
-                                {sessionData?.continueFromSessionId &&
-                                sessionData?.mode ? (
-                                    <>
-                                        Continuing your{' '}
-                                        <span className="font-semibold text-primary bg-primary/10 dark:bg-primary/15 px-2 py-0.5 rounded-md">
-                                            {sessionData.mode}
-                                        </span>{' '}
-                                        session. Tap a persona to start.
-                                    </>
-                                ) : (
-                                    <>
-                                        Choose who you&apos;d like to practice
-                                        with. After you pick a persona,
-                                        you&apos;ll choose prospecting, discovery,
-                                        or closing.
-                                    </>
-                                )}
-                            </p>
+            <div className="sticky top-0 z-30 border-b border-gray-200/80 bg-white/80 backdrop-blur-xl dark:border-gray-800 dark:bg-gray-900/80">
+                <div className="mx-auto w-full px-4 py-4 sm:px-6 sm:py-5 lg:px-8 xl:px-12 2xl:px-16">
+                    {/* Title on the left, tabs on the right */}
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                        <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+                            <button
+                                type="button"
+                                aria-label="Back"
+                                title="Back"
+                                onClick={handleBack}
+                                className="app-liquid-btn flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-gray-700 transition hover:text-primary dark:text-gray-200"
+                            >
+                                <HiArrowLeft className="h-5 w-5" />
+                            </button>
+                            <div className="min-w-0">
+                                <h1 className="text-xl font-extrabold tracking-tight text-gray-900 sm:text-2xl dark:text-white">
+                                    Select your AI persona
+                                </h1>
+                                <p className="mt-0.5 text-sm text-gray-600 dark:text-gray-400">
+                                    {sessionData?.continueFromSessionId && sessionData?.mode ? (
+                                        <>
+                                            Continuing your{' '}
+                                            <span className="rounded-md bg-primary/10 px-2 py-0.5 font-semibold text-primary dark:bg-primary/15">
+                                                {sessionData.mode}
+                                            </span>{' '}
+                                            session. Tap a persona to start.
+                                        </>
+                                    ) : activeTab === 'journeys' ? (
+                                        'Pick up the next mode with a buyer you have already practised with.'
+                                    ) : (
+                                        'Pick a buyer to practise with, then choose the conversation mode.'
+                                    )}
+                                </p>
+                            </div>
                         </div>
-                        <Button
-                            variant="plain"
-                            size="sm"
-                            onClick={handleBack}
-                            icon={<HiArrowLeft className="w-5 h-5" />}
-                            className="text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors shrink-0"
+
+                        <div
+                            role="tablist"
+                            aria-label="Personas"
+                            className="inline-flex max-w-full shrink-0 gap-1 self-start rounded-full border border-gray-200 p-1 lg:self-auto dark:border-white/10"
                         >
-                            Back
-                        </Button>
+                            {(
+                                [
+                                    { key: 'all', label: 'All personas', count: aiPersonas.length },
+                                    { key: 'journeys', label: 'My journeys', count: journeyRows.length },
+                                ] as const
+                            ).map((tab) => {
+                                const active = activeTab === tab.key
+                                return (
+                                    <button
+                                        key={tab.key}
+                                        type="button"
+                                        role="tab"
+                                        aria-selected={active}
+                                        onClick={() => setActiveTab(tab.key)}
+                                        className={`relative inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-all sm:px-5 ${
+                                            active
+                                                ? 'bg-primary text-white shadow-[0_6px_20px_rgba(12,175,96,0.35)]'
+                                                : 'text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white'
+                                        }`}
+                                    >
+                                        {tab.label}
+                                        <span
+                                            className={`rounded-full px-1.5 text-xs font-bold ${
+                                                active
+                                                    ? 'bg-white/25 text-white'
+                                                    : 'bg-gray-900/[0.06] text-gray-600 dark:bg-white/10 dark:text-gray-300'
+                                            }`}
+                                        >
+                                            {tab.count}
+                                        </span>
+                                        {tab.key === 'journeys' && !active && inProgressCount > 0 && (
+                                            <span
+                                                aria-label={`${inProgressCount} in progress`}
+                                                className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-primary ring-2 ring-white dark:ring-[#050505]"
+                                            />
+                                        )}
+                                    </button>
+                                )
+                            })}
+                        </div>
                     </div>
 
-                    {/* Search, Filters, and Results count */}
-                    <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
-                        <div className="flex flex-col lg:flex-row flex-1 w-full gap-3">
-                            <div className="relative w-full lg:max-w-xs xl:max-w-sm">
-                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                    <HiOutlineSearch className="h-5 w-5 text-gray-400" />
-                                </div>
+                    {/* Search and filters on the left, what is showing on the right */}
+                    <div className="mt-4 flex flex-col gap-3 md:flex-row md:items-center">
+                        <div className="flex min-w-0 flex-1 items-center gap-2">
+                            <div className="relative min-w-0 flex-1 md:max-w-md">
+                                <HiOutlineSearch className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                                 <input
                                     type="text"
-                                    className={`block w-full pl-10 pr-3 py-2 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all text-sm ${SEARCH_NATIVE_INPUT_CLASSNAME}`}
-                                    placeholder="Search by name, role, company..."
+                                    aria-label="Search personas"
+                                    className="block h-10 w-full rounded-xl border border-gray-200 bg-transparent pl-10 pr-9 text-sm text-gray-900 placeholder-gray-400 outline-none transition focus:border-primary focus:ring-[3px] focus:ring-primary/15 dark:border-white/10 dark:text-gray-100 dark:placeholder-gray-500"
+                                    placeholder={
+                                        activeTab === 'journeys'
+                                            ? 'Search your journeys...'
+                                            : 'Search by name, role, company...'
+                                    }
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
                                 />
+                                {searchQuery && (
+                                    <button
+                                        type="button"
+                                        aria-label="Clear search"
+                                        onClick={() => setSearchQuery('')}
+                                        className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-gray-400 hover:text-gray-700 dark:hover:text-white"
+                                    >
+                                        ×
+                                    </button>
+                                )}
                             </div>
-                            <div className="flex flex-wrap sm:flex-nowrap gap-2 w-full lg:w-auto">
+                            {activeTab === 'all' && (
                                 <Select
                                     size="sm"
                                     placeholder="Role"
                                     options={roleOptions}
                                     value={roleOptions.find((opt) => opt.value === selectedRole)}
                                     onChange={(option) => setSelectedRole(option?.value as string || '')}
-                                    className="w-[calc(50%-0.25rem)] sm:w-36"
+                                    className="w-36 shrink-0 sm:w-44"
                                     menuPlacement="auto"
                                     styles={{ menu: (base) => ({ ...base, minWidth: '200px' }), option: (base) => ({ ...base, whiteSpace: 'normal', wordBreak: 'break-word' }) }}
                                 />
-                                {(searchQuery || selectedRole) && (
-                                    <Button
-                                        variant="plain"
-                                        size="sm"
-                                        onClick={handleClearFilters}
-                                        className="text-gray-500 hover:text-red-600 dark:hover:text-red-400 transition-colors"
-                                    >
-                                        Clear
-                                    </Button>
-                                )}
-                            </div>
+                            )}
+                            {activeTab === 'all' && selectedRole && (
+                                <button
+                                    type="button"
+                                    onClick={handleClearFilters}
+                                    className="shrink-0 text-sm font-semibold text-gray-500 hover:text-rose-500 dark:text-gray-400"
+                                >
+                                    Clear
+                                </button>
+                            )}
                         </div>
 
-                        <div className="flex items-center gap-2 whitespace-nowrap self-end xl:self-auto">
-                            <p className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300">
-                                {filteredPersonas.length} of {aiPersonas.length} personas
+                        <div className="flex flex-wrap items-center gap-2 md:justify-end">
+                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                                {activeTab === 'journeys' ? (
+                                    <>
+                                        <span className="font-bold text-gray-900 dark:text-white">{inProgressCount}</span> in progress ·{' '}
+                                        <span className="font-bold text-gray-900 dark:text-white">{journeyRows.length - inProgressCount}</span> completed
+                                    </>
+                                ) : (
+                                    <>
+                                        Showing <span className="font-bold text-gray-900 dark:text-white">{filteredPersonas.length}</span> of {aiPersonas.length}
+                                    </>
+                                )}
                             </p>
-                            {userIndustry && isProfileIndustryFilter && (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded border border-primary/20 dark:border-primary/30 text-[10px] sm:text-xs font-medium bg-primary/10 text-primary dark:bg-primary/15 dark:text-primary">
-                                    Filtered by profile
+                            {activeTab === 'all' && userIndustry && isProfileIndustryFilter && (
+                                <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
+                                    <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+                                    Matched to your profile
                                 </span>
                             )}
-                            {customerSegmentNames.map((name) => (
+                            {activeTab === 'all' && customerSegmentNames.map((name) => (
                                 <span
                                     key={name}
-                                    className="inline-flex items-center px-2 py-0.5 rounded border border-indigo-200 dark:border-indigo-800/30 text-[10px] sm:text-xs font-medium bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300"
+                                    className="inline-flex items-center rounded-full border border-indigo-300/50 bg-indigo-500/10 px-2.5 py-1 text-xs font-semibold text-indigo-600 dark:border-indigo-400/25 dark:text-indigo-300"
                                 >
                                     {name}
                                 </span>
@@ -672,7 +837,7 @@ const PersonaSelection = () => {
             {/* Personas Grid */}
             <div className="w-full mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 2xl:px-16 py-10">
                 {noDivisionAssigned ? (
-                    <div className="flex flex-col items-center justify-center py-32 bg-white dark:bg-gray-800 rounded-3xl border border-gray-200 dark:border-gray-700 shadow-sm">
+                    <div className="app-liquid-dark flex flex-col items-center justify-center py-32 rounded-3xl border">
                         <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">
                             Division assignment required
                         </h3>
@@ -681,7 +846,7 @@ const PersonaSelection = () => {
                         </p>
                     </div>
                 ) : divisionSetupIncomplete ? (
-                    <div className="flex flex-col items-center justify-center py-32 bg-white dark:bg-gray-800 rounded-3xl border border-gray-200 dark:border-gray-700 shadow-sm">
+                    <div className="app-liquid-dark flex flex-col items-center justify-center py-32 rounded-3xl border">
                         <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">
                             Division setup incomplete
                         </h3>
@@ -689,13 +854,59 @@ const PersonaSelection = () => {
                             Your division is missing a customer segment. Contact your manager.
                         </p>
                     </div>
+                ) : activeTab === 'journeys' ? (
+                    journeysLoading || isLoading ? (
+                        <div className="flex flex-col items-center justify-center py-32">
+                            <Spinner size={48} className="text-primary mb-4" />
+                            <p className="text-gray-500 dark:text-gray-400 font-medium animate-pulse">Loading your journeys...</p>
+                        </div>
+                    ) : visibleJourneyRows.length === 0 ? (
+                        <div className="app-liquid-dark mx-auto flex max-w-2xl flex-col items-center rounded-3xl border px-6 py-16 text-center">
+                            <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
+                                {journeyRows.length ? 'No journeys match your search' : 'No journeys yet'}
+                            </h3>
+                            <p className="mt-3 max-w-md text-gray-500 dark:text-gray-400">
+                                {journeyRows.length
+                                    ? 'Try a different name or role.'
+                                    : 'Finish a prospecting session with any persona and it will appear here, ready for discovering and then closing with the same buyer.'}
+                            </p>
+                            {!journeyRows.length && (
+                                <Button variant="solid" className="mt-8" onClick={() => setActiveTab('all')}>
+                                    Choose a persona
+                                </Button>
+                            )}
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-6">
+                            {visibleJourneyRows.map(({ journey, persona }) => (
+                                <motion.div
+                                    key={journey.journeyId}
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ duration: 0.3 }}
+                                    className="h-full"
+                                >
+                                    <JourneyCard
+                                        persona={persona}
+                                        roleLabel={formatLabel(persona.role)}
+                                        journey={journey}
+                                        busy={creatingPersonaId === persona.id}
+                                        disabled={Boolean(creatingPersonaId)}
+                                        onContinue={() => handleContinueJourney(persona, journey)}
+                                        onDiscard={() => setDiscardTarget({ persona, journey })}
+                                        onOpenReport={(id) => navigate(`/sessions/${id}/report`)}
+                                    />
+                                </motion.div>
+                            ))}
+                        </div>
+                    )
                 ) : isLoading ? (
                     <div className="flex flex-col items-center justify-center py-32">
                         <Spinner size={48} className="text-primary mb-4" />
                         <p className="text-gray-500 dark:text-gray-400 font-medium animate-pulse">Loading personas...</p>
                     </div>
                 ) : filteredPersonas.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-32 bg-white dark:bg-gray-800 rounded-3xl border border-gray-200 dark:border-gray-700 shadow-sm">
+                    <div className="app-liquid-dark flex flex-col items-center justify-center py-32 rounded-3xl border">
                         <div className="w-24 h-24 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mb-6">
                             <HiOutlineSearch className="w-12 h-12 text-gray-400" />
                         </div>
@@ -716,8 +927,7 @@ const PersonaSelection = () => {
                 ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                         {filteredPersonas.map((persona) => {
-                            const isBusy = creatingPersonaId === persona.id
-
+                            const openJourneys = openJourneysByPersonaId.get(persona.id) ?? []
                             return (
                                 <motion.div
                                     key={persona.id}
@@ -726,143 +936,64 @@ const PersonaSelection = () => {
                                     transition={{ duration: 0.3 }}
                                     className="h-full"
                                 >
-                                    <div
-                                        role="button"
-                                        tabIndex={0}
-                                        onClick={() => {
-                                            handlePersonaSelect(persona)
-                                        }}
-                                        onKeyDown={(e) => {
-                                            if (
-                                                (e.key === 'Enter' ||
-                                                    e.key === ' ') &&
-                                                !creatingPersonaId
-                                            ) {
-                                                e.preventDefault()
-                                                handlePersonaSelect(persona)
-                                            }
-                                        }}
-                                        aria-busy={isBusy}
-                                        aria-label={`Select persona ${persona.name}`}
-                                        className={`
-                                            group relative h-full flex flex-col ${SURFACE_CARD_CLASSNAME} app-liquid-dark transition-all duration-300 overflow-hidden border
-                                            ${
-                                                creatingPersonaId
-                                                    ? 'cursor-wait opacity-90'
-                                                    : 'cursor-pointer'
-                                            }
-                                            ${
-                                                isBusy
-                                                    ? '!border-primary shadow-xl shadow-primary/10'
-                                                    : 'hover:shadow-[0_0_40px_rgba(12,175,96,0.14)] hover:translate-y-[-4px]'
-                                            }
-                                        `}
-                                    >
-                                        {/* Decorative Header Background */}
-                                        <div className="h-24 w-full bg-gradient-to-br from-slate-100 via-primary/5 to-slate-200 dark:from-gray-800 dark:via-gray-900 dark:to-gray-800 absolute top-0 left-0 transition-opacity duration-300 group-hover:opacity-80" />
-
-                                        {isBusy && (
-                                            <div className="absolute top-4 right-4 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-primary/90 shadow-lg">
-                                                <Spinner
-                                                    size={20}
-                                                    enableTheme={false}
-                                                    className="text-white"
-                                                />
-                                            </div>
-                                        )}
-
-                                        <div className="relative z-10 flex flex-col flex-grow pt-10 px-6 pb-6">
-                                            <Avatar
-                                                size={96}
-                                                src={persona.avatar}
-                                                shape="circle"
-                                                className={`
-                                                    mb-5 mx-auto ring-4 shadow-lg transition-all duration-300 bg-white dark:bg-gray-900
-                                                    ring-white dark:ring-gray-800/50 group-hover:ring-primary/10
-                                                `}
-                                            />
-                                            
-                                            <div className="text-center mb-6">
-                                                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-1 tracking-tight">
-                                                    {persona.name}
-                                                </h3>
-                                                <p className="text-sm font-semibold text-primary">
-                                                    {formatLabel(persona.role)}
-                                                </p>
-                                            </div>
-
-                                            <div className="w-full bg-white dark:bg-gray-900 rounded-2xl p-4 space-y-4 mb-6 border border-gray-200 dark:border-gray-700 flex-grow">
-                                                <div className="flex items-start gap-3">
-                                                    <div className="mt-0.5 bg-gray-100 dark:bg-gray-800 p-2 rounded-xl shadow-sm border border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400">
-                                                        <HiOutlineOfficeBuilding className="w-4 h-4" />
-                                                    </div>
-                                                    <div className="flex flex-col text-left overflow-hidden">
-                                                        <span className="text-[10px] uppercase tracking-wider text-gray-500 dark:text-gray-400 font-bold mb-0.5">Company Size</span>
-                                                        <span className="text-sm text-gray-800 dark:text-gray-200 font-medium truncate" title={persona.company}>
-                                                            {persona.company}
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                                <div className="flex items-start gap-3">
-                                                    <div className="mt-0.5 bg-gray-100 dark:bg-gray-800 p-2 rounded-xl shadow-sm border border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400">
-                                                        <HiOutlineBriefcase className="w-4 h-4" />
-                                                    </div>
-                                                    <div className="flex flex-col text-left overflow-hidden">
-                                                        <span className="text-[10px] uppercase tracking-wider text-gray-500 dark:text-gray-400 font-bold mb-0.5">Industry</span>
-                                                        <span className="text-sm text-gray-800 dark:text-gray-200 font-medium truncate" title={formatLabel(persona.industry)}>
-                                                            {formatLabel(persona.industry)}
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            {persona.personality && (
-                                                <p className="text-sm text-gray-500 dark:text-gray-400 mb-6 line-clamp-2 italic text-center px-2">
-                                                    "{persona.personality}"
-                                                </p>
-                                            )}
-
-                                            <div className="flex items-center justify-between w-full mt-auto pt-4 border-t border-gray-200 dark:border-gray-700">
-                                                <span
-                                                    className={`text-xs px-3 py-1.5 rounded-lg font-bold uppercase tracking-wide border ${
-                                                        getDifficultyColor(persona.difficulty)
-                                                    } ${
-                                                        persona.difficulty === 'Easy' ? 'border-emerald-200 dark:border-emerald-800/30' :
-                                                        persona.difficulty === 'Medium' ? 'border-amber-200 dark:border-amber-800/30' :
-                                                        'border-rose-200 dark:border-rose-800/30'
-                                                    }`}
-                                                >
-                                                    {persona.difficulty}
-                                                </span>
-
-                                                <div
-                                                    className={`text-sm font-bold flex items-center gap-1 transition-all duration-300 ${
-                                                        isBusy
-                                                            ? 'text-primary'
-                                                            : 'text-gray-400 group-hover:text-primary'
-                                                    }`}
-                                                >
-                                                    {isBusy
-                                                        ? 'Starting…'
-                                                        : pendingPersona?.id ===
-                                                            persona.id
-                                                          ? 'Choose mode…'
-                                                          : 'Select persona'}
-                                                    {!isBusy && (
-                                                        <span className="text-lg opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all duration-300">
-                                                            →
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
+                                    <PersonaCard
+                                        persona={persona}
+                                        roleLabel={formatLabel(persona.role)}
+                                        industryLabel={formatLabel(persona.industry)}
+                                        journey={openJourneys[0]}
+                                        inProgressCount={openJourneys.length}
+                                        hasCompleted={completedPersonaIds.has(persona.id)}
+                                        busy={creatingPersonaId === persona.id}
+                                        disabled={Boolean(creatingPersonaId)}
+                                        choosingMode={pendingPersona?.id === persona.id}
+                                        onSelect={() => handlePersonaSelect(persona)}
+                                    />
                                 </motion.div>
                             )
                         })}
                     </div>
                 )}
             </div>
+
+            <JourneyResumeDialog
+                isOpen={Boolean(resumePersona) && resumeJourneys.length > 0 && !discardTarget}
+                persona={resumePersona}
+                journeys={resumeJourneys}
+                onClose={() => setResumePersona(null)}
+                onContinue={(journey) => {
+                    if (!resumePersona) return
+                    const persona = resumePersona
+                    setResumePersona(null)
+                    handleContinueJourney(persona, journey)
+                }}
+                onDiscard={(journey) => {
+                    if (resumePersona) setDiscardTarget({ persona: resumePersona, journey })
+                }}
+                onStartNew={() => {
+                    if (!resumePersona) return
+                    setPendingPersona(resumePersona)
+                    setResumePersona(null)
+                    setModeDialogOpen(true)
+                }}
+            />
+
+            <ConfirmDialog
+                isOpen={Boolean(discardTarget)}
+                type="warning"
+                title="Discard this journey?"
+                confirmText="Discard"
+                cancelText="Keep it"
+                onClose={() => setDiscardTarget(null)}
+                onRequestClose={() => setDiscardTarget(null)}
+                onCancel={() => setDiscardTarget(null)}
+                onConfirm={handleConfirmDiscard}
+            >
+                <p>
+                    It will be removed from My journeys and you won&apos;t be asked to continue it
+                    with {discardTarget?.persona.name}. The sessions you completed, their scores and
+                    reports stay in your performance history.
+                </p>
+            </ConfirmDialog>
 
             <ModeSelectDialog
                 isOpen={modeDialogOpen}

@@ -41,6 +41,8 @@ export type SessionResponse = {
     status: string
     performance_report: SessionPerformanceReport
     created_at: string
+    /** Set when the session belongs to a manager-assigned scenario. */
+    scenario_id?: string | null
     /** Groups sessions across prospecting -> discovering -> closing. */
     journey_id?: string | null
     /** Persona-continuity summary; only set once the session has completed. */
